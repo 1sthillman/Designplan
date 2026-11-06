@@ -1,0 +1,7 @@
+node_modules/
+.firebase/
+designwood-firebase-adminsdk-fbsvc-c90f45263a.json
+*.log
+npm-debug.log*
+test_screenshots/
+scratch/

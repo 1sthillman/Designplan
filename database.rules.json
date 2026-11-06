@@ -1,0 +1,166 @@
+{
+  "rules": {
+    "tenants": {
+      "lavora-main": {
+        ".read": false,
+        ".write": false,
+        
+        "users": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+          ".indexOn": ["projectId", "role"],
+          "$uid": {
+            ".read": "auth.uid == $uid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+            ".validate": "newData.hasChildren(['uid', 'email', 'role', 'createdAt'])",
+            
+            "uid": {
+              ".write": "!data.exists() && auth.uid == $uid",
+              ".validate": "newData.val() == $uid"
+            },
+            "email": {
+              ".write": "!data.exists() && auth.uid == $uid",
+              ".validate": "newData.isString()"
+            },
+            "createdAt": {
+              ".write": "!data.exists() && auth.uid == $uid",
+              ".validate": "newData.isNumber()"
+            },
+            "role": {
+              ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+              ".validate": "newData.isString() && (newData.val() == 'admin' || newData.val() == 'partner' || newData.val() == 'employee' || newData.val() == 'customer')"
+            },
+            "projectId": {
+              ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+              ".validate": "newData.isString() || newData.val() == null"
+            }
+          }
+        },
+        
+        "admin_lock": {
+          ".read": "auth != null",
+          ".write": false,
+          "adminUid": {
+            ".write": "!data.exists()",
+            ".validate": "newData.isString()"
+          },
+          "lockedAt": {
+            ".write": "!data.exists()",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        
+        "projects": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          ".write": false,
+          "$projectId": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+            ".validate": "newData.hasChild('_revision') && (data.exists() || !newData.hasChildren(['name']) || newData.hasChildren(['id', 'name', 'u']))"
+          }
+        },
+        
+        "project_ops": {
+          ".read": "auth != null",
+          ".write": false,
+          "$projectId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChild('_revision') && (data.exists() || !newData.hasChildren(['name']) || newData.hasChildren(['id', 'name', 'u'])) && !newData.hasChild('pr') && !newData.hasChild('price') && !newData.hasChild('cost') && !newData.hasChild('fiyat') && !newData.hasChild('tutar') && !newData.hasChild('maliyet') && !newData.hasChild('kar') && !newData.hasChild('gelir') && !newData.hasChild('gider')"
+          }
+        },
+        
+        "customer_projects": {
+          "$customerUid": {
+            ".read": "auth.uid == $customerUid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+            ".write": false,
+            "$projectId": {
+              ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'"
+            }
+          }
+        },
+        
+        "ledger": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          ".write": false,
+          "$entryId": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'"
+          }
+        },
+        
+        "receipts": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          ".write": false,
+          "$receiptId": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'"
+          }
+        },
+        
+        "workflow_photos": {
+          ".read": "auth != null",
+          ".write": false,
+          "$photoId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['id']) && ((newData.child('imgPath').isString() && newData.child('imgPath').val().length < 5242880) || (newData.child('thPath').isString() && newData.child('thPath').val().length < 5242880))"
+          }
+        },
+        
+        "scans": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          ".write": false,
+          "$scanId": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'"
+          }
+        },
+        
+        "invites": {
+          ".read": "auth != null",
+          ".write": false,
+          "$hash": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' && (!data.exists() || data.child('usedBy').val() == null)",
+            ".validate": "newData.hasChildren(['role', 'createdBy', 'createdAt', 'expiresAt'])",
+            "usedBy": {
+              ".write": "auth != null && data.parent().child('usedBy').val() == null && data.parent().child('expiresAt').val() > now",
+              ".validate": "newData.val() == auth.uid"
+            },
+            "usedAt": {
+              ".write": "auth != null && data.parent().child('usedBy').val() == null",
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+        
+        "settings": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          ".write": false,
+          "main": {
+            ".write": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'"
+          }
+        },
+        
+        "voice_clips": {
+          "$clipId": {
+            ".read": "data.child('uid').val() == auth.uid",
+            ".write": "auth != null && (!data.exists() || data.child('uid').val() == auth.uid)",
+            ".validate": "newData.hasChildren(['id', 'uid', 'audio', 'updatedAt']) && newData.child('uid').val() == auth.uid && newData.child('audio').val().length < 5242880"
+          }
+        },
+        
+        "quota_tracking": {
+          "$uid": {
+            ".read": "auth.uid == $uid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+            ".write": "auth.uid == $uid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'"
+          }
+        },
+        
+        "customer_requests": {
+          ".read": "root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin' || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'partner'",
+          "$customerUid": {
+            ".read": "auth.uid == $customerUid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+            "$reqId": {
+              ".write": "auth != null && (auth.uid == $customerUid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin')",
+              ".validate": "newData.hasChildren(['uid', 'subject', 'text', 'createdAt', 'status']) && newData.child('uid').isString() && newData.child('subject').isString() && newData.child('text').isString() && newData.child('createdAt').isNumber()"
+            }
+          }
+        }
+      }
+    }
+  }
+}
