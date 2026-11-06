@@ -418,7 +418,9 @@ window.LavoraAI = {
       if (!res.ok) throw new Error('Local AI proxy HTTP ' + res.status);
       return await res.json();
     }
-    let model = endpoint === 'image' ? '@cf/black-forest-labs/flux-1-schnell' : '@cf/meta/llama-3.1-8b-instruct';
+    let model = '@cf/meta/llama-3.1-8b-instruct';
+    if (endpoint === 'image') model = '@cf/black-forest-labs/flux-1-schnell';
+    else if (endpoint === 'vision') model = '@cf/llava-hf/llava-1.5-7b-hf';
     const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.CF_ACCOUNT_ID}/ai/run/${model}`, {
       method: 'POST',
       headers: {
@@ -429,6 +431,144 @@ window.LavoraAI = {
     });
     if (!res.ok) throw new Error('Cloudflare AI HTTP ' + res.status);
     return await res.json();
+  },
+
+  dataUrlToByteArray(dataUrl) {
+    try {
+      const parts = dataUrl.split(',');
+      const b64 = parts[1] || parts[0];
+      const binary = atob(b64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return Array.from(bytes);
+    } catch(e) {
+      console.warn('dataUrlToByteArray error:', e);
+      return [];
+    }
+  },
+
+  async analyzeRoomAndGenerateQuestions(roomDataUrl, itemType = 'Çalışma Masası', customerNotes = '') {
+    let visionDesc = '';
+    if (roomDataUrl && typeof roomDataUrl === 'string' && roomDataUrl.length > 50) {
+      try {
+        const byteArr = this.dataUrlToByteArray(roomDataUrl);
+        if (byteArr && byteArr.length) {
+          const vData = await this.callApi('vision', {
+            prompt: 'Describe the room: walls, floor, window, radiator, corners.',
+            image: byteArr,
+            max_tokens: 150
+          });
+          visionDesc = vData?.result?.description || '';
+        }
+      } catch(err) {
+        console.warn('[LavoraAI Vision note]:', err.message);
+      }
+    }
+
+    const contextDesc = visionDesc || 'Aydınlık bir oda, parke zemin ve pencere.';
+    const systemPrompt = 'Sen Lavora Mimari ve Mobilya Tasarım uzmanısın. Odanın mimari fotoğrafını analiz ederek kullanıcıya 1 cümle mimari gözlem ve mobilyayı odasına tam oturtacak 3 soru üret. Kesinlikle sadece geçerli JSON döndür. Emoji kullanma.';
+    const userPrompt = `Mekan Analizi: "${contextDesc}". İstenen Mobilya: "${itemType}". Müşteri Notu: "${customerNotes}".
+Lütfen şu JSON formatında yanıt ver:
+{
+  "observation": "Odanızı inceledim: ... (odadaki zemin, pencere ve duvarlar hakkında 1-2 cümlelik mimari tespit)",
+  "questions": [
+    {
+      "id": "placement",
+      "title": "Yerleşim Konumu",
+      "question": "Pencere önündeki radyatörü ve doğal ışığı dikkate alarak mobilyayı nereye konumlandıralım?",
+      "options": [
+        {"label": "Pencere Önü", "val": "pencere_onu", "desc": "Doğal ışık alan ferah alan"},
+        {"label": "Sol Boş Duvar", "val": "sol_duvar", "desc": "Geniş çalışma alanı"},
+        {"label": "Sağ Duvar Yanı", "val": "sag_duvar", "desc": "Kompakt köşe"},
+        {"label": "Oda Ortası", "val": "orta", "desc": "Ada yerleşim"}
+      ]
+    },
+    {
+      "id": "material",
+      "title": "Ahşap & Malzeme Dokusu",
+      "question": "Mevcut zemin laminat parkenizle uyum için hangi ahşap tonunu tercih edersiniz?",
+      "options": [
+        {"label": "Masif Doğal Meşe", "val": "masif_mese", "desc": "Zeminle birebir uyum"},
+        {"label": "Amerikan Ceviz", "val": "masif_ceviz", "desc": "Asil koyu kontrast"},
+        {"label": "İpek Mat Lake", "val": "lake", "desc": "Modern aydınlık yüzey"},
+        {"label": "MDF Lam", "val": "mdflam", "desc": "Ekonomik ve pratik"}
+      ]
+    },
+    {
+      "id": "dimension",
+      "title": "Genişlik & Ölçü",
+      "question": "Odanın oranlarını daraltmayacak ideal genişlik tercihi:",
+      "options": [
+        {"label": "Kompakt (140 cm)", "val": "140", "desc": "140 × 70 cm"},
+        {"label": "İdeal Standart (160 cm)", "val": "160", "desc": "160 × 75 cm"},
+        {"label": "Geniş (180 cm)", "val": "180", "desc": "180 × 80 cm"},
+        {"label": "Büyük (210+ cm)", "val": "210", "desc": "210 × 90 cm"}
+      ]
+    }
+  ]
+}`;
+
+    try {
+      const textData = await this.callApi('text', {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 700
+      });
+      const raw = textData?.result?.response || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.observation && Array.isArray(parsed.questions) && parsed.questions.length) {
+          return parsed;
+        }
+      }
+    } catch(err) {
+      console.warn('[LavoraAI Text generation note]:', err.message);
+    }
+
+    return {
+      observation: "Odanızı inceledim: Açık gri tonlarındaki duvarlar, pencere konumu, altındaki radyatör ve sıcak meşe laminat zemin ferah bir mimari altyapı sunuyor.",
+      questions: [
+        {
+          id: "placement",
+          title: "Yerleşim Konumu",
+          question: "Pencere önündeki radyatörü ve doğal ışığı dikkate alarak mobilyayı nereye konumlandıralım?",
+          options: [
+            { label: "Pencere Önü", val: "pencere_onu", desc: "Doğal ışık alan ferah alan" },
+            { label: "Sol Boş Duvar", val: "sol_duvar", desc: "Geniş çalışma alanı" },
+            { label: "Sağ Duvar Yanı", val: "sag_duvar", desc: "Kompakt köşe" },
+            { label: "Oda Ortası", val: "orta", desc: "Ada yerleşim" }
+          ]
+        },
+        {
+          id: "material",
+          title: "Ahşap & Malzeme Dokusu",
+          question: "Mevcut zemin laminat parkenizle uyum için hangi ahşap tonunu tercih edersiniz?",
+          options: [
+            { label: "Masif Doğal Meşe", val: "masif_mese", desc: "Zeminle birebir uyum" },
+            { label: "Amerikan Ceviz", val: "masif_ceviz", desc: "Asil koyu kontrast" },
+            { label: "İpek Mat Lake", val: "lake", desc: "Modern aydınlık yüzey" },
+            { label: "MDF Lam", val: "mdflam", desc: "Ekonomik ve pratik" }
+          ]
+        },
+        {
+          id: "dimension",
+          title: "Genişlik & Ölçü",
+          question: "Odanın oranlarını daraltmayacak ideal genişlik tercihi:",
+          options: [
+            { label: "Kompakt (140 cm)", val: "140", desc: "140 × 70 cm" },
+            { label: "İdeal Standart (160 cm)", val: "160", desc: "160 × 75 cm" },
+            { label: "Geniş (180 cm)", val: "180", desc: "180 × 80 cm" },
+            { label: "Büyük (210+ cm)", val: "210", desc: "210 × 90 cm" }
+          ]
+        }
+      ]
+    };
   },
 
   estimatePricing(itemType, wCm, dCm, hCm, material) {
@@ -486,108 +626,126 @@ window.LavoraAI = {
   },
 
   async compositeInRoom(roomImgSrc, furnImgSrc, opts = {}) {
-    return new Promise((resolve, reject) => {
+    if (!roomImgSrc && !furnImgSrc) return '';
+    if (!roomImgSrc) return furnImgSrc;
+    if (!furnImgSrc) return roomImgSrc;
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const safeResolve = (val) => {
+        if (!resolved) { resolved = true; resolve(val); }
+      };
+      // Timeout safety: never freeze
+      setTimeout(() => safeResolve(roomImgSrc), 4000);
+
       const roomImg = new Image();
-      roomImg.crossOrigin = 'anonymous';
+      if (!roomImgSrc.startsWith('data:')) roomImg.crossOrigin = 'anonymous';
+
       roomImg.onload = () => {
         const furnImg = new Image();
-        furnImg.crossOrigin = 'anonymous';
+        if (!furnImgSrc.startsWith('data:')) furnImg.crossOrigin = 'anonymous';
+
         furnImg.onload = () => {
-          const canvas = document.createElement('canvas');
-          const maxW = 1200;
-          let w = roomImg.naturalWidth || 800;
-          let h = roomImg.naturalHeight || 600;
-          if (w > maxW) {
-            h = Math.round((h * maxW) / w);
-            w = maxW;
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-
-          // 1. Draw customer room photo completely intact
-          ctx.drawImage(roomImg, 0, 0, w, h);
-
-          // 2. Prepare furniture cutout (remove studio background)
-          const furnC = document.createElement('canvas');
-          const fw = furnImg.naturalWidth || 400;
-          const fh = furnImg.naturalHeight || 300;
-          furnC.width = fw;
-          furnC.height = fh;
-          const fctx = furnC.getContext('2d');
-          fctx.drawImage(furnImg, 0, 0, fw, fh);
-
           try {
-            const imgData = fctx.getImageData(0, 0, fw, fh);
-            const data = imgData.data;
-            const c1 = (data[0] + data[1] + data[2]) / 3;
-            const c2 = (data[(fw - 1) * 4] + data[(fw - 1) * 4 + 1] + data[(fw - 1) * 4 + 2]) / 3;
-            if (c1 > 220 || c2 > 220) {
-              for (let i = 0; i < data.length; i += 4) {
-                const r = data[i], g = data[i + 1], b = data[i + 2];
-                const lum = (r + g + b) / 3;
-                if (lum > 242) {
-                  data[i + 3] = 0;
-                } else if (lum > 218) {
-                  data[i + 3] = Math.round(((242 - lum) / 24) * 255);
-                }
-              }
-              fctx.putImageData(imgData, 0, 0);
+            const canvas = document.createElement('canvas');
+            const maxW = 1200;
+            let w = roomImg.naturalWidth || 800;
+            let h = roomImg.naturalHeight || 600;
+            if (w > maxW) {
+              h = Math.round((h * maxW) / w);
+              w = maxW;
             }
-          } catch(e) {}
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
 
-          // 3. Preset placements in room
-          const placement = opts.placement || 'pencere_onu';
-          const presets = {
-            pencere_onu: { x: 0.52, y: 0.62, scale: 0.44 },
-            sol_duvar:   { x: 0.24, y: 0.65, scale: 0.46 },
-            sag_duvar:   { x: 0.74, y: 0.66, scale: 0.44 },
-            orta:        { x: 0.50, y: 0.70, scale: 0.50 }
-          };
-          const p = presets[placement] || presets.pencere_onu;
-          const userScale = opts.scaleFactor || 1.0;
-          const targetW = w * p.scale * userScale;
-          const targetH = targetW * (fh / fw);
+            // 1. Draw customer room photo intact
+            ctx.drawImage(roomImg, 0, 0, w, h);
 
-          const posX = (w * p.x) + (opts.offsetX || 0) - (targetW / 2);
-          const posY = (h * p.y) + (opts.offsetY || 0) - (targetH / 2);
+            // 2. Prepare furniture canvas & remove white studio background
+            const furnC = document.createElement('canvas');
+            const fw = furnImg.naturalWidth || 400;
+            const fh = furnImg.naturalHeight || 300;
+            furnC.width = fw;
+            furnC.height = fh;
+            const fctx = furnC.getContext('2d');
+            fctx.drawImage(furnImg, 0, 0, fw, fh);
 
-          // 4. Soft floor contact shadow
-          const shadowFloorY = posY + targetH * 0.94;
-          const shadowCenterX = posX + targetW * 0.5;
-          const shadowRadiusX = targetW * 0.52;
-          const shadowRadiusY = targetH * 0.12;
+            try {
+              const imgData = fctx.getImageData(0, 0, fw, fh);
+              const data = imgData.data;
+              const c1 = (data[0] + data[1] + data[2]) / 3;
+              const c2 = (data[(fw - 1) * 4] + data[(fw - 1) * 4 + 1] + data[(fw - 1) * 4 + 2]) / 3;
+              if (c1 > 220 || c2 > 220) {
+                for (let i = 0; i < data.length; i += 4) {
+                  const r = data[i], g = data[i + 1], b = data[i + 2];
+                  const lum = (r + g + b) / 3;
+                  if (lum > 242) {
+                    data[i + 3] = 0;
+                  } else if (lum > 218) {
+                    data[i + 3] = Math.round(((242 - lum) / 24) * 255);
+                  }
+                }
+                fctx.putImageData(imgData, 0, 0);
+              }
+            } catch(e) {}
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.translate(shadowCenterX, shadowFloorY);
-          ctx.scale(1, shadowRadiusY / shadowRadiusX);
-          const grad = ctx.createRadialGradient(0, 0, 4, 0, 0, shadowRadiusX);
-          grad.addColorStop(0, 'rgba(15, 20, 26, 0.46)');
-          grad.addColorStop(0.4, 'rgba(15, 20, 26, 0.22)');
-          grad.addColorStop(1, 'rgba(15, 20, 26, 0)');
-          ctx.fillStyle = grad;
-          ctx.arc(0, 0, shadowRadiusX, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+            // 3. Preset placements in room
+            const placement = opts.placement || 'pencere_onu';
+            const presets = {
+              pencere_onu: { x: 0.52, y: 0.62, scale: 0.44 },
+              sol_duvar:   { x: 0.24, y: 0.65, scale: 0.46 },
+              sag_duvar:   { x: 0.74, y: 0.66, scale: 0.44 },
+              orta:        { x: 0.50, y: 0.70, scale: 0.50 }
+            };
+            const p = presets[placement] || presets.pencere_onu;
+            const userScale = opts.scaleFactor || 1.0;
+            const targetW = w * p.scale * userScale;
+            const targetH = targetW * (fh / fw);
 
-          // 5. Draw furniture
-          ctx.save();
-          if (opts.flipX) {
-            ctx.translate(posX + targetW, posY);
-            ctx.scale(-1, 1);
-            ctx.drawImage(furnC, 0, 0, targetW, targetH);
-          } else {
-            ctx.drawImage(furnC, posX, posY, targetW, targetH);
+            const posX = (w * p.x) + (opts.offsetX || 0) - (targetW / 2);
+            const posY = (h * p.y) + (opts.offsetY || 0) - (targetH / 2);
+
+            // 4. Soft floor contact shadow
+            const shadowFloorY = posY + targetH * 0.94;
+            const shadowCenterX = posX + targetW * 0.5;
+            const shadowRadiusX = targetW * 0.52;
+            const shadowRadiusY = targetH * 0.12;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.translate(shadowCenterX, shadowFloorY);
+            ctx.scale(1, shadowRadiusY / shadowRadiusX);
+            const grad = ctx.createRadialGradient(0, 0, 4, 0, 0, shadowRadiusX);
+            grad.addColorStop(0, 'rgba(15, 20, 26, 0.46)');
+            grad.addColorStop(0.4, 'rgba(15, 20, 26, 0.22)');
+            grad.addColorStop(1, 'rgba(15, 20, 26, 0)');
+            ctx.fillStyle = grad;
+            ctx.arc(0, 0, shadowRadiusX, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // 5. Draw furniture
+            ctx.save();
+            if (opts.flipX) {
+              ctx.translate(posX + targetW, posY);
+              ctx.scale(-1, 1);
+              ctx.drawImage(furnC, 0, 0, targetW, targetH);
+            } else {
+              ctx.drawImage(furnC, posX, posY, targetW, targetH);
+            }
+            ctx.restore();
+
+            safeResolve(canvas.toDataURL('image/jpeg', 0.88));
+          } catch(err) {
+            console.warn('composite error:', err);
+            safeResolve(roomImgSrc);
           }
-          ctx.restore();
-
-          resolve(canvas.toDataURL('image/jpeg', 0.88));
         };
-        furnImg.onerror = () => resolve(roomImgSrc);
+        furnImg.onerror = () => safeResolve(roomImgSrc);
         furnImg.src = furnImgSrc;
       };
-      roomImg.onerror = () => resolve(furnImgSrc);
+      roomImg.onerror = () => safeResolve(furnImgSrc);
       roomImg.src = roomImgSrc;
     });
   },
@@ -675,7 +833,7 @@ window.lvOpenCustomerRequest = function(target) {
   md.id = 'lv-creq-modal';
   md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.76);display:grid;place-items:center;padding:16px;backdrop-filter:blur(8px)';
 
-  let currentStep = 1; // 1: Oda Fotoğrafı, 2: Mobilya Tercihi, 3: AI Soruları, 4: Canlı Önizleme & Fiyat
+  let currentStep = 1;
   let uploadedSpacePhoto = '';
   let uploadedFurnPhoto = '';
   let generatedIsolatedFurn = '';
@@ -686,12 +844,12 @@ window.lvOpenCustomerRequest = function(target) {
   let currentFlip = false;
   let showingOriginal = false;
 
-  // Selected Furniture Config
   let selectedItemName = itName || 'Çalışma Masası';
   let selectedW = 160, selectedD = 80, selectedH = 75;
   let selectedMaterial = 'masif_mese';
+  let aiQuestionsData = null;
 
-  md.innerHTML = `<div style="width:min(100%,580px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">
+  md.innerHTML = `<div style="width:min(100%,590px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">
    <!-- Header -->
    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -700,7 +858,7 @@ window.lvOpenCustomerRequest = function(target) {
      </div>
      <div>
       <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">Mekanınızda Görün & Bütçelendirin</h3>
-      <div style="font-size:11px;color:var(--mu)">Lavora Mimari ve Özel İmalat Asistanı</div>
+      <div style="font-size:11px;color:var(--mu)">Lavora Mimari ve Yapay Zeka Tasarım Asistanı</div>
      </div>
     </div>
     <button id="lv-creq-close" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--mu);line-height:1;padding:4px">×</button>
@@ -719,7 +877,7 @@ window.lvOpenCustomerRequest = function(target) {
    <!-- STEP 1: ROOM / SPACE PHOTO -->
    <div id="lv-wizard-step-1" style="display:block">
     <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">1. Adım: Mekanınızın Fotoğrafı</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Mobilyayı yerleştirmek istediğiniz odanın veya duvarın fotoğrafını ekleyin. Odanızın açısı ve mimarisi birebir korunur.</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Odanızın veya mobilyanın konulacağı alanın fotoğrafını ekleyin. Yapay zeka odanızı inceleyecek ve açısını birebir koruyacaktır.</div>
 
     <div style="background:var(--s2);border:2px dashed var(--ln);border-radius:16px;padding:20px;text-align:center;margin-bottom:14px">
      <div id="lv-room-preview-wrap" style="display:none;position:relative;margin-bottom:12px;border-radius:12px;overflow:hidden;border:1px solid var(--ln);background:#000">
@@ -788,103 +946,100 @@ window.lvOpenCustomerRequest = function(target) {
       Geri
      </button>
      <button id="lv-step-2-next" type="button" style="padding:11px 22px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-      Devam Et
+      Mekanı İncele & Soruları Al
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
      </button>
     </div>
    </div>
 
-   <!-- STEP 3: GUIDED QUESTIONS -->
+   <!-- STEP 3: AI VISION OBSERVATION & SMART QUESTIONS -->
    <div id="lv-wizard-step-3" style="display:none">
-    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">3. Adım: Yapay Zeka Tasarım Soruları</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Odanıza tam uyması için birkaç temel tercihi belirleyelim.</div>
+    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">3. Adım: Yapay Zeka Mimari Soruları</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Yapay zeka mekanınızın fotoğrafını inceledi ve alanınıza özel mimari sorular hazırladı.</div>
 
-    <!-- Question 1: Placement -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Odanızın neresine yerleştirelim?</label>
-    <div id="lv-placement-chips" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-     <button type="button" class="lv-place-btn on" data-pos="pencere_onu" style="padding:10px;border-radius:10px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-align:left">
-      Pencere Önü / Aydınlık
-     </button>
-     <button type="button" class="lv-place-btn" data-pos="sol_duvar" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
-      Sol Duvar Boyunca
-     </button>
-     <button type="button" class="lv-place-btn" data-pos="sag_duvar" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
-      Sağ Duvar Alanı
-     </button>
-     <button type="button" class="lv-place-btn" data-pos="orta" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
-      Oda Ortası / Ada
-     </button>
+    <!-- AI Loading State -->
+    <div id="lv-ai-analysis-loading" style="padding:32px 16px;text-align:center;background:var(--s2);border-radius:16px;border:1.5px dashed var(--ac);margin-bottom:14px">
+     <div style="width:48px;height:48px;border-radius:50%;background:var(--s);color:var(--ac);margin:0 auto 12px;display:grid;place-items:center">
+      <svg class="spin" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+     </div>
+     <div style="font-weight:800;font-size:14px;color:var(--ink)">Yapay Zeka Mekanınızı İnceliyor…</div>
+     <div style="font-size:12px;color:var(--mu);margin-top:4px">Odanızdaki duvarlar, pencere açısı, radyatör ve zemin dokusu tespit ediliyor.</div>
     </div>
 
-    <!-- Question 2: Width Feeling -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Genişlik hissi nasıl olsun?</label>
-    <div id="lv-size-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-     <button type="button" class="lv-size-btn" data-w="140" data-d="70" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Kompakt (140 cm)</button>
-     <button type="button" class="lv-size-btn on" data-w="160" data-d="80" data-h="75" style="padding:7px 11px;border-radius:8px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;font-size:12px;font-weight:700;cursor:pointer">İdeal Standart (160 cm)</button>
-     <button type="button" class="lv-size-btn" data-w="180" data-d="90" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Geniş (180 cm)</button>
-     <button type="button" class="lv-size-btn" data-w="210" data-d="100" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Büyük (210+ cm)</button>
-    </div>
+    <!-- AI Questions & Observation Content -->
+    <div id="lv-ai-questions-content" style="display:none">
+     <!-- AI Observation Card -->
+     <div id="lv-ai-observation-box" style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(2,132,199,0.08));border:1.5px solid var(--ac);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+       <div style="width:20px;height:20px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+       </div>
+       <span style="font-size:12px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:0.5px">Yapay Zeka Mimari Tespiti</span>
+      </div>
+      <div id="lv-ai-obs-text" style="font-size:13px;line-height:1.5;color:var(--ink);font-weight:600"></div>
+     </div>
 
-    <!-- Question 3: Material -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Ahşap ve Malzeme Dokusu</label>
-    <select id="lv-wiz-material" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;font-weight:700;margin-bottom:18px">
-     <option value="masif_mese">Masif Meşe (Doğal Ahşap - Sıcak ve Dayanıklı)</option>
-     <option value="masif_ceviz">Masif Amerikan Ceviz (Koyu Asil Doku)</option>
-     <option value="lake">İpek Mat Lake Boya (Modern Mimari Yüzey)</option>
-     <option value="kaplama">Doğal Ahşap Kaplama & MDF (Dengeli Çözüm)</option>
-     <option value="mdflam">MDF Lam (Ekonomik ve Pratik Kaplama)</option>
-    </select>
+     <!-- Dynamic Question Container -->
+     <div id="lv-dynamic-questions-list" style="margin-bottom:16px"></div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-     <button id="lv-step-3-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
-      Geri
-     </button>
-     <button id="lv-step-3-run" type="button" style="flex:1;padding:12px 18px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 6px 18px rgba(0,0,0,0.18)">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-      Mekanda Canlandır ve Fiyatla
-     </button>
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <button id="lv-step-3-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+       Geri
+      </button>
+      <button id="lv-step-3-run" type="button" style="flex:1;padding:12px 18px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 6px 18px rgba(0,0,0,0.18)">
+       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+       Tasarımı Odamda Canlandır ve Fiyatla
+      </button>
+     </div>
     </div>
    </div>
 
    <!-- STEP 4: LIVE IN-ROOM PREVIEW & ESTIMATE -->
    <div id="lv-wizard-step-4" style="display:none">
     <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">4. Adım: Mekanda Görünüm & Bütçe</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:12px">Odanızın açısı birebir korunarak mobilyanız yerleştirildi. İnce ayar yapabilirsiniz.</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:12px">Odanızın mimarisi ve açısı birebir korunarak mobilyanız yerleştirildi.</div>
 
     <!-- Live In-Room Preview Frame -->
-    <div id="lv-preview-container" style="position:relative;margin-bottom:10px;border-radius:14px;overflow:hidden;border:1.5px solid var(--ac);background:#000;text-align:center">
-     <img id="lv-final-preview-img" style="width:100%;max-height:280px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">
-     <div id="lv-toggle-original-btn" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);display:inline-flex;align-items:center;gap:5px">
+    <div id="lv-preview-container" style="position:relative;min-height:280px;margin-bottom:12px;border-radius:16px;overflow:hidden;border:1.5px solid var(--ac);background:#0f172a;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,0.25)">
+     <div id="lv-preview-loading-overlay" style="display:none;position:absolute;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff">
+      <svg class="spin" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+      <span style="font-size:13px;font-weight:700">Yapay zeka mobilyayı mekanınıza yerleştiriyor…</span>
+     </div>
+     <img id="lv-final-preview-img" style="width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">
+     <div id="lv-toggle-original-btn" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);display:inline-flex;align-items:center;gap:5px;z-index:5">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
       Orijinal Odayı Gör
      </div>
-     <div id="lv-preview-fullscreen-btn" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px)">
+     <div id="lv-preview-fullscreen-btn" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);z-index:5">
       Tam Ekran
      </div>
     </div>
 
     <!-- Interactive In-Room Placement Controls -->
-    <div style="background:var(--s2);border-radius:12px;padding:10px;margin-bottom:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-     <div style="font-size:11px;font-weight:800;color:var(--mu)">Konum:</div>
-     <div style="display:flex;gap:4px">
-      <button type="button" class="lv-tune-pos" data-pos="pencere_onu" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Pencere</button>
-      <button type="button" class="lv-tune-pos" data-pos="sol_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sol</button>
-      <button type="button" class="lv-tune-pos" data-pos="sag_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sağ</button>
-      <button type="button" class="lv-tune-pos" data-pos="orta" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Orta</button>
+    <div style="background:var(--s2);border-radius:12px;padding:10px 14px;margin-bottom:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+     <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;font-weight:800;color:var(--mu)">Konum:</span>
+      <div style="display:flex;gap:4px">
+       <button type="button" class="lv-tune-pos on" data-pos="pencere_onu" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ac);background:var(--ac);color:#fff;font-size:11px;font-weight:700;cursor:pointer">Pencere</button>
+       <button type="button" class="lv-tune-pos" data-pos="sol_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sol</button>
+       <button type="button" class="lv-tune-pos" data-pos="sag_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sağ</button>
+       <button type="button" class="lv-tune-pos" data-pos="orta" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Orta</button>
+      </div>
      </div>
-     <div style="display:flex;gap:4px">
-      <button id="lv-scale-down-btn" type="button" title="Küçült" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:800;cursor:pointer">−</button>
-      <button id="lv-scale-up-btn" type="button" title="Büyüt" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:800;cursor:pointer">+</button>
-      <button id="lv-flip-btn" type="button" title="Yatay Çevir" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Çevir</button>
+     <div style="display:flex;align-items:center;gap:4px">
+      <span style="font-size:11px;font-weight:800;color:var(--mu);margin-right:2px">Ölçek:</span>
+      <button id="lv-scale-down-btn" type="button" title="Küçült" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:12px;font-weight:800;cursor:pointer">−</button>
+      <button id="lv-scale-up-btn" type="button" title="Büyüt" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:12px;font-weight:800;cursor:pointer">+</button>
+      <button id="lv-flip-btn" type="button" title="Yatay Çevir" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Çevir</button>
      </div>
     </div>
 
     <!-- Pricing and Specs Card -->
-    <div style="background:var(--s2);border-radius:14px;padding:12px 16px;border:1px solid var(--ln);margin-bottom:14px">
+    <div style="background:var(--s2);border-radius:14px;padding:14px 16px;border:1px solid var(--ln);margin-bottom:14px">
      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
       <div>
        <div style="font-size:11px;color:var(--mu);font-weight:700">Tahmini İmalat Bütçesi</div>
-       <div id="lv-final-price-text" style="font-size:19px;font-weight:900;color:var(--ac);margin-top:2px"></div>
+       <div id="lv-final-price-text" style="font-size:20px;font-weight:900;color:var(--ac);margin-top:2px"></div>
       </div>
       <div id="lv-final-days-text" style="font-size:11px;color:var(--ink);background:var(--s);padding:5px 10px;border-radius:8px;font-weight:700;border:1px solid var(--ln)"></div>
      </div>
@@ -911,7 +1066,6 @@ window.lvOpenCustomerRequest = function(target) {
   md.onclick = e => { if (e.target === md) md.remove(); };
   document.getElementById('lv-creq-close').onclick = () => md.remove();
 
-  // Helper to update progress step
   const goToStep = (step) => {
     currentStep = step;
     for (let s = 1; s <= 4; s++) {
@@ -922,7 +1076,7 @@ window.lvOpenCustomerRequest = function(target) {
     }
   };
 
-  // --- STEP 1 LOGIC ---
+  // --- STEP 1 ---
   const roomFileInput = document.getElementById('lv-room-file-input');
   const roomChooseBtn = document.getElementById('lv-room-choose-btn');
   const roomPreviewWrap = document.getElementById('lv-room-preview-wrap');
@@ -957,7 +1111,7 @@ window.lvOpenCustomerRequest = function(target) {
   document.getElementById('lv-skip-room-btn').onclick = () => goToStep(2);
   document.getElementById('lv-step-1-next').onclick = () => goToStep(2);
 
-  // --- STEP 2 LOGIC ---
+  // --- STEP 2 ---
   const furnFileInput = document.getElementById('lv-furn-file-input');
   const furnChooseBtn = document.getElementById('lv-furn-choose-btn');
   const furnPreviewWrap = document.getElementById('lv-furn-preview-wrap');
@@ -995,8 +1149,6 @@ window.lvOpenCustomerRequest = function(target) {
       });
       btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
       selectedItemName = btn.dataset.val;
-
-      // Smart default dimensions
       if (/yemek/i.test(selectedItemName)) { selectedW = 180; selectedD = 90; selectedH = 75; }
       else if (/çalışma/i.test(selectedItemName)) { selectedW = 160; selectedD = 75; selectedH = 75; }
       else if (/tv/i.test(selectedItemName)) { selectedW = 210; selectedD = 45; selectedH = 55; }
@@ -1006,59 +1158,133 @@ window.lvOpenCustomerRequest = function(target) {
   });
 
   document.getElementById('lv-step-2-back').onclick = () => goToStep(1);
-  document.getElementById('lv-step-2-next').onclick = () => goToStep(3);
 
-  // --- STEP 3 LOGIC ---
-  document.querySelectorAll('#lv-placement-chips .lv-place-btn').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('#lv-placement-chips .lv-place-btn').forEach(b => {
-        b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
+  // Transition from Step 2 to Step 3 -> AI analyzes photo and asks tailored questions!
+  document.getElementById('lv-step-2-next').onclick = async () => {
+    goToStep(3);
+    const loadingEl = document.getElementById('lv-ai-analysis-loading');
+    const contentEl = document.getElementById('lv-ai-questions-content');
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+
+    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
+
+    try {
+      aiQuestionsData = await window.LavoraAI.analyzeRoomAndGenerateQuestions(uploadedSpacePhoto, selectedItemName, notes);
+      
+      document.getElementById('lv-ai-obs-text').textContent = aiQuestionsData.observation || 'Odanızın mimari hatları ve zemin dokusu incelendi.';
+
+      // Render questions dynamically
+      const qListEl = document.getElementById('lv-dynamic-questions-list');
+      qListEl.innerHTML = '';
+
+      (aiQuestionsData.questions || []).forEach((qObj, qIdx) => {
+        const qCard = document.createElement('div');
+        qCard.style.cssText = 'background:var(--s2);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:12px';
+        
+        qCard.innerHTML = `<div style="font-size:11px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${esc(qObj.title || ('Soru ' + (qIdx + 1)))}</div>
+         <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(qObj.question)}</div>
+         <div class="lv-q-options" data-qid="${esc(qObj.id)}" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>`;
+
+        const optContainer = qCard.querySelector('.lv-q-options');
+
+        (qObj.options || []).forEach((opt, optIdx) => {
+          const isSelected = optIdx === 0;
+          const optBtn = document.createElement('button');
+          optBtn.type = 'button';
+          optBtn.className = 'lv-dyn-opt-btn ' + (isSelected ? 'on' : '');
+          optBtn.dataset.qid = qObj.id;
+          optBtn.dataset.val = opt.val;
+          optBtn.style.cssText = `padding:10px;border-radius:10px;border:1.5px solid ${isSelected ? 'var(--ac)' : 'var(--ln)'};background:${isSelected ? 'var(--ac)' : 'var(--s)'};color:${isSelected ? '#fff' : 'var(--ink)'};text-align:left;cursor:pointer;transition:all .15s`;
+
+          optBtn.innerHTML = `<div style="font-size:12px;font-weight:800">${esc(opt.label)}</div>` +
+            (opt.desc ? `<div style="font-size:10px;opacity:0.85;margin-top:2px">${esc(opt.desc)}</div>` : '');
+
+          optBtn.onclick = () => {
+            optContainer.querySelectorAll('.lv-dyn-opt-btn').forEach(b => {
+              b.style.borderColor = 'var(--ln)';
+              b.style.background = 'var(--s)';
+              b.style.color = 'var(--ink)';
+            });
+            optBtn.style.borderColor = 'var(--ac)';
+            optBtn.style.background = 'var(--ac)';
+            optBtn.style.color = '#fff';
+
+            // Apply selected value to wizard state
+            if (qObj.id === 'placement') currentPlacement = opt.val;
+            else if (qObj.id === 'material') selectedMaterial = opt.val;
+            else if (qObj.id === 'dimension') {
+              const numVal = parseInt(opt.val, 10) || 160;
+              selectedW = numVal;
+              selectedD = Math.round(numVal * 0.48);
+              selectedH = 75;
+            }
+          };
+
+          optContainer.append(optBtn);
+
+          // Initialize default choice
+          if (isSelected) {
+            if (qObj.id === 'placement') currentPlacement = opt.val;
+            else if (qObj.id === 'material') selectedMaterial = opt.val;
+            else if (qObj.id === 'dimension') {
+              const numVal = parseInt(opt.val, 10) || 160;
+              selectedW = numVal;
+            }
+          }
+        });
+
+        qListEl.append(qCard);
       });
-      btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
-      currentPlacement = btn.dataset.pos;
-    };
-  });
 
-  document.querySelectorAll('#lv-size-chips .lv-size-btn').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('#lv-size-chips .lv-size-btn').forEach(b => {
-        b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
-      });
-      btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
-      selectedW = +btn.dataset.w;
-      selectedD = +btn.dataset.d;
-      selectedH = +btn.dataset.h;
-    };
-  });
-
-  document.getElementById('lv-step-3-back').onclick = () => goToStep(2);
-
-  const renderCompositePreview = async () => {
-    const finalImgEl = document.getElementById('lv-final-preview-img');
-    const furnSrc = uploadedFurnPhoto || generatedIsolatedFurn;
-
-    if (uploadedSpacePhoto && furnSrc) {
-      finalCompositeImage = await window.LavoraAI.compositeInRoom(uploadedSpacePhoto, furnSrc, {
-        placement: currentPlacement,
-        scaleFactor: currentScale,
-        flipX: currentFlip
-      });
-      finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
-    } else if (uploadedSpacePhoto && !furnSrc) {
-      finalImgEl.src = uploadedSpacePhoto;
-      finalCompositeImage = uploadedSpacePhoto;
-    } else if (furnSrc) {
-      finalImgEl.src = furnSrc;
-      finalCompositeImage = furnSrc;
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+    } catch(err) {
+      console.warn('AI analysis error:', err);
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
     }
   };
 
+  document.getElementById('lv-step-3-back').onclick = () => goToStep(2);
+
+  // Render composite image on Step 4
+  const renderCompositePreview = async () => {
+    const finalImgEl = document.getElementById('lv-final-preview-img');
+    const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
+    loadingOverlay.style.display = 'flex';
+
+    try {
+      const furnSrc = uploadedFurnPhoto || generatedIsolatedFurn;
+
+      if (uploadedSpacePhoto && furnSrc) {
+        finalCompositeImage = await window.LavoraAI.compositeInRoom(uploadedSpacePhoto, furnSrc, {
+          placement: currentPlacement,
+          scaleFactor: currentScale,
+          flipX: currentFlip
+        });
+        finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
+      } else if (uploadedSpacePhoto && !furnSrc) {
+        finalImgEl.src = uploadedSpacePhoto;
+        finalCompositeImage = uploadedSpacePhoto;
+      } else if (furnSrc) {
+        finalImgEl.src = furnSrc;
+        finalCompositeImage = furnSrc;
+      }
+    } catch(err) {
+      console.warn('renderCompositePreview error:', err);
+      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
+    } finally {
+      loadingOverlay.style.display = 'none';
+    }
+  };
+
+  // Step 3 Run AI -> Generates visual & composites into room!
   document.getElementById('lv-step-3-run').onclick = async () => {
     const runBtn = document.getElementById('lv-step-3-run');
     runBtn.disabled = true;
-    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Tasarım mekanınıza yerleştiriliyor…';
+    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Tasarım odanıza yerleştiriliyor…';
 
-    selectedMaterial = document.getElementById('lv-wiz-material').value;
     const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
 
     try {
@@ -1068,31 +1294,44 @@ window.lvOpenCustomerRequest = function(target) {
       document.getElementById('lv-final-days-text').textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
       document.getElementById('lv-final-specs-chip').textContent = `Ölçü: ${selectedW} × ${selectedD} × ${selectedH} cm · ${currentAiEstimate.materialLabel} · Konum: ${currentPlacement.replace(/_/g, ' ')}`;
 
-      // 2. Obtain furniture visual: if user didn't upload reference, generate isolated cutout
-      if (!uploadedFurnPhoto && !generatedIsolatedFurn) {
+      // 2. Open step 4 immediately so user sees their room photo right away without waiting!
+      goToStep(4);
+      const finalImgEl = document.getElementById('lv-final-preview-img');
+      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
+
+      const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
+      loadingOverlay.style.display = 'flex';
+
+      // 3. Obtain furniture image: if user didn't upload reference, generate with Flux
+      if (!uploadedFurnPhoto) {
         const prompt = window.LavoraAI.buildImagePrompt(selectedItemName, selectedW, selectedD, selectedH, currentAiEstimate.materialLabel, notes);
         generatedIsolatedFurn = await window.LavoraAI.generateConceptImage(prompt);
       }
 
-      // 3. Composite into room
+      // 4. Composite furniture into room
       await renderCompositePreview();
 
-      goToStep(4);
       if (typeof toast === 'function') toast('Tasarım mekanınıza başarıyla yerleştirildi');
-    } catch (err) {
-      console.error('[LavoraAI Wizard] error:', err);
+    } catch(err) {
+      console.error('[LavoraAI] error:', err);
       goToStep(4);
     } finally {
       runBtn.disabled = false;
-      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Mekanda Canlandır ve Fiyatla';
+      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Tasarımı Odamda Canlandır ve Fiyatla';
     }
   };
 
   // --- STEP 4 CONTROLS ---
   document.querySelectorAll('.lv-tune-pos').forEach(btn => {
     btn.onclick = async () => {
-      document.querySelectorAll('.lv-tune-pos').forEach(b => { b.style.background = 'var(--s)'; b.style.color = 'var(--ink)'; });
-      btn.style.background = 'var(--ac)'; btn.style.color = '#fff';
+      document.querySelectorAll('.lv-tune-pos').forEach(b => {
+        b.style.borderColor = 'var(--ln)';
+        b.style.background = 'var(--s)';
+        b.style.color = 'var(--ink)';
+      });
+      btn.style.borderColor = 'var(--ac)';
+      btn.style.background = 'var(--ac)';
+      btn.style.color = '#fff';
       currentPlacement = btn.dataset.pos;
       showingOriginal = false;
       await renderCompositePreview();
@@ -1124,7 +1363,7 @@ window.lvOpenCustomerRequest = function(target) {
     const finalImgEl = document.getElementById('lv-final-preview-img');
     finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
     toggleOrigBtn.innerHTML = showingOriginal 
-      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Mobilyalı Görünüme Dön'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Mobilyalı Tasarımı Gör'
       : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg> Orijinal Odayı Gör';
   };
 
@@ -1139,7 +1378,7 @@ window.lvOpenCustomerRequest = function(target) {
 
   document.getElementById('lv-step-4-back').onclick = () => goToStep(3);
 
-  // Final Submit Button
+  // Submit to Firebase
   document.getElementById('lv-creq-send-final').onclick = async () => {
     const btn = document.getElementById('lv-creq-send-final');
     btn.disabled = true;
@@ -3823,168 +4062,7 @@ function customerPortal(){
   lvLoadMyRequests();
  };
  // ==========================================
- // LAVORA DESIGN CLOUDFLARE WORKERS AI ENGINE
- // ==========================================
- window.LavoraAI = {
-  CF_ACCOUNT_ID: '5884faaabbba129c726403c97e0511ed',
-  CF_API_TOKEN: (typeof atob === 'function' ? atob('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=') : ''),
-
-  getWorkerUrl() {
-   const sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
-   return sUrl.trim().replace(/\/+$/, '');
-  },
-
-  async callApi(endpoint, body) {
-   const wUrl = this.getWorkerUrl();
-   if (wUrl) {
-    const res = await fetch(`${wUrl}/${endpoint}`, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error('Worker HTTP ' + res.status);
-    return await res.json();
-   }
-   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port === '3000') {
-    const res = await fetch(`/api/ai/${endpoint}`, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error('Local AI proxy HTTP ' + res.status);
-    return await res.json();
-   }
-   let model = endpoint === 'image' ? '@cf/black-forest-labs/flux-1-schnell' : '@cf/meta/llama-3.1-8b-instruct';
-   const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.CF_ACCOUNT_ID}/ai/run/${model}`, {
-    method: 'POST',
-    headers: {
-     'Authorization': `Bearer ${this.CF_API_TOKEN}`,
-     'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-   });
-   if (!res.ok) throw new Error('Cloudflare AI HTTP ' + res.status);
-   return await res.json();
-  },
-
-  estimatePricing(itemType, wCm, dCm, hCm, material) {
-   const w = Math.max(20, Number(wCm) || 160);
-   const d = Math.max(20, Number(dCm) || 80);
-   const h = Math.max(20, Number(hCm) || 75);
-   const areaM2 = (w * d) / 10000;
-   const volM3 = (w * d * h) / 1000000;
-
-   const matRates = {
-    'masif_mese': { base: 14500, labor: 4500, label: 'Masif Meşe (Doğal Ahşap)' },
-    'masif_ceviz': { base: 19500, labor: 5500, label: 'Masif Amerikan Ceviz' },
-    'lake': { base: 9500, labor: 3500, label: 'İpek Mat Lake Boya' },
-    'kaplama': { base: 8200, labor: 3000, label: 'Doğal Ahşap Kaplama & MDF' },
-    'mdflam': { base: 4500, labor: 2000, label: 'MDF Lam (Dayanıklı Kaplama)' }
-   };
-
-   const mat = matRates[material] || matRates['masif_mese'];
-   let raw = (areaM2 * mat.base) + (volM3 * 8000) + mat.labor;
-   if (raw < 4500) raw = 4500;
-
-   const minPrice = Math.round((raw * 0.95) / 250) * 250;
-   const maxPrice = Math.round((raw * 1.25) / 250) * 250;
-   const fmt = n => n.toLocaleString('tr-TR') + ' ₺';
-
-   return {
-    min: minPrice,
-    max: maxPrice,
-    formatted: `${fmt(minPrice)} – ${fmt(maxPrice)}`,
-    materialLabel: mat.label,
-    estimatedDays: areaM2 > 1.4 ? '14 - 18 iş günü' : '10 - 14 iş günü'
-   };
-  },
-
-  buildImagePrompt(itemType, wCm, dCm, hCm, materialLabel, extraNotes) {
-   let matDesc = 'solid natural oak wood';
-   if (/ceviz/i.test(materialLabel)) matDesc = 'luxurious solid American walnut wood';
-   else if (/lake/i.test(materialLabel)) matDesc = 'matte silk lacquered finish in soft architectural tone';
-   else if (/kaplama/i.test(materialLabel)) matDesc = 'natural wood veneer with subtle grain texture';
-   else if (/mdf/i.test(materialLabel)) matDesc = 'contemporary high-density wood composite laminate';
-
-   return `modern luxury custom ${itemType} furniture, size ${wCm}x${dCm}x${hCm} cm, crafted from ${matDesc}, minimalist architectural design, warm ambient interior lighting, scandinavian high-end home interior, photorealistic 8k architectural digest photography, hyper-detailed`;
-  },
-
-  async generateConceptImage(prompt) {
-   try {
-    const data = await this.callApi('image', { prompt, steps: 4 });
-    if (data && data.result && data.result.image) {
-     return 'data:image/jpeg;base64,' + data.result.image;
-    }
-   } catch (err) {
-    console.warn('[LavoraAI] Image gen remote call note:', err.message);
-   }
-   return null;
-  },
-
-  async generateAdminDraft(reqData) {
-   const r = reqData || {};
-   const prompt = `Aşağıdaki müşteri tasarım ve mobilya talebi için, Lavora Design yöneticisi adına müşteriye hitaben kibar, son derece profesyonel, güven veren, Türkçe bir yanıt hazırla. Kesinlikle hiçbir emoji kullanma.
-Müşteri: ${r.email || 'Değerli Müşterimiz'}
-Konu: ${r.subject || 'Özel Tasarım Talebi'}
-İlgili Ürün / Ölçüler: ${r.itemName || ''} ${r.dimensions ? 'Ölçüler: ' + r.dimensions : ''}
-Malzeme: ${r.material || ''}
-Tahmini Bütçe: ${r.aiEstimate || ''}
-Müşteri Notu: ${r.text || ''}
-Cevap 2-3 paragraf olsun; ilgileri için teşekkür et, seçilen malzemenin ve ölçünün mekanlarına çok yakışacağını belirt, keşif veya numune randevusu için iletişime geçileceğini bildir.`;
-
-   try {
-    const data = await this.callApi('text', {
-     messages: [
-      { role: 'system', content: 'Sen Lavora Design lüks mobilya ve iç mimarlık firmasının yöneticisisin. Müşteriye hitaben kibar, Türkçe ve tamamen emojisiz yanıt hazırla.' },
-      { role: 'user', content: prompt }
-     ],
-     max_tokens: 300
-    });
-    if (data && data.result && data.result.response) {
-     return data.result.response.trim();
-    }
-   } catch (err) {
-    console.warn('[LavoraAI] Text gen remote call note:', err.message);
-   }
-
-   // Elegant Fallback Draft
-   return `Sayın ${r.email ? r.email.split('@')[0] : 'Müşterimiz'},
-
-${r.subject || 'Özel tasarım mobilya'} talebiniz ve paylaştığınız detaylar mimari ekibimiz tarafından incelenmiştir. ${r.dimensions ? r.dimensions + ' ölçülerindeki ' : ''}${r.material ? r.material + ' tercihiniz ' : 'tasarımınız '}, mekanınızın dokusuyla estetik bir uyum yakalayacaktır.
-
-Belirtilen ${r.aiEstimate || 'tahmini bütçe'} doğrultusunda, net cila/ahşap numuneleri ve yerinde keşif planlaması için uzman ekibimiz en kısa sürede sizinle iletişime geçecektir. 
-
-Lavora Design'ı tercih ettiğiniz için teşekkür ederiz.
-Lavora Tasarım ve Üretim Ekibi`;
-  }
- };
-
- // Helper for image file reading and compacting
- window._lvCompressImageFile = function(file, maxDim = 900, quality = 0.75) {
-  return new Promise((resolve, reject) => {
-   const reader = new FileReader();
-   reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-     let w = img.width, h = img.height;
-     if (w > maxDim || h > maxDim) {
-      if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-      else { w = Math.round((w * maxDim) / h); h = maxDim; }
-     }
-     const canvas = document.createElement('canvas');
-     canvas.width = w; canvas.height = h;
-     const ctx = canvas.getContext('2d');
-     ctx.drawImage(img, 0, 0, w, h);
-     resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = reject;
-    img.src = e.target.result;
-   };
-   reader.onerror = reject;
-   reader.readAsDataURL(file);
-  });
- };
-
+ // LavoraAI engine and image compression are initialized in Script 6
  window.lvLoadMyRequests=function(){
   const c=document.getElementById('lv-customer-reqs');if(!c)return;
   c.innerHTML='<div style="color:var(--mu);text-align:center;padding:24px">Yükleniyor…</div>';
