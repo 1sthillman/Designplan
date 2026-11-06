@@ -918,7 +918,7 @@ err=x=>{document.querySelector('.toast')?.remove();dbg('HATA: '+(x?.message||x))
 /* fotoğraf deposu */
 const wcv=async(src,mx,q)=>{const b=typeof src=='string'?await(await fetch(src)).blob():src,im=await createImageBitmap(b),k=Math.min(1,mx/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);im.close?.();return c.toDataURL('image/jpeg',q)},
 wadd=async f=>{const id=wid();let img,th;try{img=await wcv(f,1280,.78);th=await wcv(img,260,.72)}catch(e){img=await rd(f);th=img}WC[id]=th;if(window.WC)window.WC[id]=th;try{await tx('readwrite',s=>s.put({id,t:Date.now(),img,th}),'wph')}catch(e){dbg('wph kaydetme hatası: '+(e&&e.message||e))}return id},
-wget=async(id,full)=>{if(!id)return'';if(!full&&(WC[id]||(window.WC&&window.WC[id])))return WC[id]||window.WC[id];let u='';if(!full&&typeof P!=='undefined'&&Array.isArray(P)){try{for(const p of P){if(!p||!p.w||!Array.isArray(p.w.items))continue;for(const it of p.w.items){if(!it||!Array.isArray(it.phData))continue;const f=it.phData.find(x=>x&&x.id===id);if(f&&(f.th||f.dataUrl||f.img)){u=f.th||f.dataUrl||f.img;break}}if(u)break}}catch(e){}}if(!u){try{if(typeof path==='function'){const snap=await path('workflow_photos').child(String(id)).once('value');if(snap.exists()){const o=snap.val();u=full?(o.imgPath||o.img||o.thPath||o.th):(o.thPath||o.th||o.imgPath||o.img)}}}catch(e){}}if(!u){try{const o=await tx('readonly',s=>s.get(id),'wph');if(o)u=full?(o.img||o.th):(o.th||o.img)}catch(e){}}if(!u)u=WC[id]||(window.WC&&window.WC[id])||'';if(u){WC[id]=u;if(window.WC)window.WC[id]=u}return u||''},
+wget=async(id,full)=>{if(!id)return'';if(!full&&(WC[id]||(window.WC&&window.WC[id])))return WC[id]||window.WC[id];let u='';if(!full){try{const dom=document.querySelector('img[data-wp="'+id+'"]');if(dom&&dom.src&&dom.src.length>20&&!dom.src.endsWith('/'))return dom.src}catch(e){}}if(typeof P!=='undefined'&&Array.isArray(P)){try{for(const p of P){if(!p||!p.w||!Array.isArray(p.w.items))continue;for(const it of p.w.items){if(!it||!Array.isArray(it.phData))continue;const f=it.phData.find(x=>x&&x.id===id);if(f){if(full&&(f.img||f.dataUrl))return f.img||f.dataUrl;if(!full&&(f.th||f.dataUrl||f.img))return f.th||f.dataUrl||f.img}}if(u)break}}catch(e){}}if(!u){try{const o=await tx('readonly',s=>s.get(id),'wph');if(o)u=full?(o.img||o.th):(o.th||o.img)}catch(e){}}if(!u){try{if(typeof path==='function'){const tPromise=new Promise(res=>setTimeout(()=>res(null),2000));const fPromise=path('workflow_photos').child(String(id)).once('value');const snap=await Promise.race([fPromise,tPromise]);if(snap&&snap.exists&&snap.exists()){const o=snap.val();u=full?(o.imgPath||o.img||o.thPath||o.th):(o.thPath||o.th||o.imgPath||o.img)}}}catch(e){}}if(!u)u=WC[id]||(window.WC&&window.WC[id])||'';if(u){WC[id]=u;if(window.WC)window.WC[id]=u}return u||''},
 wph=()=>document.querySelectorAll('img[data-wp]').forEach(e=>{if(e.getAttribute('src'))return;wget(e.dataset.wp).then(u=>{if(u){e.src=u;e.style.visibility='visible'}else{e.style.visibility='hidden'}})}),
 wdel=id=>{if(typeof P!=='undefined'&&Array.isArray(P)&&P.some(p=>p.w?.items.some(i=>(i.ph||[]).includes(id))))return;delete WC[id];if(window.WC)delete window.WC[id];tx('readwrite',s=>s.delete(id),'wph').catch(()=>{})},
 wdim=u=>new Promise(ok=>{const m=new Image;m.onload=()=>ok([m.naturalWidth||90,m.naturalHeight||90]);m.onerror=()=>ok([90,90]);m.src=u});
@@ -1218,7 +1218,7 @@ case's':{const k=+d.k;if(k===-1){wi.st[d.s]=(wi.st[d.s]===-1?0:-1)}else{wi.st[d.
 case'allok':wp.w.stages.forEach(s=>{if(wi.st[s.id]!==-1)wi.st[s.id]=2});wis();break;
 case'reset':wp.w.stages.forEach(s=>{if(wi.st[s.id]!==-1)wi.st[s.id]=0});wis();break;
 case'addph':wfi.click();break;
-case'pv':{const u=await wget(d.id,1);wpn(`<h3>Fotoğraf</h3><img src="${u}" style="width:100%;border-radius:14px;margin-bottom:10px"><button class="opt" data-a="w:back"><b>Geri dön</b></button><button class="opt" data-a="w:delph" data-id="${d.id}"><b style="color:var(--dg)">Fotoğrafı sil</b></button>`);break}
+case'pv':{const clickedId=d.id;const phList=(wi&&Array.isArray(wi.ph)&&wi.ph.length)?wi.ph:[clickedId];const initIdx=Math.max(0,phList.indexOf(clickedId));const photoUrls=phList.map(pid=>{try{const dom=document.querySelector('img[data-wp="'+pid+'"]');if(dom&&dom.src&&dom.src.length>20&&!dom.src.endsWith('/'))return dom.src}catch(e){}if(wi&&Array.isArray(wi.phData)){const f=wi.phData.find(x=>x&&x.id===pid);if(f&&(f.img||f.th||f.dataUrl))return f.img||f.th||f.dataUrl}if(typeof WC!=='undefined'&&WC[pid])return WC[pid];if(window.WC&&window.WC[pid])return window.WC[pid];return''});if(typeof window._lvImgModal==='function'){window._lvImgModal(photoUrls,initIdx,(wi&&wi.n)||'Fotoğraf',{onDelete:(delIdx)=>{const pid=phList[delIdx];if(!pid)return;wi.ph=wi.ph.filter(x=>x!=pid);if(wi.phData)wi.phData=wi.phData.filter(x=>x&&x.id!=pid);wdel(pid);wis()}})}(async()=>{try{const fullUrls=await Promise.all(phList.map(async(pid,idx)=>{const fullU=await wget(pid,1);return fullU||photoUrls[idx]}));if(typeof window._lvImgModalUpdate==='function')window._lvImgModalUpdate(fullUrls)}catch(e){}})();break}
 case'back':wis();break;
 case'delph':wi.ph=wi.ph.filter(x=>x!=d.id);if(wi.phData)wi.phData=wi.phData.filter(x=>x&&x.id!=d.id);wdel(d.id);wis();break;
 case'dupi':{const c=JSON.parse(JSON.stringify(wi));c.id=wid();c.n+=' (kopya)';wp.w.items.splice(wp.w.items.indexOf(wi)+1,0,c);wp.u=Date.now();save();close();wi=null;wrender();toast('Ürün kopyalandı');break}
@@ -3316,7 +3316,7 @@ function customerPortal(){
 }
 
 
-window._lvImgModal=function(imagesOrSrc,initialIdx,title){
+window._lvImgModal=function(imagesOrSrc,initialIdx,title,options){
  const existing=document.getElementById('_lv-img-modal');if(existing)existing.remove();
  let list=[];
  if(Array.isArray(imagesOrSrc)){
@@ -3344,15 +3344,65 @@ window._lvImgModal=function(imagesOrSrc,initialIdx,title){
  counterPill.textContent=(curIdx+1)+' / '+list.length;
  titleEl.append(counterPill);
 
+ const actionsWrap=document.createElement('div');
+ actionsWrap.style.cssText='display:flex;align-items:center;gap:10px';
+
+ if(options&&typeof options.onDelete==='function'){
+  const delBtn=document.createElement('button');
+  delBtn.title='Fotoğrafı Sil';
+  delBtn.style.cssText='background:rgba(239,68,68,0.22);border:1px solid rgba(239,68,68,0.4);color:#f87171;width:38px;height:38px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .15s';
+  delBtn.onmouseenter=()=>delBtn.style.background='rgba(239,68,68,0.45)';
+  delBtn.onmouseleave=()=>delBtn.style.background='rgba(239,68,68,0.22)';
+  delBtn.innerHTML='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+  delBtn.onclick=(e)=>{
+   e.stopPropagation();
+   if(confirm('Bu fotoğraf silinsin mi?')){
+    const delIdx=curIdx;
+    options.onDelete(delIdx);
+    list.splice(delIdx,1);
+    if(!list.length){
+     ov.remove();
+     if(typeof onKey==='function')document.removeEventListener('keydown',onKey);
+    }else{
+     curIdx=Math.min(curIdx,list.length-1);
+     updateImage(curIdx);
+     if(thumbStrip){
+      const thumbs=thumbStrip.querySelectorAll('img');
+      if(thumbs[delIdx])thumbs[delIdx].remove();
+      if(list.length<=1){thumbStrip.style.display='none';}
+      updateThumbStrip();
+     }
+    }
+   }
+  };
+  actionsWrap.append(delBtn);
+ }
+
  const closeBtn=document.createElement('button');
  closeBtn.style.cssText='background:rgba(255,255,255,0.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:background .15s';
  closeBtn.onmouseenter=()=>closeBtn.style.background='rgba(255,255,255,0.3)';
  closeBtn.onmouseleave=()=>closeBtn.style.background='rgba(255,255,255,0.15)';
  closeBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
- closeBtn.onclick=()=>ov.remove();
+ closeBtn.onclick=()=>{ov.remove();if(typeof onKey==='function')document.removeEventListener('keydown',onKey);};
 
- topBar.append(titleEl,closeBtn);
+ actionsWrap.append(closeBtn);
+ topBar.append(titleEl,actionsWrap);
  ov.append(topBar);
+
+ window._lvImgModalUpdate=function(newUrls){
+  if(Array.isArray(newUrls)){
+   newUrls.forEach((u,i)=>{
+    if(u&&list[i]){
+     list[i]=u;
+     if(i===curIdx) img.src=u;
+     if(thumbStrip){
+      const th=thumbStrip.querySelectorAll('img')[i];
+      if(th)th.src=u;
+     }
+    }
+   });
+  }
+ };
 
  // Main Image Container
  const imgWrap=document.createElement('div');
