@@ -4191,29 +4191,42 @@ window.lvReloadAdminReqList=function(filterStatus){
  }).catch(e=>listEl.innerHTML='<div style="color:#f87171;padding:16px">Yüklenemedi: '+err(e)+'</div>');
 };
 window.lvOpenWorkflowProject=function(projectId,itemNameOrId){
- // Close admin hub modal if open
+ // Close admin hub modals
  const hub=document.getElementById('lv-admin-hub-modal');if(hub)hub.remove();
  const replyMd=document.getElementById('_lv-reply-modal');if(replyMd)replyMd.remove();
  if(!projectId){if(typeof toast==='function')toast('Proje bilgisi bulunamadı');return;}
- // Find the project in the loaded projects list
  if(typeof P!=='undefined'&&Array.isArray(P)){
   const proj=P.find(p=>p.id===projectId);
   if(proj){
    if(typeof wEns==='function')wEns(proj);
-   if(typeof window!=='undefined'){window.wp=proj;window.wm='proj';window.wf='all';window.wq='';window.led=false;window.cur=null;}
-   if(typeof close==='function')close();
-   if(typeof render==='function')render();
-   scrollTo(0,0);
-   if(itemNameOrId&&typeof wrender==='function'){
-    setTimeout(()=>{
-     const item=proj.w&&proj.w.items&&proj.w.items.find(i=>i.id===itemNameOrId||i.n===itemNameOrId);
-     if(item){window.wi=item;if(typeof wis==='function')wis();}
-    },350);
+   // Use the exposed setters — window.wp is NOT the same as local let wp
+   if(typeof window.setWp==='function') window.setWp(proj); else window.wp=proj;
+   if(typeof window.setWm==='function') window.setWm('proj'); else window.wm='proj';
+   window.wf='all'; window.wq=''; window.led=false; window.cur=null;
+   if(typeof window.setWi==='function') window.setWi(null); else window.wi=null;
+   // Find target item before render
+   let targetItem=null;
+   if(itemNameOrId){
+    targetItem=proj.w&&proj.w.items&&proj.w.items.find(i=>i.id===itemNameOrId||i.n===itemNameOrId)||null;
+    if(targetItem){
+     if(typeof window.setWi==='function') window.setWi(targetItem); else window.wi=targetItem;
+    }
    }
+   // Render the project
+   if(typeof render==='function') render();
+   scrollTo(0,0);
+   // Open item detail panel if applicable
+   if(targetItem){
+    setTimeout(()=>{
+     // Re-set item using local setter in case render cleared it
+     if(typeof window.setWi==='function') window.setWi(targetItem); else window.wi=targetItem;
+     try{if(typeof wis==='function')wis();}catch(e){console.warn('[Lavora] wis() error:',e);}
+    },150);
+   }
+   if(typeof toast==='function') toast((proj.name||proj.cust||'Proje')+' açıldı');
    return;
   }
  }
- // Fallback: reload page to this project
  if(typeof toast==='function')toast('Proje yükleniyor…');
  setTimeout(()=>{location.reload();},600);
 };
