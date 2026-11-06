@@ -25,7 +25,69 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf'
 };
 
-const server = http.createServer((req, res) => {
+const CF_ACCOUNT_ID = '5884faaabbba129c726403c97e0511ed';
+const CF_API_TOKEN = process.env.CF_API_TOKEN || Buffer.from('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=', 'base64').toString('utf8');
+
+const server = http.createServer(async (req, res) => {
+  // Handle CORS Preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400'
+    });
+    res.end();
+    return;
+  }
+
+  // Handle Cloudflare AI Proxy
+  if (req.url.startsWith('/api/ai/')) {
+    const endpoint = req.url.replace('/api/ai/', '');
+    let bodyData = '';
+    req.on('data', chunk => { bodyData += chunk; });
+    req.on('end', async () => {
+      try {
+        let model = '@cf/meta/llama-3.1-8b-instruct';
+        if (endpoint === 'image') {
+          model = '@cf/black-forest-labs/flux-1-schnell';
+        } else if (endpoint === 'text') {
+          model = '@cf/meta/llama-3.1-8b-instruct';
+        }
+        
+        const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${model}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${CF_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: bodyData
+        });
+
+        const contentType = cfRes.headers.get('content-type') || 'application/json';
+        res.writeHead(cfRes.status, {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*'
+        });
+
+        if (contentType.includes('json')) {
+          const json = await cfRes.json();
+          res.end(JSON.stringify(json));
+        } else {
+          const buf = Buffer.from(await cfRes.arrayBuffer());
+          res.end(buf);
+        }
+      } catch (err) {
+        res.writeHead(500, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   const urlPath = req.url.split('?')[0];
   let relativePath = decodeURIComponent(urlPath);
   
