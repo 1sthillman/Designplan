@@ -51,6 +51,8 @@ const server = http.createServer(async (req, res) => {
         let model = '@cf/meta/llama-3.1-8b-instruct';
         if (endpoint === 'image') {
           model = '@cf/black-forest-labs/flux-1-schnell';
+        } else if (endpoint === 'vision') {
+          model = '@cf/llava-hf/llava-1.5-7b-hf';
         } else if (endpoint === 'text') {
           model = '@cf/meta/llama-3.1-8b-instruct';
         }

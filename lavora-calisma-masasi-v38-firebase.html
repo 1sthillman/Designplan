@@ -470,7 +470,7 @@ window.LavoraAI = {
     else if (/kaplama/i.test(materialLabel)) matDesc = 'natural wood veneer with subtle grain texture';
     else if (/mdf/i.test(materialLabel)) matDesc = 'contemporary high-density wood composite laminate';
 
-    return `modern luxury custom ${itemType} furniture, size ${wCm}x${dCm}x${hCm} cm, crafted from ${matDesc}, minimalist architectural design, warm ambient interior lighting, scandinavian high-end home interior, photorealistic 8k architectural digest photography, hyper-detailed`;
+    return `isolated luxury modern ${itemType} furniture on pure plain solid white background, 3/4 front architectural studio view, crafted from ${matDesc}, minimalist design, studio product lighting, clean product cutout, 8k photorealistic`;
   },
 
   async generateConceptImage(prompt) {
@@ -483,6 +483,113 @@ window.LavoraAI = {
       console.warn('[LavoraAI] Image gen remote call note:', err.message);
     }
     return null;
+  },
+
+  async compositeInRoom(roomImgSrc, furnImgSrc, opts = {}) {
+    return new Promise((resolve, reject) => {
+      const roomImg = new Image();
+      roomImg.crossOrigin = 'anonymous';
+      roomImg.onload = () => {
+        const furnImg = new Image();
+        furnImg.crossOrigin = 'anonymous';
+        furnImg.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 1200;
+          let w = roomImg.naturalWidth || 800;
+          let h = roomImg.naturalHeight || 600;
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          // 1. Draw customer room photo completely intact
+          ctx.drawImage(roomImg, 0, 0, w, h);
+
+          // 2. Prepare furniture cutout (remove studio background)
+          const furnC = document.createElement('canvas');
+          const fw = furnImg.naturalWidth || 400;
+          const fh = furnImg.naturalHeight || 300;
+          furnC.width = fw;
+          furnC.height = fh;
+          const fctx = furnC.getContext('2d');
+          fctx.drawImage(furnImg, 0, 0, fw, fh);
+
+          try {
+            const imgData = fctx.getImageData(0, 0, fw, fh);
+            const data = imgData.data;
+            const c1 = (data[0] + data[1] + data[2]) / 3;
+            const c2 = (data[(fw - 1) * 4] + data[(fw - 1) * 4 + 1] + data[(fw - 1) * 4 + 2]) / 3;
+            if (c1 > 220 || c2 > 220) {
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const lum = (r + g + b) / 3;
+                if (lum > 242) {
+                  data[i + 3] = 0;
+                } else if (lum > 218) {
+                  data[i + 3] = Math.round(((242 - lum) / 24) * 255);
+                }
+              }
+              fctx.putImageData(imgData, 0, 0);
+            }
+          } catch(e) {}
+
+          // 3. Preset placements in room
+          const placement = opts.placement || 'pencere_onu';
+          const presets = {
+            pencere_onu: { x: 0.52, y: 0.62, scale: 0.44 },
+            sol_duvar:   { x: 0.24, y: 0.65, scale: 0.46 },
+            sag_duvar:   { x: 0.74, y: 0.66, scale: 0.44 },
+            orta:        { x: 0.50, y: 0.70, scale: 0.50 }
+          };
+          const p = presets[placement] || presets.pencere_onu;
+          const userScale = opts.scaleFactor || 1.0;
+          const targetW = w * p.scale * userScale;
+          const targetH = targetW * (fh / fw);
+
+          const posX = (w * p.x) + (opts.offsetX || 0) - (targetW / 2);
+          const posY = (h * p.y) + (opts.offsetY || 0) - (targetH / 2);
+
+          // 4. Soft floor contact shadow
+          const shadowFloorY = posY + targetH * 0.94;
+          const shadowCenterX = posX + targetW * 0.5;
+          const shadowRadiusX = targetW * 0.52;
+          const shadowRadiusY = targetH * 0.12;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.translate(shadowCenterX, shadowFloorY);
+          ctx.scale(1, shadowRadiusY / shadowRadiusX);
+          const grad = ctx.createRadialGradient(0, 0, 4, 0, 0, shadowRadiusX);
+          grad.addColorStop(0, 'rgba(15, 20, 26, 0.46)');
+          grad.addColorStop(0.4, 'rgba(15, 20, 26, 0.22)');
+          grad.addColorStop(1, 'rgba(15, 20, 26, 0)');
+          ctx.fillStyle = grad;
+          ctx.arc(0, 0, shadowRadiusX, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // 5. Draw furniture
+          ctx.save();
+          if (opts.flipX) {
+            ctx.translate(posX + targetW, posY);
+            ctx.scale(-1, 1);
+            ctx.drawImage(furnC, 0, 0, targetW, targetH);
+          } else {
+            ctx.drawImage(furnC, posX, posY, targetW, targetH);
+          }
+          ctx.restore();
+
+          resolve(canvas.toDataURL('image/jpeg', 0.88));
+        };
+        furnImg.onerror = () => resolve(roomImgSrc);
+        furnImg.src = furnImgSrc;
+      };
+      roomImg.onerror = () => resolve(furnImgSrc);
+      roomImg.src = roomImgSrc;
+    });
   },
 
   async generateAdminDraft(reqData) {
@@ -548,390 +655,537 @@ img.onerror = reject;
   });
 };
 
-window.lvOpenCustomerRequest=function(target){
-  if(document.getElementById('lv-creq-modal'))return;
-  let pId='', pName='', itId='', itName='';
-  if(target && typeof target==='object'){
-   pId=target.projectId||'';
-   pName=target.projectName||'';
-   itId=target.itemId||'';
-   itName=target.itemName||'';
-  } else if(typeof target==='string'){
-   itName=target;
+window.lvOpenCustomerRequest = function(target) {
+  if (document.getElementById('lv-creq-modal')) return;
+  let pId = '', pName = '', itId = '', itName = '';
+  if (target && typeof target === 'object') {
+    pId = target.projectId || '';
+    pName = target.projectName || '';
+    itId = target.itemId || '';
+    itName = target.itemName || '';
+  } else if (typeof target === 'string') {
+    itName = target;
   }
-  if(!pId && window._lvCustomerProjects && window._lvCustomerProjects.length){
-   pId=window._lvCustomerProjects[0].projectId||'';
-   pName=window._lvCustomerProjects[0].projectName||'';
+  if (!pId && window._lvCustomerProjects && window._lvCustomerProjects.length) {
+    pId = window._lvCustomerProjects[0].projectId || '';
+    pName = window._lvCustomerProjects[0].projectName || '';
   }
 
-  const md=document.createElement('div');md.id='lv-creq-modal';
-  md.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);display:grid;place-items:center;padding:16px;backdrop-filter:blur(6px)';
-  
-  let currentTab = 'ai'; // 'ai' or 'simple'
+  const md = document.createElement('div');
+  md.id = 'lv-creq-modal';
+  md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.76);display:grid;place-items:center;padding:16px;backdrop-filter:blur(8px)';
+
+  let currentStep = 1; // 1: Oda Fotoğrafı, 2: Mobilya Tercihi, 3: AI Soruları, 4: Canlı Önizleme & Fiyat
   let uploadedSpacePhoto = '';
-  let generatedConceptImg = '';
+  let uploadedFurnPhoto = '';
+  let generatedIsolatedFurn = '';
+  let finalCompositeImage = '';
   let currentAiEstimate = null;
+  let currentPlacement = 'pencere_onu';
+  let currentScale = 1.0;
+  let currentFlip = false;
+  let showingOriginal = false;
 
-  md.innerHTML=`<div style="width:min(100%,560px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">
+  // Selected Furniture Config
+  let selectedItemName = itName || 'Çalışma Masası';
+  let selectedW = 160, selectedD = 80, selectedH = 75;
+  let selectedMaterial = 'masif_mese';
+
+  md.innerHTML = `<div style="width:min(100%,580px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">
    <!-- Header -->
-   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px">
-     <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;display:grid;place-items:center">
+     <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;display:grid;place-items:center">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
      </div>
      <div>
-      <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">Özel Tasarım & Talep Oluştur</h3>
-      <div style="font-size:11px;color:var(--mu)">Lavora Mimari ve Üretim Danışmanlığı</div>
+      <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">Mekanınızda Görün & Bütçelendirin</h3>
+      <div style="font-size:11px;color:var(--mu)">Lavora Mimari ve Özel İmalat Asistanı</div>
      </div>
     </div>
     <button id="lv-creq-close" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--mu);line-height:1;padding:4px">×</button>
-   </div>`+
+   </div>` +
 
-   (pName ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;border:1px solid var(--ln)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>Proje: ${esc(pName)}</span></div>` : '')+
+   (pName ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;border:1px solid var(--ln)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>Proje: ${esc(pName)}</span></div>` : '') +
 
-   `<!-- Mode Switcher Tabs -->
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--s2);padding:4px;border-radius:12px;margin-bottom:16px;border:1px solid var(--ln)">
-    <button id="lv-mode-ai" style="padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:var(--ac);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-     Yapay Zeka Destekli Tasarım
-    </button>
-    <button id="lv-mode-simple" style="padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px">
-     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-     Standart Talep
-    </button>
+   `<!-- Step Progress Bar -->
+   <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:18px">
+    <div id="lv-step-bar-1" style="height:4px;border-radius:2px;background:var(--ac);transition:background .2s"></div>
+    <div id="lv-step-bar-2" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
+    <div id="lv-step-bar-3" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
+    <div id="lv-step-bar-4" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
    </div>
 
-   <!-- PANEL 1: AI DESIGN WIZARD -->
-   <div id="lv-panel-ai" style="display:block">
-    <!-- Photo Upload Zone -->
-    <div style="background:var(--s2);border:1.5px dashed var(--ln);border-radius:14px;padding:14px;margin-bottom:14px;text-align:center">
-     <div id="lv-photo-preview-wrap" style="display:none;position:relative;margin-bottom:10px">
-      <img id="lv-space-photo-img" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;border:1px solid var(--ln)">
-      <button id="lv-remove-photo-btn" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer">Fotoğrafı Kaldır</button>
+   <!-- STEP 1: ROOM / SPACE PHOTO -->
+   <div id="lv-wizard-step-1" style="display:block">
+    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">1. Adım: Mekanınızın Fotoğrafı</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Mobilyayı yerleştirmek istediğiniz odanın veya duvarın fotoğrafını ekleyin. Odanızın açısı ve mimarisi birebir korunur.</div>
+
+    <div style="background:var(--s2);border:2px dashed var(--ln);border-radius:16px;padding:20px;text-align:center;margin-bottom:14px">
+     <div id="lv-room-preview-wrap" style="display:none;position:relative;margin-bottom:12px;border-radius:12px;overflow:hidden;border:1px solid var(--ln);background:#000">
+      <img id="lv-room-preview-img" style="width:100%;max-height:240px;object-fit:cover;display:block">
+      <button id="lv-room-remove-btn" type="button" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Fotoğrafı Değiştir</button>
      </div>
-     <div id="lv-photo-upload-controls">
-      <input type="file" id="lv-photo-input" accept="image/*" style="display:none">
-      <button id="lv-choose-photo-btn" type="button" style="padding:8px 14px;background:var(--s);color:var(--ink);border:1.5px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-       Mekan / Alan Fotoğrafı Ekle (İsteğe Bağlı)
+     <div id="lv-room-upload-zone">
+      <input type="file" id="lv-room-file-input" accept="image/*" style="display:none">
+      <div style="width:52px;height:52px;border-radius:50%;background:var(--s);color:var(--ac);margin:0 auto 10px;display:grid;place-items:center;border:1px solid var(--ln)">
+       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <button id="lv-room-choose-btn" type="button" style="padding:10px 18px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+       Fotoğraf Çek / Galeriden Yükle
       </button>
-      <div style="font-size:11px;color:var(--mu);margin-top:4px">Odanızın veya mobilyanın konulacağı alanın fotoğrafı</div>
+      <div style="font-size:11px;color:var(--mu);margin-top:8px">Odanızın gün ışığı alan geniş bir fotoğrafı en iyi sonucu verir</div>
      </div>
     </div>
 
-    <!-- Furniture Type Selection -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Hangi Mobilyayı Tasarlıyoruz? *</label>
-    <div id="lv-ai-item-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-     ${['Yemek Masası', 'Çalışma Masası', 'TV Ünitesi', 'Gardrop / Dolap', 'Konsol & Ayna', 'Kitaplık', 'Özel İmalat'].map(name => `
-      <button type="button" class="lv-chip-btn" data-val="${name}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--ln);background:var(--s2);color:var(--ink);cursor:pointer">${name}</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+     <button id="lv-skip-room-btn" type="button" style="background:none;border:none;color:var(--mu);font-size:12px;font-weight:700;cursor:pointer;padding:8px">
+      Fotoğrafsız Devam Et
+     </button>
+     <button id="lv-step-1-next" type="button" style="padding:11px 22px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      Devam Et
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+     </button>
+    </div>
+   </div>
+
+   <!-- STEP 2: FURNITURE REFERENCE & TYPE -->
+   <div id="lv-wizard-step-2" style="display:none">
+    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">2. Adım: Ne İstiyorsunuz?</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Mobilya türünü seçin veya beğendiğiniz bir modelin görselini ekleyin.</div>
+
+    <!-- Furniture Reference Photo (Optional) -->
+    <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:14px;padding:12px;margin-bottom:14px">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:var(--ink)">Beğendiğiniz Mobilya Görseli (İsteğe Bağlı)</span>
+      <span style="font-size:10px;color:var(--mu)">Pinterest, Katalog vb.</span>
+     </div>
+     <div id="lv-furn-preview-wrap" style="display:none;position:relative;margin-bottom:10px;border-radius:10px;overflow:hidden;border:1px solid var(--ln)">
+      <img id="lv-furn-preview-img" style="width:100%;max-height:160px;object-fit:cover;display:block">
+      <button id="lv-furn-remove-btn" type="button" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.75);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer">Görseli Kaldır</button>
+     </div>
+     <input type="file" id="lv-furn-file-input" accept="image/*" style="display:none">
+     <button id="lv-furn-choose-btn" type="button" style="width:100%;padding:9px;background:var(--s);color:var(--ink);border:1.5px dashed var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      Mobilya Referans Fotoğrafı Yükle
+     </button>
+    </div>
+
+    <!-- Category Chips -->
+    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Mobilya Türü</label>
+    <div id="lv-wiz-item-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+     ${['Çalışma Masası', 'Yemek Masası', 'TV Ünitesi', 'Gardrop / Dolap', 'Konsol & Ayna', 'Kitaplık', 'Özel İmalat'].map(name => `
+      <button type="button" class="lv-chip-btn ${name === selectedItemName ? 'selected' : ''}" data-val="${name}" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid ${name === selectedItemName ? 'var(--ac)' : 'var(--ln)'};background:${name === selectedItemName ? 'var(--ac)' : 'var(--s2)'};color:${name === selectedItemName ? '#fff' : 'var(--ink)'};cursor:pointer">${name}</button>
      `).join('')}
     </div>
-    <input id="lv-ai-item-name" placeholder="Ör: Masif Ahşap Yemek Masası" value="${esc(itName || 'Yemek Masası')}" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;margin-bottom:12px">
 
-    <!-- Dimensions -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Ölçüler (cm) *</label>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">
-     <div>
-      <span style="font-size:10px;color:var(--mu);font-weight:700;display:block;margin-bottom:2px">Genişlik (En)</span>
-      <input id="lv-ai-dim-w" type="number" value="180" placeholder="cm" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid var(--ln);border-radius:8px;background:var(--s2);color:var(--ink);font-size:13px;text-align:center">
-     </div>
-     <div>
-      <span style="font-size:10px;color:var(--mu);font-weight:700;display:block;margin-bottom:2px">Derinlik (Boy)</span>
-      <input id="lv-ai-dim-d" type="number" value="90" placeholder="cm" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid var(--ln);border-radius:8px;background:var(--s2);color:var(--ink);font-size:13px;text-align:center">
-     </div>
-     <div>
-      <span style="font-size:10px;color:var(--mu);font-weight:700;display:block;margin-bottom:2px">Yükseklik</span>
-      <input id="lv-ai-dim-h" type="number" value="75" placeholder="cm" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid var(--ln);border-radius:8px;background:var(--s2);color:var(--ink);font-size:13px;text-align:center">
-     </div>
+    <!-- Custom note / description -->
+    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Kısaca Nasıl Bir Şey Hayal Ediyorsunuz?</label>
+    <textarea id="lv-wiz-notes" rows="2" placeholder="Ör: Pencere önüne sade, doğal meşe tonlarında, metal detaylı bir masa…" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;margin-bottom:14px;resize:vertical"></textarea>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+     <button id="lv-step-2-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+      Geri
+     </button>
+     <button id="lv-step-2-next" type="button" style="padding:11px 22px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      Devam Et
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+     </button>
     </div>
-    <div id="lv-dim-presets" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">
-     ${['160x80x75', '180x90x75', '200x100x75', '240x100x75'].map(dim => `
-      <button type="button" class="lv-dim-chip" data-dim="${dim}" style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:var(--s);color:var(--mu);border:1px solid var(--ln);cursor:pointer">${dim.replace(/x/g, ' × ')} cm</button>
-     `).join('')}
+   </div>
+
+   <!-- STEP 3: GUIDED QUESTIONS -->
+   <div id="lv-wizard-step-3" style="display:none">
+    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">3. Adım: Yapay Zeka Tasarım Soruları</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Odanıza tam uyması için birkaç temel tercihi belirleyelim.</div>
+
+    <!-- Question 1: Placement -->
+    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Odanızın neresine yerleştirelim?</label>
+    <div id="lv-placement-chips" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+     <button type="button" class="lv-place-btn on" data-pos="pencere_onu" style="padding:10px;border-radius:10px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-align:left">
+      Pencere Önü / Aydınlık
+     </button>
+     <button type="button" class="lv-place-btn" data-pos="sol_duvar" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
+      Sol Duvar Boyunca
+     </button>
+     <button type="button" class="lv-place-btn" data-pos="sag_duvar" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
+      Sağ Duvar Alanı
+     </button>
+     <button type="button" class="lv-place-btn" data-pos="orta" style="padding:10px;border-radius:10px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;text-align:left">
+      Oda Ortası / Ada
+     </button>
     </div>
 
-    <!-- Material -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Malzeme ve Yüzey Tercihi *</label>
-    <select id="lv-ai-material" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;font-weight:600;margin-bottom:12px">
-     <option value="masif_mese">Masif Meşe (Doğal Ahşap)</option>
-     <option value="masif_ceviz">Masif Amerikan Ceviz</option>
-     <option value="lake">İpek Mat Lake Boya</option>
-     <option value="kaplama">Doğal Ahşap Kaplama & MDF</option>
-     <option value="mdflam">MDF Lam (Dayanıklı Kaplama)</option>
+    <!-- Question 2: Width Feeling -->
+    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Genişlik hissi nasıl olsun?</label>
+    <div id="lv-size-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+     <button type="button" class="lv-size-btn" data-w="140" data-d="70" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Kompakt (140 cm)</button>
+     <button type="button" class="lv-size-btn on" data-w="160" data-d="80" data-h="75" style="padding:7px 11px;border-radius:8px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;font-size:12px;font-weight:700;cursor:pointer">İdeal Standart (160 cm)</button>
+     <button type="button" class="lv-size-btn" data-w="180" data-d="90" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Geniş (180 cm)</button>
+     <button type="button" class="lv-size-btn" data-w="210" data-d="100" data-h="75" style="padding:7px 11px;border-radius:8px;border:1px solid var(--ln);background:var(--s2);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">Büyük (210+ cm)</button>
+    </div>
+
+    <!-- Question 3: Material -->
+    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Ahşap ve Malzeme Dokusu</label>
+    <select id="lv-wiz-material" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;font-weight:700;margin-bottom:18px">
+     <option value="masif_mese">Masif Meşe (Doğal Ahşap - Sıcak ve Dayanıklı)</option>
+     <option value="masif_ceviz">Masif Amerikan Ceviz (Koyu Asil Doku)</option>
+     <option value="lake">İpek Mat Lake Boya (Modern Mimari Yüzey)</option>
+     <option value="kaplama">Doğal Ahşap Kaplama & MDF (Dengeli Çözüm)</option>
+     <option value="mdflam">MDF Lam (Ekonomik ve Pratik Kaplama)</option>
     </select>
 
-    <!-- Style & Room Notes -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Tasarım Notlarınız / Mekan Detayları</label>
-    <textarea id="lv-ai-notes" rows="2" placeholder="Ör: Antrasit tonlarında salonumuz var, sıcak meşe dokusu ve siyah metal ayak istiyoruz…" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;margin-bottom:14px;resize:vertical"></textarea>
-
-    <!-- Action: Run AI Concept & Pricing -->
-    <button id="lv-run-ai-btn" type="button" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;margin-bottom:14px;box-shadow:0 6px 20px rgba(0,0,0,0.15)">
-     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-     Yapay Zeka ile Konsepti Görselleştir & Fiyat Hesapla
-    </button>
-
-    <!-- AI Results Card (Hidden until generated) -->
-    <div id="lv-ai-result-box" style="display:none;background:var(--s2);border:1.5px solid var(--ac);border-radius:16px;padding:16px;margin-bottom:14px">
-     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <span style="font-size:11px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:5px">
-       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-       3D Tasarım Konsepti & Bütçe Analizi
-      </span>
-      <span id="lv-ai-badge-time" style="font-size:11px;color:var(--mu)"></span>
-     </div>
-
-     <!-- Generated 3D concept preview -->
-     <div id="lv-ai-img-wrap" style="position:relative;margin-bottom:12px;display:none;border-radius:12px;overflow:hidden;border:1px solid var(--ln);background:#000">
-      <img id="lv-ai-preview-img" style="width:100%;max-height:240px;object-fit:cover;display:block;cursor:pointer">
-      <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700">Tam Ekran Gör</div>
-     </div>
-
-     <!-- Price Estimate Banner -->
-     <div style="background:var(--s);border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div>
-       <div style="font-size:11px;color:var(--mu);font-weight:700">Tahmini Bütçe Aralığı</div>
-       <div id="lv-ai-est-price" style="font-size:18px;font-weight:900;color:var(--ac);margin-top:2px"></div>
-      </div>
-      <div id="lv-ai-est-days" style="font-size:11px;color:var(--ink);background:var(--s2);padding:5px 10px;border-radius:8px;font-weight:700;border:1px solid var(--ln)"></div>
-     </div>
-
-     <!-- Spec Chips -->
-     <div id="lv-ai-spec-chips" style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--mu)"></div>
-     <div style="font-size:11px;color:var(--mu);margin-top:8px;line-height:1.4">
-      Nihai fiyat mekan keşfi, aksesuar seçimleri (Blum / Häfele donanım) ve montaj şartlarına göre teklif aşamasında kesinleşir.
-     </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+     <button id="lv-step-3-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+      Geri
+     </button>
+     <button id="lv-step-3-run" type="button" style="flex:1;padding:12px 18px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 6px 18px rgba(0,0,0,0.18)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Mekanda Canlandır ve Fiyatla
+     </button>
     </div>
    </div>
 
-   <!-- PANEL 2: SIMPLE REQUEST FORM -->
-   <div id="lv-panel-simple" style="display:none">
-    <label style="font-size:13px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">İlgili Ürün <span style="color:var(--mu);font-weight:400">(isteğe bağlı)</span></label>
-    <input id="lv-creq-item" placeholder="Ör: Konsol & Ayna veya Genel Proje..." value="${esc(itName)}" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:14px;margin-bottom:12px">
-    <label style="font-size:13px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Konu *</label>
-    <input id="lv-creq-subject" placeholder="Ör: Teslimat tarihi / Ölçü revizyonu" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:14px;margin-bottom:12px">
-    <label style="font-size:13px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Açıklama *</label>
-    <textarea id="lv-creq-text" rows="4" placeholder="Talebinizi detaylı açıklayın…" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:14px;margin-bottom:16px;resize:vertical"></textarea>
-   </div>
+   <!-- STEP 4: LIVE IN-ROOM PREVIEW & ESTIMATE -->
+   <div id="lv-wizard-step-4" style="display:none">
+    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">4. Adım: Mekanda Görünüm & Bütçe</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:12px">Odanızın açısı birebir korunarak mobilyanız yerleştirildi. İnce ayar yapabilirsiniz.</div>
 
-   <!-- Submit Error & Button -->
-   <div id="lv-creq-err" style="color:#f87171;font-size:13px;margin-bottom:8px;display:none"></div>
-   <button id="lv-creq-send" style="width:100%;padding:13px;background:var(--ac);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    Talebi Gönder
-   </button>
+    <!-- Live In-Room Preview Frame -->
+    <div id="lv-preview-container" style="position:relative;margin-bottom:10px;border-radius:14px;overflow:hidden;border:1.5px solid var(--ac);background:#000;text-align:center">
+     <img id="lv-final-preview-img" style="width:100%;max-height:280px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">
+     <div id="lv-toggle-original-btn" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);display:inline-flex;align-items:center;gap:5px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
+      Orijinal Odayı Gör
+     </div>
+     <div id="lv-preview-fullscreen-btn" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px)">
+      Tam Ekran
+     </div>
+    </div>
+
+    <!-- Interactive In-Room Placement Controls -->
+    <div style="background:var(--s2);border-radius:12px;padding:10px;margin-bottom:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+     <div style="font-size:11px;font-weight:800;color:var(--mu)">Konum:</div>
+     <div style="display:flex;gap:4px">
+      <button type="button" class="lv-tune-pos" data-pos="pencere_onu" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Pencere</button>
+      <button type="button" class="lv-tune-pos" data-pos="sol_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sol</button>
+      <button type="button" class="lv-tune-pos" data-pos="sag_duvar" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sağ</button>
+      <button type="button" class="lv-tune-pos" data-pos="orta" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Orta</button>
+     </div>
+     <div style="display:flex;gap:4px">
+      <button id="lv-scale-down-btn" type="button" title="Küçült" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:800;cursor:pointer">−</button>
+      <button id="lv-scale-up-btn" type="button" title="Büyüt" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:800;cursor:pointer">+</button>
+      <button id="lv-flip-btn" type="button" title="Yatay Çevir" style="padding:4px 8px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Çevir</button>
+     </div>
+    </div>
+
+    <!-- Pricing and Specs Card -->
+    <div style="background:var(--s2);border-radius:14px;padding:12px 16px;border:1px solid var(--ln);margin-bottom:14px">
+     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <div>
+       <div style="font-size:11px;color:var(--mu);font-weight:700">Tahmini İmalat Bütçesi</div>
+       <div id="lv-final-price-text" style="font-size:19px;font-weight:900;color:var(--ac);margin-top:2px"></div>
+      </div>
+      <div id="lv-final-days-text" style="font-size:11px;color:var(--ink);background:var(--s);padding:5px 10px;border-radius:8px;font-weight:700;border:1px solid var(--ln)"></div>
+     </div>
+     <div id="lv-final-specs-chip" style="font-size:11px;color:var(--mu);font-weight:600"></div>
+     <div style="font-size:10px;color:var(--mu);margin-top:6px;line-height:1.4">
+      Nihai fiyat mekan keşfi, aksesuar seçimleri (Blum / Häfele ray donanımı) ve montaj şartlarına göre teklif aşamasında kesinleşir.
+     </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:10px">
+     <button id="lv-step-4-back" type="button" style="padding:11px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+      Geri
+     </button>
+     <button id="lv-creq-send-final" type="button" style="flex:1;padding:12px;background:var(--ac);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Talebi Yöneticiye Gönder
+     </button>
+    </div>
+   </div>
   </div>`;
 
   document.body.append(md);
-  md.onclick=e=>{if(e.target===md)md.remove()};
-  document.getElementById('lv-creq-close').onclick=()=>md.remove();
+  md.onclick = e => { if (e.target === md) md.remove(); };
+  document.getElementById('lv-creq-close').onclick = () => md.remove();
 
-  // Mode switcher logic
-  const btnAi = document.getElementById('lv-mode-ai');
-  const btnSimple = document.getElementById('lv-mode-simple');
-  const panelAi = document.getElementById('lv-panel-ai');
-  const panelSimple = document.getElementById('lv-panel-simple');
-
-  btnAi.onclick = () => {
-    currentTab = 'ai';
-    btnAi.style.background = 'var(--ac)'; btnAi.style.color = '#fff';
-    btnSimple.style.background = 'transparent'; btnSimple.style.color = 'var(--ink)';
-    panelAi.style.display = 'block'; panelSimple.style.display = 'none';
-  };
-  btnSimple.onclick = () => {
-    currentTab = 'simple';
-    btnSimple.style.background = 'var(--ac)'; btnSimple.style.color = '#fff';
-    btnAi.style.background = 'transparent'; btnAi.style.color = 'var(--ink)';
-    panelSimple.style.display = 'block'; panelAi.style.display = 'none';
+  // Helper to update progress step
+  const goToStep = (step) => {
+    currentStep = step;
+    for (let s = 1; s <= 4; s++) {
+      const p = document.getElementById('lv-wizard-step-' + s);
+      const b = document.getElementById('lv-step-bar-' + s);
+      if (p) p.style.display = s === step ? 'block' : 'none';
+      if (b) b.style.background = s <= step ? 'var(--ac)' : 'var(--ln)';
+    }
   };
 
-  // Item chips selection
-  document.querySelectorAll('#lv-ai-item-chips .lv-chip-btn').forEach(btn => {
+  // --- STEP 1 LOGIC ---
+  const roomFileInput = document.getElementById('lv-room-file-input');
+  const roomChooseBtn = document.getElementById('lv-room-choose-btn');
+  const roomPreviewWrap = document.getElementById('lv-room-preview-wrap');
+  const roomPreviewImg = document.getElementById('lv-room-preview-img');
+  const roomRemoveBtn = document.getElementById('lv-room-remove-btn');
+  const roomUploadZone = document.getElementById('lv-room-upload-zone');
+
+  roomChooseBtn.onclick = () => roomFileInput.click();
+  roomRemoveBtn.onclick = () => {
+    uploadedSpacePhoto = '';
+    roomFileInput.value = '';
+    roomPreviewWrap.style.display = 'none';
+    roomUploadZone.style.display = 'block';
+  };
+
+  roomFileInput.onchange = async () => {
+    if (roomFileInput.files && roomFileInput.files[0]) {
+      try {
+        roomChooseBtn.textContent = 'Görsel işleniyor…';
+        uploadedSpacePhoto = await window._lvCompressImageFile(roomFileInput.files[0], 1200, 0.85);
+        roomPreviewImg.src = uploadedSpacePhoto;
+        roomPreviewWrap.style.display = 'block';
+        roomUploadZone.style.display = 'none';
+      } catch (err) {
+        if (typeof toast === 'function') toast('Fotoğraf yüklenemedi: ' + err.message);
+      } finally {
+        roomChooseBtn.textContent = 'Fotoğraf Çek / Galeriden Yükle';
+      }
+    }
+  };
+
+  document.getElementById('lv-skip-room-btn').onclick = () => goToStep(2);
+  document.getElementById('lv-step-1-next').onclick = () => goToStep(2);
+
+  // --- STEP 2 LOGIC ---
+  const furnFileInput = document.getElementById('lv-furn-file-input');
+  const furnChooseBtn = document.getElementById('lv-furn-choose-btn');
+  const furnPreviewWrap = document.getElementById('lv-furn-preview-wrap');
+  const furnPreviewImg = document.getElementById('lv-furn-preview-img');
+  const furnRemoveBtn = document.getElementById('lv-furn-remove-btn');
+
+  furnChooseBtn.onclick = () => furnFileInput.click();
+  furnRemoveBtn.onclick = () => {
+    uploadedFurnPhoto = '';
+    furnFileInput.value = '';
+    furnPreviewWrap.style.display = 'none';
+    furnChooseBtn.style.display = 'inline-flex';
+  };
+
+  furnFileInput.onchange = async () => {
+    if (furnFileInput.files && furnFileInput.files[0]) {
+      try {
+        furnChooseBtn.textContent = 'Yükleniyor…';
+        uploadedFurnPhoto = await window._lvCompressImageFile(furnFileInput.files[0], 900, 0.82);
+        furnPreviewImg.src = uploadedFurnPhoto;
+        furnPreviewWrap.style.display = 'block';
+        furnChooseBtn.style.display = 'none';
+      } catch (err) {
+        if (typeof toast === 'function') toast('Mobilya fotoğrafı yüklenemedi');
+      } finally {
+        furnChooseBtn.textContent = 'Mobilya Referans Fotoğrafı Yükle';
+      }
+    }
+  };
+
+  document.querySelectorAll('#lv-wiz-item-chips .lv-chip-btn').forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll('#lv-ai-item-chips .lv-chip-btn').forEach(b => {
+      document.querySelectorAll('#lv-wiz-item-chips .lv-chip-btn').forEach(b => {
         b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
       });
       btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
-      const val = btn.dataset.val;
-      document.getElementById('lv-ai-item-name').value = val;
-      
-      // Smart standard dimensions per furniture type
-      if (/yemek/i.test(val)) {
-        document.getElementById('lv-ai-dim-w').value = 180;
-        document.getElementById('lv-ai-dim-d').value = 90;
-        document.getElementById('lv-ai-dim-h').value = 75;
-      } else if (/çalışma/i.test(val)) {
-        document.getElementById('lv-ai-dim-w').value = 140;
-        document.getElementById('lv-ai-dim-d').value = 70;
-        document.getElementById('lv-ai-dim-h').value = 75;
-      } else if (/tv/i.test(val)) {
-        document.getElementById('lv-ai-dim-w').value = 220;
-        document.getElementById('lv-ai-dim-d').value = 45;
-        document.getElementById('lv-ai-dim-h').value = 55;
-      } else if (/gardrop/i.test(val)) {
-        document.getElementById('lv-ai-dim-w').value = 240;
-        document.getElementById('lv-ai-dim-d').value = 60;
-        document.getElementById('lv-ai-dim-h').value = 230;
-      } else if (/konsol/i.test(val)) {
-        document.getElementById('lv-ai-dim-w').value = 180;
-        document.getElementById('lv-ai-dim-d').value = 45;
-        document.getElementById('lv-ai-dim-h').value = 85;
-      }
+      selectedItemName = btn.dataset.val;
+
+      // Smart default dimensions
+      if (/yemek/i.test(selectedItemName)) { selectedW = 180; selectedD = 90; selectedH = 75; }
+      else if (/çalışma/i.test(selectedItemName)) { selectedW = 160; selectedD = 75; selectedH = 75; }
+      else if (/tv/i.test(selectedItemName)) { selectedW = 210; selectedD = 45; selectedH = 55; }
+      else if (/gardrop/i.test(selectedItemName)) { selectedW = 240; selectedD = 60; selectedH = 230; }
+      else if (/konsol/i.test(selectedItemName)) { selectedW = 180; selectedD = 45; selectedH = 85; }
     };
   });
 
-  // Preset dimension chips
-  document.querySelectorAll('#lv-dim-presets .lv-dim-chip').forEach(btn => {
+  document.getElementById('lv-step-2-back').onclick = () => goToStep(1);
+  document.getElementById('lv-step-2-next').onclick = () => goToStep(3);
+
+  // --- STEP 3 LOGIC ---
+  document.querySelectorAll('#lv-placement-chips .lv-place-btn').forEach(btn => {
     btn.onclick = () => {
-      const [w, d, h] = btn.dataset.dim.split('x');
-      document.getElementById('lv-ai-dim-w').value = w;
-      document.getElementById('lv-ai-dim-d').value = d;
-      document.getElementById('lv-ai-dim-h').value = h;
+      document.querySelectorAll('#lv-placement-chips .lv-place-btn').forEach(b => {
+        b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
+      });
+      btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
+      currentPlacement = btn.dataset.pos;
     };
   });
 
-  // Photo Upload Handling
-  const photoInput = document.getElementById('lv-photo-input');
-  const choosePhotoBtn = document.getElementById('lv-choose-photo-btn');
-  const photoPreviewWrap = document.getElementById('lv-photo-preview-wrap');
-  const spacePhotoImg = document.getElementById('lv-space-photo-img');
-  const removePhotoBtn = document.getElementById('lv-remove-photo-btn');
+  document.querySelectorAll('#lv-size-chips .lv-size-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('#lv-size-chips .lv-size-btn').forEach(b => {
+        b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
+      });
+      btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
+      selectedW = +btn.dataset.w;
+      selectedD = +btn.dataset.d;
+      selectedH = +btn.dataset.h;
+    };
+  });
 
-  choosePhotoBtn.onclick = () => photoInput.click();
-  photoInput.onchange = async () => {
-    if (photoInput.files && photoInput.files[0]) {
-      try {
-        choosePhotoBtn.textContent = 'Görsel işleniyor…';
-        uploadedSpacePhoto = await window._lvCompressImageFile(photoInput.files[0]);
-        spacePhotoImg.src = uploadedSpacePhoto;
-        photoPreviewWrap.style.display = 'block';
-        choosePhotoBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğrafı Değiştir';
-      } catch (err) {
-        if (typeof toast === 'function') toast('Fotoğraf yüklenemedi: ' + err.message);
-        choosePhotoBtn.textContent = 'Mekan / Alan Fotoğrafı Ekle';
-      }
+  document.getElementById('lv-step-3-back').onclick = () => goToStep(2);
+
+  const renderCompositePreview = async () => {
+    const finalImgEl = document.getElementById('lv-final-preview-img');
+    const furnSrc = uploadedFurnPhoto || generatedIsolatedFurn;
+
+    if (uploadedSpacePhoto && furnSrc) {
+      finalCompositeImage = await window.LavoraAI.compositeInRoom(uploadedSpacePhoto, furnSrc, {
+        placement: currentPlacement,
+        scaleFactor: currentScale,
+        flipX: currentFlip
+      });
+      finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
+    } else if (uploadedSpacePhoto && !furnSrc) {
+      finalImgEl.src = uploadedSpacePhoto;
+      finalCompositeImage = uploadedSpacePhoto;
+    } else if (furnSrc) {
+      finalImgEl.src = furnSrc;
+      finalCompositeImage = furnSrc;
     }
   };
-  removePhotoBtn.onclick = () => {
-    uploadedSpacePhoto = '';
-    photoInput.value = '';
-    photoPreviewWrap.style.display = 'none';
-    choosePhotoBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Mekan / Alan Fotoğrafı Ekle (İsteğe Bağlı)';
-  };
 
-  // Run AI Button
-  const runAiBtn = document.getElementById('lv-run-ai-btn');
-  const resultBox = document.getElementById('lv-ai-result-box');
-  const estPriceEl = document.getElementById('lv-ai-est-price');
-  const estDaysEl = document.getElementById('lv-ai-est-days');
-  const specChipsEl = document.getElementById('lv-ai-spec-chips');
-  const previewImg = document.getElementById('lv-ai-preview-img');
-  const imgWrap = document.getElementById('lv-ai-img-wrap');
+  document.getElementById('lv-step-3-run').onclick = async () => {
+    const runBtn = document.getElementById('lv-step-3-run');
+    runBtn.disabled = true;
+    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Tasarım mekanınıza yerleştiriliyor…';
 
-  runAiBtn.onclick = async () => {
-    const it = (document.getElementById('lv-ai-item-name').value || 'Özel Mobilya').trim();
-    const w = +(document.getElementById('lv-ai-dim-w').value || 180);
-    const d = +(document.getElementById('lv-ai-dim-d').value || 90);
-    const h = +(document.getElementById('lv-ai-dim-h').value || 75);
-    const matVal = document.getElementById('lv-ai-material').value;
-    const notes = (document.getElementById('lv-ai-notes').value || '').trim();
-
-    runAiBtn.disabled = true;
-    runAiBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Yapay zeka tasarım ve bütçeyi hazırlıyor…';
+    selectedMaterial = document.getElementById('lv-wiz-material').value;
+    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
 
     try {
       // 1. Calculate pricing
-      currentAiEstimate = window.LavoraAI.estimatePricing(it, w, d, h, matVal);
-      estPriceEl.textContent = currentAiEstimate.formatted;
-      estDaysEl.textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
-      specChipsEl.innerHTML = `
-        <span style="background:var(--s);padding:3px 8px;border-radius:6px;border:1px solid var(--ln);font-weight:700">Ölçü: ${w} × ${d} × ${h} cm</span>
-        <span style="background:var(--s);padding:3px 8px;border-radius:6px;border:1px solid var(--ln);font-weight:700">Malzeme: ${currentAiEstimate.materialLabel}</span>
-      `;
+      currentAiEstimate = window.LavoraAI.estimatePricing(selectedItemName, selectedW, selectedD, selectedH, selectedMaterial);
+      document.getElementById('lv-final-price-text').textContent = currentAiEstimate.formatted;
+      document.getElementById('lv-final-days-text').textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
+      document.getElementById('lv-final-specs-chip').textContent = `Ölçü: ${selectedW} × ${selectedD} × ${selectedH} cm · ${currentAiEstimate.materialLabel} · Konum: ${currentPlacement.replace(/_/g, ' ')}`;
 
-      // 2. Generate 3D concept image
-      const prompt = window.LavoraAI.buildImagePrompt(it, w, d, h, currentAiEstimate.materialLabel, notes);
-      generatedConceptImg = await window.LavoraAI.generateConceptImage(prompt);
-
-      if (generatedConceptImg) {
-        previewImg.src = generatedConceptImg;
-        imgWrap.style.display = 'block';
-        previewImg.onclick = () => {
-          if (typeof window._lvImgModal === 'function') window._lvImgModal(generatedConceptImg, [generatedConceptImg], 0);
-        };
-      } else {
-        imgWrap.style.display = 'none';
+      // 2. Obtain furniture visual: if user didn't upload reference, generate isolated cutout
+      if (!uploadedFurnPhoto && !generatedIsolatedFurn) {
+        const prompt = window.LavoraAI.buildImagePrompt(selectedItemName, selectedW, selectedD, selectedH, currentAiEstimate.materialLabel, notes);
+        generatedIsolatedFurn = await window.LavoraAI.generateConceptImage(prompt);
       }
 
-      resultBox.style.display = 'block';
-      resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      if (typeof toast === 'function') toast('Tasarım analizi ve bütçe aralığı başarıyla hesaplandı');
+      // 3. Composite into room
+      await renderCompositePreview();
+
+      goToStep(4);
+      if (typeof toast === 'function') toast('Tasarım mekanınıza başarıyla yerleştirildi');
     } catch (err) {
-      console.error('[LavoraAI] Error:', err);
-      if (typeof toast === 'function') toast('Hesaplama tamamlandı');
+      console.error('[LavoraAI Wizard] error:', err);
+      goToStep(4);
     } finally {
-      runAiBtn.disabled = false;
-      runAiBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Analizi Yenile';
+      runBtn.disabled = false;
+      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Mekanda Canlandır ve Fiyatla';
     }
   };
 
-  // Final Submit
-  document.getElementById('lv-creq-send').onclick=async()=>{
-   const errEl=document.getElementById('lv-creq-err');
-   errEl.style.display='none';
-   const btn=document.getElementById('lv-creq-send');
+  // --- STEP 4 CONTROLS ---
+  document.querySelectorAll('.lv-tune-pos').forEach(btn => {
+    btn.onclick = async () => {
+      document.querySelectorAll('.lv-tune-pos').forEach(b => { b.style.background = 'var(--s)'; b.style.color = 'var(--ink)'; });
+      btn.style.background = 'var(--ac)'; btn.style.color = '#fff';
+      currentPlacement = btn.dataset.pos;
+      showingOriginal = false;
+      await renderCompositePreview();
+    };
+  });
 
-   let payload = {
-     uid: currentUser.uid,
-     email: currentUser.email || '',
-     projectId: pId,
-     projectName: pName,
-     itemId: itId,
-     createdAt: Date.now(),
-     status: 'open'
-   };
-
-   if (currentTab === 'ai') {
-     const it = (document.getElementById('lv-ai-item-name').value || 'Özel Mobilya').trim();
-     const w = +(document.getElementById('lv-ai-dim-w').value || 180);
-     const d = +(document.getElementById('lv-ai-dim-d').value || 90);
-     const h = +(document.getElementById('lv-ai-dim-h').value || 75);
-     const matVal = document.getElementById('lv-ai-material').value;
-     const notes = (document.getElementById('lv-ai-notes').value || '').trim();
-
-     if (!currentAiEstimate) {
-       currentAiEstimate = window.LavoraAI.estimatePricing(it, w, d, h, matVal);
-     }
-
-     payload.itemName = it;
-     payload.subject = `Özel Tasarım: ${it} (${currentAiEstimate.materialLabel.split('(')[0].trim()})`;
-     payload.text = notes || `${it} için ${w}x${d}x${h} cm ölçülerinde ${currentAiEstimate.materialLabel} tercih edilmiştir.`;
-     payload.dimensions = `${w} × ${d} × ${h} cm`;
-     payload.material = currentAiEstimate.materialLabel;
-     payload.aiEstimate = currentAiEstimate.formatted;
-     if (generatedConceptImg) payload.aiConceptImage = generatedConceptImg;
-     if (uploadedSpacePhoto) payload.customerPhoto = uploadedSpacePhoto;
-     payload.isAiAssisted = true;
-   } else {
-     const subj=(document.getElementById('lv-creq-subject').value||'').trim();
-     const txt=(document.getElementById('lv-creq-text').value||'').trim();
-     const item=(document.getElementById('lv-creq-item').value||'').trim();
-     if(!subj||!txt){errEl.textContent='Lütfen konu ve açıklama alanlarını doldurun.';errEl.style.display='block';return;}
-     payload.itemName = item || itName;
-     payload.subject = subj;
-     payload.text = txt;
-   }
-
-   btn.disabled=true;btn.textContent='Gönderiliyor…';
-   try{
-    const reqId='req_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    await path('customer_requests').child(currentUser.uid).child(reqId).set(payload);
-    md.remove();
-    document.getElementById('lv-ctab-req').click();
-    if(typeof toast==='function') toast('Talebiniz başarıyla yöneticiye iletildi');
-   }catch(e2){btn.disabled=false;btn.textContent='Talebi Gönder';errEl.textContent='Hata: '+e2.message;errEl.style.display='block';}
+  document.getElementById('lv-scale-up-btn').onclick = async () => {
+    currentScale = Math.min(1.4, currentScale + 0.08);
+    showingOriginal = false;
+    await renderCompositePreview();
   };
- };
 
+  document.getElementById('lv-scale-down-btn').onclick = async () => {
+    currentScale = Math.max(0.65, currentScale - 0.08);
+    showingOriginal = false;
+    await renderCompositePreview();
+  };
+
+  document.getElementById('lv-flip-btn').onclick = async () => {
+    currentFlip = !currentFlip;
+    showingOriginal = false;
+    await renderCompositePreview();
+  };
+
+  const toggleOrigBtn = document.getElementById('lv-toggle-original-btn');
+  toggleOrigBtn.onclick = () => {
+    if (!uploadedSpacePhoto) return;
+    showingOriginal = !showingOriginal;
+    const finalImgEl = document.getElementById('lv-final-preview-img');
+    finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
+    toggleOrigBtn.innerHTML = showingOriginal 
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Mobilyalı Görünüme Dön'
+      : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg> Orijinal Odayı Gör';
+  };
+
+  const openFullscreen = () => {
+    const src = showingOriginal ? uploadedSpacePhoto : (finalCompositeImage || uploadedSpacePhoto || uploadedFurnPhoto);
+    if (src && typeof window._lvImgModal === 'function') {
+      window._lvImgModal(src, [src], 0, selectedItemName || 'Tasarım Görseli');
+    }
+  };
+  document.getElementById('lv-preview-fullscreen-btn').onclick = openFullscreen;
+  document.getElementById('lv-final-preview-img').onclick = openFullscreen;
+
+  document.getElementById('lv-step-4-back').onclick = () => goToStep(3);
+
+  // Final Submit Button
+  document.getElementById('lv-creq-send-final').onclick = async () => {
+    const btn = document.getElementById('lv-creq-send-final');
+    btn.disabled = true;
+    btn.textContent = 'Gönderiliyor…';
+
+    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
+    if (!currentAiEstimate) {
+      currentAiEstimate = window.LavoraAI.estimatePricing(selectedItemName, selectedW, selectedD, selectedH, selectedMaterial);
+    }
+
+    const payload = {
+      uid: currentUser.uid,
+      email: currentUser.email || '',
+      projectId: pId,
+      projectName: pName,
+      itemId: itId,
+      itemName: selectedItemName,
+      subject: `Özel Tasarım: ${selectedItemName} (${currentAiEstimate.materialLabel.split('(')[0].trim()})`,
+      text: notes || `${selectedItemName} için ${selectedW}x${selectedD}x${selectedH} cm ölçülerinde, ${currentPlacement.replace(/_/g, ' ')} yerleşimi ve ${currentAiEstimate.materialLabel} tercih edilmiştir.`,
+      dimensions: `${selectedW} × ${selectedD} × ${selectedH} cm`,
+      material: currentAiEstimate.materialLabel,
+      placement: currentPlacement,
+      aiEstimate: currentAiEstimate.formatted,
+      isAiAssisted: true,
+      createdAt: Date.now(),
+      status: 'open'
+    };
+
+    if (finalCompositeImage) payload.aiConceptImage = finalCompositeImage;
+    if (uploadedSpacePhoto) payload.customerPhoto = uploadedSpacePhoto;
+    if (uploadedFurnPhoto) payload.furnitureReference = uploadedFurnPhoto;
+
+    try {
+      const reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      await path('customer_requests').child(currentUser.uid).child(reqId).set(payload);
+      md.remove();
+      const tabReq = document.getElementById('lv-ctab-req');
+      if (tabReq) tabReq.click();
+      if (typeof toast === 'function') toast('Tasarım talebiniz başarıyla mimari ekibimize iletildi');
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Talebi Yöneticiye Gönder';
+      if (typeof toast === 'function') toast('Gönderilemedi: ' + err.message);
+    }
+  };
+};
 
 const $=s=>document.querySelector(s),LS=localStorage,D={logo:'data:image/jpeg;base64,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',key:''};
 const ld=(k,d)=>{try{return JSON.parse(LS.getItem(k))||d}catch(e){return d}};
@@ -1376,7 +1630,50 @@ r.ph.forEach(i=>ldImg(i,$('#th'+i)))}
 const mkIn=(acc,fn)=>{const i=document.createElement('input');i.type='file';i.accept=acc;i.hidden=true;document.body.append(i);i.onchange=async e=>{const f=e.target.files[0];e.target.value='';f&&fn(f)};return i},
 lfi=mkIn('image/*',async f=>{if(!LD)return;try{const b=await shrink(f),id=uid(),u=await rd(b);await tx('readwrite',s=>s.put({id,img:u}),'rcpt');LD.ph.push(id);dbg('Fiş kaydedildi: '+Math.round(u.length/1024)+' KB');lf()}catch(x){dbg('Fiş hatası: '+(x?.message||x));toast('Fotoğraf eklenemedi')}});lfi.setAttribute('capture','environment');
 const lfj=mkIn('.json,application/json',async f=>{try{const j=JSON.parse(await f.text());if(j.app!='lavora-defter'||!Array.isArray(j.led))throw new Error('Bu bir defter yedeği değil');const L=j.led.filter(o=>o&&o.id&&o.d&&typeof o.a=='number');if(!await sure({icon:'copy',title:'Yedek içe aktarılsın mı?',text:`${L.length} kayıt ve ${(j.rcpt||[]).length} fiş aktarılacak. Aynı kayıtlar güncellenir, mevcutlar silinmez.`,ok:'İçe aktar'}))return;const R=[];for(const o of j.rcpt||[])R.push({id:o.id,img:o.img});await tx('readwrite',s=>R.forEach(o=>s.put(o)),'rcpt');await tx('readwrite',s=>L.forEach(o=>s.put(o)),'led');S.cg=[...new Set([...(S.cg||[]),...(j.cg||[])])];S.ci=[...new Set([...(S.ci||[]),...(j.ci||[])])];save();await lload();render();toast(`İçe aktarıldı: ${L.length} kayıt`)}catch(x){dbg('İçe aktarma hatası: '+(x?.message||x));toast('İçe aktarılamadı: '+(x?.message||'bozuk dosya'),5e3)}});
-async function lexp(){try{const[A,B]=await Promise.all([tx('readonly',s=>s.getAll(),'led').catch(()=>[]),tx('readonly',s=>s.getAll(),'rcpt').catch(()=>[])]),R=[];for(const o of(B||[])){try{R.push({id:o.id,img:await sr(o)})}catch(e){if(o&&o.img)R.push({id:o.id,img:o.img})}}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'lavora-defter',v:1,t:Date.now(),led:A||[],rcpt:R,cg:(typeof S!=='undefined'&&S.cg)||[],ci:(typeof S!=='undefined'&&S.ci)||[]})],{type:'application/json'}));a.download='defter-yedek-'+today()+'.json';document.body.append(a);a.click();setTimeout(()=>a.remove(),2000);if(typeof S!=='undefined')S.lb=Date.now();if(typeof save==='function')save();if(typeof render==='function')render();toast(`Yedek indirildi: ${(A||[]).length} kayıt, ${R.length} fiş`,4e3)}catch(x){dbg('Yedek hatası: '+(x?.message||x));toast('Yedek alınamadı: '+(x?.message||'hata'))}};window.lexp=lexp;window.lfj=lfj;
+async function lexp(){
+  try{
+    toast('Defter yedeği hazırlanıyor…', 9e5);
+    let A = [], B = [];
+    try {
+      const pLed = tx('readonly', s => s.getAll(), 'led');
+      const pRc = tx('readonly', s => s.getAll(), 'rcpt');
+      [A, B] = await Promise.race([
+        Promise.all([pLed, pRc]),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+      ]);
+    } catch(e) {
+      A = (typeof LR !== 'undefined' && Array.isArray(LR)) ? LR : [];
+    }
+    const R = [];
+    for (const o of (B || [])) {
+      try { R.push({ id: o.id, img: await sr(o) }); } catch(e) { if (o && o.img) R.push({ id: o.id, img: o.img }); }
+    }
+    const blob = new Blob([JSON.stringify({
+      app: 'lavora-defter',
+      v: 1,
+      t: Date.now(),
+      led: A || [],
+      rcpt: R,
+      cg: (typeof S !== 'undefined' && S.cg) || [],
+      ci: (typeof S !== 'undefined' && S.ci) || []
+    })], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'defter-yedek-' + today() + '.json';
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 3000);
+    if (typeof S !== 'undefined') S.lb = Date.now();
+    if (typeof save === 'function') save();
+    if (typeof render === 'function') render();
+    document.querySelector('.toast')?.remove();
+    toast(`Defter yedeği indirildi: ${(A||[]).length} kayıt, ${R.length} fiş`, 4e3);
+  } catch(x){
+    document.querySelector('.toast')?.remove();
+    dbg('Yedek hatası: ' + (x?.message || x));
+    toast('Yedek alınamadı: ' + (x?.message || 'hata'));
+  }
+}; window.lexp = lexp;
 ['input','change'].forEach(t=>document.addEventListener(t,e=>{const k=e.target.dataset?.lf;if(!k||!LD)return;LD[k]=e.target.value;if(t=='change'&&k=='note'){let c=0;if(!num(LD.a)&&/\d[\d.,]*\s*(bin|lira|tl|₺)/i.test(LD.note)){LD.a=String(pa(LD.note)).replace('.',',');c=1}if(!LD.cat&&LD.k=='g')for(const[q,x]of Object.entries(KW))if(x.test(LD.note)){LD.cat=q;c=1;break}if(c)lf()}}));
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,d=b.dataset;
 if(a=='led'){led=true;cur=null;LD=null;close();render();scrollTo(0,0)}else if(a=='home'){led=false;LD=null;render()}
@@ -1466,7 +1763,56 @@ err=x=>{document.querySelector('.toast')?.remove();dbg('HATA: '+(x?.message||x))
 /* fotoğraf deposu */
 const wcv=async(src,mx,q)=>{const b=typeof src=='string'?await(await fetch(src)).blob():src,im=await createImageBitmap(b),k=Math.min(1,mx/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);im.close?.();return c.toDataURL('image/jpeg',q)},
 wadd=async f=>{const id=wid();let img,th;try{img=await wcv(f,1280,.78);th=await wcv(img,260,.72)}catch(e){img=await rd(f);th=img}WC[id]=th;if(window.WC)window.WC[id]=th;try{await tx('readwrite',s=>s.put({id,t:Date.now(),img,th}),'wph')}catch(e){dbg('wph kaydetme hatası: '+(e&&e.message||e))}return id},
-wget=async(id,full)=>{if(!id)return'';if(!full&&(WC[id]||(window.WC&&window.WC[id])))return WC[id]||window.WC[id];let u='';if(!full){try{const dom=document.querySelector('img[data-wp="'+id+'"]');if(dom&&dom.src&&dom.src.length>20&&!dom.src.endsWith('/'))return dom.src}catch(e){}}if(typeof P!=='undefined'&&Array.isArray(P)){try{for(const p of P){if(!p||!p.w||!Array.isArray(p.w.items))continue;for(const it of p.w.items){if(!it||!Array.isArray(it.phData))continue;const f=it.phData.find(x=>x&&x.id===id);if(f){if(full&&(f.img||f.dataUrl))return f.img||f.dataUrl;if(!full&&(f.th||f.dataUrl||f.img))return f.th||f.dataUrl||f.img}}if(u)break}}catch(e){}}if(!u){try{const o=await tx('readonly',s=>s.get(id),'wph');if(o)u=full?(o.img||o.th):(o.th||o.img)}catch(e){}}if(!u){try{if(typeof path==='function'){const tPromise=new Promise(res=>setTimeout(()=>res(null),2000));const fPromise=path('workflow_photos').child(String(id)).once('value');const snap=await Promise.race([fPromise,tPromise]);if(snap&&snap.exists&&snap.exists()){const o=snap.val();u=full?(o.imgPath||o.img||o.thPath||o.th):(o.thPath||o.th||o.imgPath||o.img)}}}catch(e){}}if(!u)u=WC[id]||(window.WC&&window.WC[id])||'';if(u){WC[id]=u;if(window.WC)window.WC[id]=u}return u||''},
+wget=async(id,full)=>{
+  if(!id)return'';
+  const mem=(window.WC&&window.WC[id])||(typeof WC!=='undefined'&&WC[id]);
+  if(!full&&mem)return mem;
+  let u='';
+  try{
+    const dom=document.querySelector('img[data-wp="'+id+'"]');
+    if(dom&&dom.src&&dom.src.length>20&&!dom.src.endsWith('/')){
+      if(!full)return dom.src;
+      u=dom.src;
+    }
+  }catch(e){}
+  if(!u&&typeof P!=='undefined'&&Array.isArray(P)){
+    try{
+      for(const p of P){
+        if(!p||!p.w||!Array.isArray(p.w.items))continue;
+        for(const it of p.w.items){
+          if(!it||!Array.isArray(it.phData))continue;
+          const f=it.phData.find(x=>x&&x.id===id);
+          if(f){
+            if(full&&(f.img||f.dataUrl))return f.img||f.dataUrl;
+            if(!full&&(f.th||f.dataUrl||f.img))return f.th||f.dataUrl||f.img;
+            u=f.th||f.dataUrl||f.img||'';
+          }
+        }
+        if(u)break;
+      }
+    }catch(e){}
+  }
+  if(!u&&mem)u=mem;
+  // If high resolution full image is needed, query only single child node with 1.5s timeout
+  if((full||!u)&&typeof path==='function'){
+    try{
+      const fPromise=path('workflow_photos').child(String(id)).once('value');
+      const tPromise=new Promise(res=>setTimeout(()=>res(null),1500));
+      const snap=await Promise.race([fPromise,tPromise]);
+      if(snap&&snap.exists&&snap.exists()){
+        const o=snap.val();
+        const cand=full?(o.imgPath||o.img||o.thPath||o.th):(o.thPath||o.th||o.imgPath||o.img);
+        if(cand)u=cand;
+      }
+    }catch(e){}
+  }
+  if(u){
+    if(!window.WC)window.WC={};
+    window.WC[id]=u;
+    if(typeof WC!=='undefined')WC[id]=u;
+  }
+  return u||mem||'';
+},
 wph=()=>document.querySelectorAll('img[data-wp]').forEach(e=>{if(e.getAttribute('src'))return;wget(e.dataset.wp).then(u=>{if(u){e.src=u;e.style.visibility='visible'}else{e.style.visibility='hidden'}})}),
 wdel=id=>{if(typeof P!=='undefined'&&Array.isArray(P)&&P.some(p=>p.w?.items.some(i=>(i.ph||[]).includes(id))))return;delete WC[id];if(window.WC)delete window.WC[id];tx('readwrite',s=>s.delete(id),'wph').catch(()=>{})},
 wdim=u=>new Promise(ok=>{const m=new Image;m.onload=()=>ok([m.naturalWidth||90,m.naturalHeight||90]);m.onerror=()=>ok([90,90]);m.src=u});
@@ -1932,13 +2278,70 @@ ${c.t>=0?`<div class="bx"><div><span>Ara toplam</span><span>${fm(a)} ₺</span><
 document.querySelector('.toast')?.remove();const im=$('#pr img');(im.decode?im.decode():Promise.resolve()).catch(()=>{}).then(()=>setTimeout(()=>{print()},200))};
 addEventListener('afterprint',()=>{const p=$('#pr');if(p)p.className=''});
 const dl=(b,n)=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},4e3)};
-async function bkAll(){try{toast('Yedek hazırlanıyor…',9e5);const ids=new Set(P.flatMap(p=>(p.w?.items||[]).flatMap(i=>i.ph||[])));
-const allPh=(await tx('readonly',s=>s.getAll(),'wph').catch(()=>[]))||[];const phMap=new Map((allPh||[]).map(x=>[String(x.id),x]));const ph=[...ids].map(id=>phMap.get(String(id))).filter(Boolean);
-const rc=[];for(const o of(await tx('readonly',s=>s.getAll(),'rcpt').catch(()=>[]))||[]){try{rc.push({id:o.id,img:await sr(o)})}catch(e){if(o.img)rc.push({id:o.id,img:o.img})}}
-const led=(await tx('readonly',s=>s.getAll(),'led').catch(()=>[]))||[];
-const scanMeta=(await tx('readonly',s=>s.getAll(),'scans').catch(()=>[]))||[],scans=[];for(const o of scanMeta){const full=await tx('readonly',s=>s.get(o.id),'scans').catch(()=>null);if(full)scans.push(full)}
-const voice=window.LV_AUDIO_EXPORT?await window.LV_AUDIO_EXPORT().catch(()=>[]):[],{ak,key,...S2}=(typeof S!=='undefined'?S:(window.S||{}));
-dl(new Blob([JSON.stringify({app:'lavora-tam-yedek',v:2,t:Date.now(),S:S2,P,ph,rc,led,scans,voice})],{type:'application/json'}),'lavora-tam-yedek-'+today()+'.json');if(typeof S!=='undefined')S.fb=Date.now();if(typeof save==='function')save();document.querySelector('.toast')?.remove();toast(`Yedek indirildi: ${P.length} proje, ${ph.length} iş fotoğrafı, ${rc.length} fiş, ${scans.length} tarama, ${led.length} defter kaydı, ${voice.length} özel ses`,7e3)}catch(x){document.querySelector('.toast')?.remove();dbg('Tam yedek: '+(x?.message||x));toast('Yedek alınamadı: '+(x?.message||'hata'))}};window.bkAll=bkAll;
+async function bkAll(){
+  try{
+    toast('Yedek hazırlanıyor…', 9e5);
+    const ids = new Set(P.flatMap(p => (p.w?.items || []).flatMap(i => i.ph || [])));
+    let allPh = [];
+    try {
+      const pPh = tx('readonly', s => s.getAll(), 'wph');
+      allPh = await Promise.race([pPh, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
+    } catch(e) {
+      allPh = [...ids].map(id => ({ id, th: (window.WC && window.WC[id]) || '' })).filter(x => x.th);
+    }
+    const phMap = new Map((allPh || []).map(x => [String(x.id), x]));
+    const ph = [...ids].map(id => phMap.get(String(id))).filter(Boolean);
+
+    let rc = [];
+    try {
+      const pRc = tx('readonly', s => s.getAll(), 'rcpt');
+      const rcList = await Promise.race([pRc, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
+      for (const o of rcList) {
+        try { rc.push({ id: o.id, img: await sr(o) }); } catch(e) { if (o && o.img) rc.push({ id: o.id, img: o.img }); }
+      }
+    } catch(e) {}
+
+    let led = [];
+    try {
+      const pLed = tx('readonly', s => s.getAll(), 'led');
+      led = await Promise.race([pLed, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
+    } catch(e) {
+      led = (typeof LR !== 'undefined' && Array.isArray(LR)) ? LR : [];
+    }
+
+    let scans = [];
+    try {
+      const pSc = tx('readonly', s => s.getAll(), 'scans');
+      const scanMeta = await Promise.race([pSc, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))]) || [];
+      for (const o of scanMeta) {
+        try {
+          const full = await tx('readonly', s => s.get(o.id), 'scans').catch(() => null);
+          if (full) scans.push(full);
+        } catch(e) {}
+      }
+    } catch(e) {}
+
+    const voice = [];
+    const { ak, key, ...S2 } = (typeof S !== 'undefined' ? S : (window.S || {}));
+
+    const blob = new Blob([JSON.stringify({ app: 'lavora-tam-yedek', v: 2, t: Date.now(), S: S2, P, ph, rc, led, scans, voice })], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'lavora-tam-yedek-' + today() + '.json';
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 3000);
+
+    if (typeof S !== 'undefined') S.fb = Date.now();
+    if (typeof save === 'function') save();
+    document.querySelector('.toast')?.remove();
+    toast(`Yedek indirildi: ${P.length} proje, ${ph.length} iş fotoğrafı, ${rc.length} fiş, ${led.length} defter kaydı`, 6e3);
+  } catch(x){
+    document.querySelector('.toast')?.remove();
+    dbg('Tam yedek: ' + (x?.message || x));
+    toast('Yedek alınamadı: ' + (x?.message || 'hata'));
+  }
+}; window.bkAll = bkAll;
 const fr=document.createElement('input');fr.type='file';fr.accept='.json,application/json';fr.hidden=true;document.body.append(fr);window.fr=fr;
 fr.onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const j=JSON.parse(await f.text());if(j.app!='lavora-tam-yedek'||!Array.isArray(j.P))throw new Error('Bu bir Lavora tam yedeği değil');
 const _lp=j.P.filter(x=>x&&x.id),_ne=_lp.filter(x=>!P.some(o=>o.id==x.id)).length,_up=_lp.filter(x=>P.some(o=>o.id==x.id&&(x.u||0)>(o.u||0))).length,_sm=_lp.length-_ne-_up;
@@ -2161,13 +2564,13 @@ const SWC=[{s:'.pc[data-id]',d:el=>tapA('del',{id:el.dataset.id}),e:el=>el.click
 {s:'details.card[data-oi]',h:'summary',d:el=>{const b=el.querySelector('[data-a=delrow]');b&&b.click()},e:el=>el.querySelector('summary').click()},
 {s:'.wit[data-a="w:item"]',d:el=>{el.click();let n=0;const t=setInterval(()=>{const b=document.querySelector('[data-a="w:deli"]');if(b||++n>12){clearInterval(t);b&&b.click()}},100)},e:el=>el.click()},
 {s:'.wit[data-a="w:open"]',d:el=>tapA('del',{id:el.dataset.id}),e:el=>el.click()}];
-let g=null,sup=0;const TH=el=>Math.max(48,Math.min(74,el.offsetWidth*.22));
+let g=null,sup=0;const TH=el=>Math.max(34,Math.min(52,el.offsetWidth*0.14));
 document.addEventListener('pointerdown',e=>{if(g||(e.pointerType=='mouse'&&e.button))return;if(e.target.closest('input,textarea,select,.mc,[contenteditable]'))return;
 for(const c of SWC){const el=e.target.closest(c.s);if(el){if(c.h&&!e.target.closest(c.h))return;g={c,el,x:e.clientX,y:e.clientY,id:e.pointerId,on:0,dx:0};try{el.setPointerCapture(e.pointerId)}catch(x){}return}}},{passive:true});
 function begin(){const el=g.el,r=el.getBoundingClientRect(),o=document.createElement('div');g.on=1;o.className='swr';o.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${getComputedStyle(el).borderRadius}`;
 o.innerHTML=`<span class="l">${ic(TR)}Sil</span><span class="r">Düzenle${ic(PE)}</span>`;document.body.append(o);g.ov=o;el.style.transition='none';el.style.willChange='transform';try{el.setPointerCapture(g.id)}catch(e){}}
 document.addEventListener('pointermove',e=>{if(!g||e.pointerId!=g.id)return;const dx=e.clientX-g.x,dy=e.clientY-g.y;
-if(!g.on){if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)*.75){g=null;return}if(Math.abs(dx)<8||Math.abs(dx)<Math.abs(dy)*1.2)return;begin()}
+if(!g.on){if(Math.abs(dy)>28&&Math.abs(dy)>Math.abs(dx)*1.1){g=null;return}if(Math.abs(dx)<6)return;begin()}if(e.cancelable)e.preventDefault();
 g.dx=dx;const T=TH(g.el),a=Math.abs(dx),x=Math.sign(dx)*(a<=T?a:T+(a-T)*.3);g.el.style.transform=`translateX(${x}px)`;
 g.ov.className='swr '+(dx>0?'del':'edit')+(a>=T?' go':'');g.ov.style.setProperty('--swp',Math.min(1,a/T));
 if(a>=T&&!g.hit){g.hit=1;navigator.vibrate&&navigator.vibrate(12)}if(a<T)g.hit=0},{passive:true});
@@ -4960,24 +5363,33 @@ window.lvReloadAdminReqList=function(filterStatus){
    }
    
    // Visual concept / customer photo preview in admin card
-   if (r.aiConceptImage || r.customerPhoto) {
-    const thumbRow = document.createElement('div');
-    thumbRow.style.cssText = 'display:flex;gap:10px;margin-bottom:10px;overflow-x:auto;padding-bottom:4px';
-    if (r.aiConceptImage) {
-     const tWrap = document.createElement('div');
-     tWrap.style.cssText = 'position:relative;border-radius:10px;overflow:hidden;border:1.5px solid var(--ac);cursor:pointer;flex-shrink:0';
-     tWrap.innerHTML = `<img src="${r.aiConceptImage}" style="width:110px;height:75px;object-fit:cover;display:block">
-      <span style="position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,0.75);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700">3D Konsept</span>`;
-     tWrap.onclick = () => { if (typeof window._lvImgModal === 'function') window._lvImgModal(r.aiConceptImage, [r.aiConceptImage], 0); };
-     thumbRow.append(tWrap);
-    }
+   // Visual concept / customer photo / furniture reference preview in admin card
+   if (r.aiConceptImage || r.customerPhoto || r.furnitureReference) {
+    const thumbRow = document.createElement("div");
+    thumbRow.style.cssText = "display:flex;gap:10px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px";
     if (r.customerPhoto) {
-     const pWrap = document.createElement('div');
-     pWrap.style.cssText = 'position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--ln);cursor:pointer;flex-shrink:0';
+     const pWrap = document.createElement("div");
+     pWrap.style.cssText = "position:relative;border-radius:10px;overflow:hidden;border:1.5px solid var(--ln);cursor:pointer;flex-shrink:0";
      pWrap.innerHTML = `<img src="${r.customerPhoto}" style="width:110px;height:75px;object-fit:cover;display:block">
-      <span style="position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,0.75);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700">Mekan Fotoğrafı</span>`;
-     pWrap.onclick = () => { if (typeof window._lvImgModal === 'function') window._lvImgModal(r.customerPhoto, [r.customerPhoto], 0); };
+      <span style="position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,0.75);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700">Mekan (Oda)</span>`;
+     pWrap.onclick = () => { if (typeof window._lvImgModal === "function") window._lvImgModal(r.customerPhoto, [r.customerPhoto], 0, "Orijinal Mekan Fotoğrafı"); };
      thumbRow.append(pWrap);
+    }
+    if (r.furnitureReference) {
+     const refWrap = document.createElement("div");
+     refWrap.style.cssText = "position:relative;border-radius:10px;overflow:hidden;border:1.5px solid var(--ln);cursor:pointer;flex-shrink:0";
+     refWrap.innerHTML = `<img src="${r.furnitureReference}" style="width:110px;height:75px;object-fit:cover;display:block">
+      <span style="position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,0.75);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700">Mobilya Ref.</span>`;
+     refWrap.onclick = () => { if (typeof window._lvImgModal === "function") window._lvImgModal(r.furnitureReference, [r.furnitureReference], 0, "Mobilya Referansı"); };
+     thumbRow.append(refWrap);
+    }
+    if (r.aiConceptImage) {
+     const tWrap = document.createElement("div");
+     tWrap.style.cssText = "position:relative;border-radius:10px;overflow:hidden;border:2px solid var(--ac);cursor:pointer;flex-shrink:0";
+     tWrap.innerHTML = `<img src="${r.aiConceptImage}" style="width:110px;height:75px;object-fit:cover;display:block">
+      <span style="position:absolute;bottom:3px;left:3px;background:var(--ac);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700">Mekan İçi Tasarım</span>`;
+     tWrap.onclick = () => { if (typeof window._lvImgModal === "function") window._lvImgModal(r.aiConceptImage, [r.aiConceptImage], 0, "Mekan İçi Tasarım"); };
+     thumbRow.append(tWrap);
     }
     card.append(thumbRow);
    }
