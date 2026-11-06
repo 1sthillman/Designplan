@@ -136,10 +136,12 @@
         },
         
         "voice_clips": {
+          ".read": "auth != null",
+          ".indexOn": ["uid"],
           "$clipId": {
-            ".read": "data.child('uid').val() == auth.uid",
-            ".write": "auth != null && (!data.exists() || data.child('uid').val() == auth.uid)",
-            ".validate": "newData.hasChildren(['id', 'uid', 'audio', 'updatedAt']) && newData.child('uid').val() == auth.uid && newData.child('audio').val().length < 5242880"
+            ".read": "data.child('uid').val() == auth.uid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin'",
+            ".write": "auth != null && (!data.exists() || data.child('uid').val() == auth.uid || root.child('tenants/lavora-main/users/' + auth.uid + '/role').val() == 'admin')",
+            ".validate": "newData.hasChildren(['id', 'uid', 'audio', 'updatedAt']) && newData.child('audio').val().length < 5242880"
           }
         },
         
