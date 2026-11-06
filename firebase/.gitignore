@@ -1,0 +1,15 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+*.log
+
+# Node
+node_modules/
+functions/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Local
+.env
+.env.local

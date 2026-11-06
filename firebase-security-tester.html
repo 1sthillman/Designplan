@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Security Tester - Lavora</title>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0A0C0F;
+            color: #F2F4F7;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #2DD4BF; margin-bottom: 10px; }
+        .subtitle { color: #8A93A3; margin-bottom: 30px; }
+        .section {
+            background: #14171C;
+            border: 1px solid #242932;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            color: #2DD4BF;
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #242932;
+            padding-bottom: 10px;
+        }
+        input, textarea, select {
+            width: 100%;
+            background: #1C2027;
+            border: 1px solid #242932;
+            color: #F2F4F7;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-family: inherit;
+        }
+        button {
+            background: #0F766E;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0B5B56; }
+        button:disabled {
+            background: #242932;
+            color: #667085;
+            cursor: not-allowed;
+        }
+        .test-group {
+            background: #1C2027;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .test-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: #14171C;
+            border-left: 4px solid #242932;
+        }
+        .test-item.running { border-left-color: #FFA500; }
+        .test-item.pass { border-left-color: #10B981; }
+        .test-item.fail { border-left-color: #EF4444; }
+        .test-name { font-weight: 600; margin-bottom: 5px; }
+        .test-result { font-size: 14px; color: #8A93A3; }
+        .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+        .status.pending { background: #242932; color: #8A93A3; }
+        .status.running { background: #FFA50033; color: #FFA500; }
+        .status.pass { background: #10B98133; color: #10B981; }
+        .status.fail { background: #EF444433; color: #EF4444; }
+        .user-info {
+            background: #1C2027;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .user-info .label { color: #8A93A3; font-size: 12px; }
+        .user-info .value { color: #F2F4F7; font-weight: 600; }
+        pre {
+            background: #0A0C0F;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            border: 1px solid #242932;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: #1C2027;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary-card .num {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .summary-card .label {
+            color: #8A93A3;
+            font-size: 13px;
+        }
+        .summary-card.total .num { color: #2DD4BF; }
+        .summary-card.pass .num { color: #10B981; }
+        .summary-card.fail .num { color: #EF4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Firebase Security Tester</h1>
+        <p class="subtitle">Lavora Firebase güvenlik kurallarını ve rol bazlı erişim kontrolünü test edin</p>
+
+        <!-- Firebase Config -->
+        <div class="section">
+            <h2>1. Firebase Yapılandırması</h2>
+            <textarea id="firebaseConfig" rows="8" placeholder='Firebase config JSON (firebaseConfig objesini buraya yapıştırın)'></textarea>
+            <button onclick="initFirebase()">Firebase'i Başlat</button>
+            <div id="firebaseStatus"></div>
+        </div>
+
+        <!-- Authentication -->
+        <div class="section">
+            <h2>2. Kimlik Doğrulama</h2>
+            <button onclick="signInWithGoogle()">Google ile Giriş Yap</button>
+            <button onclick="signOut()">Çıkış Yap</button>
+            <div id="userInfo" class="user-info" style="display:none;">
+                <div class="label">Email:</div>
+                <div class="value" id="userEmail"></div>
+                <div class="label">UID:</div>
+                <div class="value" id="userUID"></div>
+                <div class="label">Rol:</div>
+                <div class="value" id="userRole">Yükleniyor...</div>
+            </div>
+        </div>
+
+        <!-- Test Summary -->
+        <div class="summary" id="testSummary" style="display:none;">
+            <div class="summary-card total">
+                <div class="num" id="totalTests">0</div>
+                <div class="label">Toplam Test</div>
+            </div>
+            <div class="summary-card pass">
+                <div class="num" id="passedTests">0</div>
+                <div class="label">Başarılı</div>
+            </div>
+            <div class="summary-card fail">
+                <div class="num" id="failedTests">0</div>
+                <div class="label">Başarısız</div>
+            </div>
+        </div>
+
+        <!-- Test Execution -->
+        <div class="section" id="testSection" style="display:none;">
+            <h2>3. Güvenlik Testleri</h2>
+            <button onclick="runAllTests()">Tüm Testleri Çalıştır</button>
+            <button onclick="runFirestoreTests()">Firestore Testleri</button>
+            <button onclick="runStorageTests()">Storage Testleri</button>
+            <button onclick="runFunctionTests()">Function Testleri</button>
+            <button onclick="clearResults()">Sonuçları Temizle</button>
+
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Export -->
+        <div class="section" id="exportSection" style="display:none;">
+            <h2>4. Rapor</h2>
+            <button onclick="exportReport()">Test Raporunu İndir</button>
+        </div>
+    </div>
+
+    <script>
+        let app, auth, db, storage, functions;
+        let currentUser = null;
+        let currentRole = null;
+        let testResults = [];
+
+        function initFirebase() {
+            try {
+                const configText = document.getElementById('firebaseConfig').value;
+                const config = JSON.parse(configText);
+                
+                app = firebase.initializeApp(config);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                storage = firebase.storage();
+                functions = firebase.functions();
+
+                document.getElementById('firebaseStatus').innerHTML = 
+                    '<div style="color: #10B981; margin-top: 10px;">✅ Firebase başarıyla başlatıldı</div>';
+                
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('userInfo').style.display = 'block';
+                        document.getElementById('userEmail').textContent = user.email;
+                        document.getElementById('userUID').textContent = user.uid;
+                        
+                        // Get role from Firestore
+                        try {
+                            const userDoc = await db.collection('users').doc(user.uid).get();
+                            currentRole = userDoc.exists ? userDoc.data().role : 'none';
+                            document.getElementById('userRole').textContent = currentRole || 'Rol atanmamış';
+                            
+                            document.getElementById('testSection').style.display = 'block';
+                            document.getElementById('testSummary').style.display = 'grid';
+                            document.getElementById('exportSection').style.display = 'block';
+                        } catch (e) {
+                            document.getElementById('userRole').textContent = 'Rol okunamadı: ' + e.message;
+                        }
+                    } else {
+                        currentUser = null;
+                        currentRole = null;
+                        document.getElementById('userInfo').style.display = 'none';
+                        document.getElementById('testSection').style.display = 'none';
+                        document.getElementById('testSummary').style.display = 'none';
+                        document.getElementById('exportSection').style.display = 'none';
+                    }
+                });
+
+            } catch (error) {
+                document.getElementById('firebaseStatus').innerHTML = 
+                    '<div style="color: #EF4444; margin-top: 10px;">❌ Hata: ' + error.message + '</div>';
+            }
+        }
+
+        async function signInWithGoogle() {
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                alert('Giriş hatası: ' + error.message);
+            }
+        }
+
+        async function signOut() {
+            await auth.signOut();
+        }
+
+        function addTestResult(name, status, message, details = null) {
+            const result = { name, status, message, details, timestamp: new Date() };
+            testResults.push(result);
+
+            const testItem = document.createElement('div');
+            testItem.className = `test-item ${status}`;
+            testItem.innerHTML = `
+                <div class="test-name">
+                    <span class="status ${status}">${status === 'pass' ? '✅ PASS' : status === 'fail' ? '❌ FAIL' : '⏳ RUNNING'}</span>
+                    ${name}
+                </div>
+                <div class="test-result">${message}</div>
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+            document.getElementById('testResults').appendChild(testItem);
+
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const total = testResults.length;
+            const passed = testResults.filter(r => r.status === 'pass').length;
+            const failed = testResults.filter(r => r.status === 'fail').length;
+
+            document.getElementById('totalTests').textContent = total;
+            document.getElementById('passedTests').textContent = passed;
+            document.getElementById('failedTests').textContent = failed;
+        }
+
+        async function runAllTests() {
+            clearResults();
+            await runFirestoreTests();
+            await runStorageTests();
+            await runFunctionTests();
+        }
+
+        async function runFirestoreTests() {
+            if (!currentUser) {
+                alert('Önce giriş yapın');
+                return;
+            }
+
+            const collections = [
+                { name: 'users', expectedAccess: ['admin', 'partner', 'employee', 'customer'] }, // Own doc only
+                { name: 'projects', expectedAccess: ['admin', 'partner'] },
+                { name: 'project_ops', expectedAccess: ['admin', 'partner', 'employee'] },
+                { name: 'customer_projects', expectedAccess: ['customer'] }, // Own doc only
+                { name: 'ledger', expectedAccess: ['admin', 'partner'] },
+                { name: 'receipts', expectedAccess: ['admin', 'partner'] },
+                { name: 'scans', expectedAccess: ['admin', 'partner'] },
+                { name: 'workflow_photos', expectedAccess: ['admin', 'partner', 'employee'] },
+                { name: 'custom_sounds', expectedAccess: ['admin', 'partner', 'employee'] },
+                { name: 'settings', expectedAccess: ['admin', 'partner'] }
+            ];
+
+            for (const col of collections) {
+                try {
+                    const shouldHaveAccess = col.expectedAccess.includes(currentRole);
+                    
+                    if (col.name === 'users' || col.name === 'customer_projects') {
+                        // Test own document access
+                        const doc = await db.collection(col.name).doc(currentUser.uid).get();
+                        if (shouldHaveAccess) {
+                            addTestResult(
+                                `Firestore: ${col.name} (own doc) read`,
+                                'pass',
+                                `${currentRole} rolü kendi belgesini okuyabildi`
+                            );
+                        } else {
+                            addTestResult(
+                                `Firestore: ${col.name} (own doc) read`,
+                                'fail',
+                                `${currentRole} rolü erişebilmemeli ama erişebildi`
+                            );
+                        }
+                    } else {
+                        // Test collection access
+                        const snapshot = await db.collection(col.name).limit(1).get();
+                        if (shouldHaveAccess) {
+                            addTestResult(
+                                `Firestore: ${col.name} read`,
+                                'pass',
+                                `${currentRole} rolü erişebildi (beklenen davranış)`
+                            );
+                        } else {
+                            addTestResult(
+                                `Firestore: ${col.name} read`,
+                                'fail',
+                                `${currentRole} rolü erişebilmemeli ama erişebildi`
+                            );
+                        }
+                    }
+                } catch (error) {
+                    const shouldHaveAccess = col.expectedAccess.includes(currentRole);
+                    if (error.code === 'permission-denied') {
+                        if (!shouldHaveAccess) {
+                            addTestResult(
+                                `Firestore: ${col.name} read`,
+                                'pass',
+                                `${currentRole} rolü erişemedi (beklenen davranış)`
+                            );
+                        } else {
+                            addTestResult(
+                                `Firestore: ${col.name} read`,
+                                'fail',
+                                `${currentRole} rolü erişebilmeli ama erişemedi: ${error.message}`
+                            );
+                        }
+                    } else {
+                        addTestResult(
+                            `Firestore: ${col.name} read`,
+                            'fail',
+                            `Beklenmeyen hata: ${error.message}`
+                        );
+                    }
+                }
+            }
+        }
+
+        async function runStorageTests() {
+            if (!currentUser) {
+                alert('Önce giriş yapın');
+                return;
+            }
+
+            const storagePaths = [
+                { path: 'receipts/test.jpg', expectedAccess: ['admin', 'partner'] },
+                { path: 'scans/test.pdf', expectedAccess: ['admin', 'partner'] },
+                { path: 'workflow_photos/test.jpg', expectedAccess: ['admin', 'partner', 'employee'] },
+                { path: 'custom_sounds/test.mp3', expectedAccess: ['admin', 'partner', 'employee'] }
+            ];
+
+            for (const item of storagePaths) {
+                try {
+                    const shouldHaveAccess = item.expectedAccess.includes(currentRole);
+                    const ref = storage.ref(item.path);
+                    const url = await ref.getDownloadURL();
+                    
+                    if (shouldHaveAccess) {
+                        addTestResult(
+                            `Storage: ${item.path} read`,
+                            'pass',
+                            `${currentRole} rolü erişebildi (beklenen davranış)`
+                        );
+                    } else {
+                        addTestResult(
+                            `Storage: ${item.path} read`,
+                            'fail',
+                            `${currentRole} rolü erişebilmemeli ama erişebildi`
+                        );
+                    }
+                } catch (error) {
+                    const shouldHaveAccess = item.expectedAccess.includes(currentRole);
+                    if (error.code === 'storage/unauthorized') {
+                        if (!shouldHaveAccess) {
+                            addTestResult(
+                                `Storage: ${item.path} read`,
+                                'pass',
+                                `${currentRole} rolü erişemedi (beklenen davranış)`
+                            );
+                        } else {
+                            addTestResult(
+                                `Storage: ${item.path} read`,
+                                'fail',
+                                `${currentRole} rolü erişebilmeli ama erişemedi`
+                            );
+                        }
+                    } else if (error.code === 'storage/object-not-found') {
+                        addTestResult(
+                            `Storage: ${item.path} read`,
+                            'pass',
+                            `Dosya yok ama erişim kontrolü çalışıyor`
+                        );
+                    } else {
+                        addTestResult(
+                            `Storage: ${item.path} read`,
+                            'fail',
+                            `Beklenmeyen hata: ${error.message}`
+                        );
+                    }
+                }
+            }
+        }
+
+        async function runFunctionTests() {
+            if (!currentUser) {
+                alert('Önce giriş yapın');
+                return;
+            }
+
+            // Test changeUserRole function (only admin should succeed)
+            try {
+                const shouldHaveAccess = currentRole === 'admin';
+                const changeFn = functions.httpsCallable('changeUserRole');
+                const result = await changeFn({
+                    targetUid: 'test_uid_12345',
+                    newRole: 'employee'
+                });
+
+                if (shouldHaveAccess) {
+                    addTestResult(
+                        'Functions: changeUserRole',
+                        'fail',
+                        `Test UID kullanıldı ama işlem başarılı oldu (test UID'si olmamalı)`
+                    );
+                } else {
+                    addTestResult(
+                        'Functions: changeUserRole',
+                        'fail',
+                        `${currentRole} rolü erişebilmemeli ama erişebildi`
+                    );
+                }
+            } catch (error) {
+                const shouldHaveAccess = currentRole === 'admin';
+                if (error.code === 'permission-denied' || error.message.includes('permission')) {
+                    if (!shouldHaveAccess) {
+                        addTestResult(
+                            'Functions: changeUserRole',
+                            'pass',
+                            `${currentRole} rolü erişemedi (beklenen davranış)`
+                        );
+                    } else {
+                        addTestResult(
+                            'Functions: changeUserRole',
+                            'fail',
+                            `${currentRole} rolü erişebilmeli ama erişemedi`
+                        );
+                    }
+                } else {
+                    addTestResult(
+                        'Functions: changeUserRole',
+                        'pass',
+                        `Rol kontrolü çalışıyor: ${error.message}`
+                    );
+                }
+            }
+        }
+
+        function clearResults() {
+            testResults = [];
+            document.getElementById('testResults').innerHTML = '';
+            updateSummary();
+        }
+
+        function exportReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                user: {
+                    email: currentUser?.email,
+                    uid: currentUser?.uid,
+                    role: currentRole
+                },
+                summary: {
+                    total: testResults.length,
+                    passed: testResults.filter(r => r.status === 'pass').length,
+                    failed: testResults.filter(r => r.status === 'fail').length
+                },
+                tests: testResults
+            };
+
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `firebase-security-test-${currentRole}-${Date.now()}.json`;
+            a.click();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: user role
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return request.auth != null && userRole() == 'admin';
+    }
+    
+    function isPartner() {
+      return request.auth != null && userRole() == 'partner';
+    }
+    
+    function isEmployee() {
+      return request.auth != null && userRole() == 'employee';
+    }
+    
+    function isCustomer() {
+      return request.auth != null && userRole() == 'customer';
+    }
+    
+    function isAdminOrPartner() {
+      let role = userRole();
+      return request.auth != null && (role == 'admin' || role == 'partner');
+    }
+    
+    // Users collection — only backend/Functions can write; authenticated users read their own record
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // Only Cloud Functions can create/update user records
+    }
+    
+    // Invites — admin only
+    match /invites/{inviteId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Projects — admin & partner read/write; customer reads only assigned projects via customer_projects
+    match /projects/{projectId} {
+      allow read, write: if isAdminOrPartner();
+      allow read: if false; // Customers don't access this directly
+    }
+    
+    // Project operations (employee projection) — admin, partner, employee read/write
+    match /project_ops/{projectId} {
+      allow read, write: if isAdminOrPartner() || isEmployee();
+    }
+    
+    // Customer project summaries — customers read only their assigned projects
+    match /customer_projects/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // Only Cloud Functions sync these
+    }
+    
+    // Ledger (finans defteri) — admin & partner only
+    match /ledger/{entryId} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Receipts (makbuzlar) — admin & partner only
+    match /receipts/{receiptId} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Scans (taramalar) — admin & partner only
+    match /scans/{scanId} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Workflow photos — admin, partner, employee read/write
+    match /workflow_photos/{photoId} {
+      allow read, write: if isAdminOrPartner() || isEmployee();
+    }
+    
+    // Custom sounds (özel sesler) — admin, partner, employee read/write
+    match /custom_sounds/{soundId} {
+      allow read, write: if isAdminOrPartner() || isEmployee();
+    }
+    
+    // Settings — admin & partner only
+    match /settings/{docId} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Revision control: validate incoming revision matches current
+    // This is checked in the application logic, but we can add a basic check here too
+    match /projects/{projectId} {
+      allow update: if isAdminOrPartner() && 
+        (request.resource.data.revision == resource.data.revision + 1 || 
+         !('revision' in resource.data));
+    }
+    
+    match /project_ops/{projectId} {
+      allow update: if (isAdminOrPartner() || isEmployee()) && 
+        (request.resource.data.revision == resource.data.revision + 1 || 
+         !('revision' in resource.data));
+    }
+  }
+}

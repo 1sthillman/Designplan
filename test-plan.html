@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lavora Phase 1 - Test Suite</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1200px;margin:20px auto;padding:0 20px;background:#f5f5f5}
+h1{color:#0f766e}h2{color:#333;border-bottom:2px solid #0f766e;padding-bottom:8px}
+.test-group{background:white;padding:20px;margin:20px 0;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+.test-case{display:flex;align-items:center;gap:15px;padding:12px;margin:8px 0;border-left:4px solid #ddd;background:#f9f9f9}
+.test-case.running{border-color:#fbbf24;background:#fffbeb}
+.test-case.pass{border-color:#10b981;background:#ecfdf5}
+.test-case.fail{border-color:#ef4444;background:#fef2f2}
+.test-case.skip{border-color:#6b7280;background:#f3f4f6}
+.status{font-weight:bold;min-width:60px}
+.status.running{color:#f59e0b}
+.status.pass{color:#059669}
+.status.fail{color:#dc2626}
+.status.skip{color:#6b7280}
+.test-id{font-family:monospace;color:#666;min-width:60px}
+.test-desc{flex:1}
+.test-detail{font-size:12px;color:#666;margin-top:4px}
+.controls{background:white;padding:20px;margin-bottom:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+.controls button{background:#0f766e;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-right:10px}
+.controls button:hover{background:#0d5f57}
+.controls button:disabled{background:#ccc;cursor:not-allowed}
+.config{background:#fffbeb;padding:15px;border-radius:6px;margin:15px 0;border:2px solid #fbbf24}
+.config input,.config textarea{width:100%;padding:8px;margin:5px 0;border:1px solid #ddd;border-radius:4px;font-family:monospace;font-size:13px}
+.config textarea{min-height:100px}
+.summary{background:#ecfdf5;padding:15px;border-radius:6px;margin:20px 0;border:2px solid #10b981}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-top:10px}
+.summary-item{text-align:center}
+.summary-value{font-size:32px;font-weight:bold;color:#0f766e}
+.summary-label{font-size:12px;color:#666;margin-top:4px}
+.error{background:#fef2f2;padding:10px;border-radius:4px;color:#dc2626;font-size:12px;margin-top:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<h1>🧪 Lavora Phase 1 - Test Suite</h1>
+
+<div class="controls">
+  <h2>Test Kontrolü</h2>
+  <div class="config">
+    <label>Firebase Config (JSON):</label>
+    <textarea id="firebaseConfig" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"...","storageBucket":"...","appId":"..."}'></textarea>
+    <button onclick="initFirebase()">Firebase Başlat</button>
+    <div id="firebaseStatus"></div>
+  </div>
+  
+  <button onclick="runAllTests()" id="runAllBtn" disabled>Tüm Testleri Çalıştır</button>
+  <button onclick="runSecurityTests()" id="runSecurityBtn" disabled>Güvenlik Testleri</button>
+  <button onclick="runConcurrencyTests()" id="runConcurrencyBtn" disabled>Eş Zamanlı Testler</button>
+  <button onclick="clearResults()">Sonuçları Temizle</button>
+</div>
+
+<div class="summary" id="summary" style="display:none">
+  <h3>Test Özeti</h3>
+  <div class="summary-grid">
+    <div class="summary-item">
+      <div class="summary-value" id="totalTests">0</div>
+      <div class="summary-label">Toplam</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value" id="passedTests" style="color:#059669">0</div>
+      <div class="summary-label">Başarılı</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value" id="failedTests" style="color:#dc2626">0</div>
+      <div class="summary-label">Başarısız</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value" id="skippedTests" style="color:#6b7280">0</div>
+      <div class="summary-label">Atlandı</div>
+    </div>
+  </div>
+</div>
+
+<div class="test-group">
+  <h2>1. Security Rules - Role-Based Access</h2>
+  <div class="test-case" id="test-1-1">
+    <span class="test-id">1.1</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee kendi user kaydını okuyabilir</div>
+      <div class="test-detail">users/$uid/.read kuralı</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-1-2">
+    <span class="test-id">1.2</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee başka user kaydını okuyamaz</div>
+      <div class="test-detail">users/$uid/.read kuralı (negative test)</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-1-3">
+    <span class="test-id">1.3</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee kendi rolünü değiştiremez</div>
+      <div class="test-detail">users/$uid/role/.write kuralı (negative test)</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-1-4">
+    <span class="test-id">1.4</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Admin başka user rolünü değiştirebilir</div>
+      <div class="test-detail">users/$uid/role/.write kuralı</div>
+    </div>
+  </div>
+</div>
+
+<div class="test-group">
+  <h2>2. Financial Data Isolation</h2>
+  <div class="test-case" id="test-2-1">
+    <span class="test-id">2.1</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee projects okuyamaz</div>
+      <div class="test-detail">projects/.read kuralı (negative test)</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-2-2">
+    <span class="test-id">2.2</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee project_ops okuyabilir</div>
+      <div class="test-detail">project_ops/.read kuralı</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-2-3">
+    <span class="test-id">2.3</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee ledger okuyamaz</div>
+      <div class="test-detail">ledger/.read kuralı (negative test)</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-2-4">
+    <span class="test-id">2.4</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Employee receipts okuyamaz</div>
+      <div class="test-detail">receipts/.read kuralı (negative test)</div>
+    </div>
+  </div>
+</div>
+
+<div class="test-group">
+  <h2>3. Invite System</h2>
+  <div class="test-case" id="test-3-1">
+    <span class="test-id">3.1</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Admin davet kodu oluşturabilir</div>
+      <div class="test-detail">invites/$hash/.write kuralı</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-3-2">
+    <span class="test-id">3.2</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Partner davet kodu oluşturamaz</div>
+      <div class="test-detail">invites/$hash/.write kuralı (negative test)</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-3-3">
+    <span class="test-id">3.3</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Geçerli davet kodu kullanılabilir</div>
+      <div class="test-detail">invites/$hash/usedBy transaction</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-3-4">
+    <span class="test-id">3.4</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Kullanılmış davet kodu tekrar kullanılamaz</div>
+      <div class="test-detail">invites/$hash/usedBy transaction (negative)</div>
+    </div>
+  </div>
+</div>
+
+<div class="test-group">
+  <h2>4. Concurrency - Race Conditions</h2>
+  <div class="test-case" id="test-4-1">
+    <span class="test-id">4.1</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Eş zamanlı davet kullanımı (2 kullanıcı, 1 kod)</div>
+      <div class="test-detail">RTDB transaction atomicity test</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-4-2">
+    <span class="test-id">4.2</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Eş zamanlı proje güncellemesi (2 user, same project)</div>
+      <div class="test-detail">_revision transaction conflict test</div>
+    </div>
+  </div>
+</div>
+
+<div class="test-group">
+  <h2>5. Media & Validation</h2>
+  <div class="test-case" id="test-5-1">
+    <span class="test-id">5.1</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>5MB+ Base64 yükleme reddedilir</div>
+      <div class="test-detail">Client-side size validation</div>
+    </div>
+  </div>
+  <div class="test-case" id="test-5-2">
+    <span class="test-id">5.2</span>
+    <span class="status">PENDING</span>
+    <div class="test-desc">
+      <div>Image compression çalışıyor (1920px limit)</div>
+      <div class="test-detail">compressImage() function test</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let db, auth, currentUser;
+const TENANT = 'lavora-main';
+
+// Helper: SHA-256
+async function sha256(message){
+ const msgBuffer = new TextEncoder().encode(message);
+ const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+ const hashArray = Array.from(new Uint8Array(hashBuffer));
+ return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Helper: Path
+function path(col){return db.ref(`tenants/${TENANT}/${col}`)}
+
+// Helper: Test result
+function setTestResult(testId, status, detail=''){
+ const el = document.getElementById(`test-${testId}`);
+ if(!el) return;
+ 
+ el.className = `test-case ${status}`;
+ const statusEl = el.querySelector('.status');
+ statusEl.className = `status ${status}`;
+ statusEl.textContent = status.toUpperCase();
+ 
+ if(detail){
+  let detailEl = el.querySelector('.error');
+  if(!detailEl){
+   detailEl = document.createElement('div');
+   detailEl.className = 'error';
+   el.querySelector('.test-desc').appendChild(detailEl);
+  }
+  detailEl.textContent = detail;
+ }
+ 
+ updateSummary();
+}
+
+function updateSummary(){
+ const all = document.querySelectorAll('.test-case');
+ const passed = document.querySelectorAll('.test-case.pass').length;
+ const failed = document.querySelectorAll('.test-case.fail').length;
+ const skipped = document.querySelectorAll('.test-case.skip').length;
+ 
+ document.getElementById('totalTests').textContent = all.length;
+ document.getElementById('passedTests').textContent = passed;
+ document.getElementById('failedTests').textContent = failed;
+ document.getElementById('skippedTests').textContent = skipped;
+ document.getElementById('summary').style.display = 'block';
+}
+
+function clearResults(){
+ document.querySelectorAll('.test-case').forEach(el=>{
+  el.className = 'test-case';
+  el.querySelector('.status').className = 'status';
+  el.querySelector('.status').textContent = 'PENDING';
+  const err = el.querySelector('.error');
+  if(err) err.remove();
+ });
+ document.getElementById('summary').style.display = 'none';
+}
+
+// Firebase init
+function initFirebase(){
+ try{
+  const configText = document.getElementById('firebaseConfig').value.trim();
+  if(!configText) throw new Error('Config boş');
+  const config = JSON.parse(configText);
+  
+  if(!config.databaseURL) throw new Error('databaseURL eksik');
+  
+  if(!firebase.apps.length) firebase.initializeApp(config);
+  auth = firebase.auth();
+  db = firebase.database();
+  
+  document.getElementById('firebaseStatus').innerHTML = '<div style="color:green;margin-top:10px">✅ Firebase başlatıldı</div>';
+  document.getElementById('runAllBtn').disabled = false;
+  document.getElementById('runSecurityBtn').disabled = false;
+  document.getElementById('runConcurrencyBtn').disabled = false;
+  
+  // Auth state
+  auth.onAuthStateChanged(user=>{
+   if(user){
+    currentUser = user;
+    document.getElementById('firebaseStatus').innerHTML = `<div style="color:green;margin-top:10px">✅ Giriş: ${user.email}</div>`;
+   }else{
+    document.getElementById('firebaseStatus').innerHTML = '<div style="color:orange;margin-top:10px">⚠️ Giriş yapın</div>';
+   }
+  });
+ }catch(e){
+  document.getElementById('firebaseStatus').innerHTML = `<div style="color:red;margin-top:10px">❌ Hata: ${e.message}</div>`;
+ }
+}
+
+// Test: 1.1 - Self read
+async function test_1_1(){
+ setTestResult('1-1', 'running');
+ try{
+  if(!currentUser) throw new Error('Giriş yapın');
+  const snap = await path('users').child(currentUser.uid).once('value');
+  if(!snap.exists()) throw new Error('User kaydı bulunamadı');
+  setTestResult('1-1', 'pass', `✅ OK: ${snap.val().email}`);
+ }catch(e){
+  setTestResult('1-1', 'fail', e.message);
+ }
+}
+
+// Test: 1.2 - Cannot read others
+async function test_1_2(){
+ setTestResult('1-2', 'running');
+ try{
+  if(!currentUser) throw new Error('Giriş yapın');
+  // Try to read a different UID
+  const otherUid = 'test_other_user_12345';
+  const snap = await path('users').child(otherUid).once('value');
+  if(snap.exists()){
+   setTestResult('1-2', 'fail', '❌ Başka user okunabildi (güvenlik açığı)');
+  }else{
+   setTestResult('1-2', 'pass', '✅ OK: Erişim engellendi');
+  }
+ }catch(e){
+  // PERMISSION_DENIED expected
+  if(e.code === 'PERMISSION_DENIED'){
+   setTestResult('1-2', 'pass', '✅ OK: PERMISSION_DENIED');
+  }else{
+   setTestResult('1-2', 'fail', e.message);
+  }
+ }
+}
+
+// Test: 1.3 - Cannot change own role
+async function test_1_3(){
+ setTestResult('1-3', 'running');
+ try{
+  if(!currentUser) throw new Error('Giriş yapın');
+  await path('users').child(currentUser.uid).child('role').set('admin');
+  setTestResult('1-3', 'fail', '❌ Role değiştirilebildi (güvenlik açığı)');
+ }catch(e){
+  if(e.code === 'PERMISSION_DENIED'){
+   setTestResult('1-3', 'pass', '✅ OK: PERMISSION_DENIED');
+  }else{
+   setTestResult('1-3', 'fail', e.message);
+  }
+ }
+}
+
+// Test: 2.1 - Employee cannot read projects
+async function test_2_1(){
+ setTestResult('2-1', 'running');
+ try{
+  const snap = await path('projects').once('value');
+  if(snap.exists()){
+   setTestResult('2-1', 'fail', '❌ Projects okunabildi (güvenlik açığı)');
+  }else{
+   setTestResult('2-1', 'pass', '✅ OK: Erişim engellendi');
+  }
+ }catch(e){
+  if(e.code === 'PERMISSION_DENIED'){
+   setTestResult('2-1', 'pass', '✅ OK: PERMISSION_DENIED');
+  }else{
+   setTestResult('2-1', 'fail', e.message);
+  }
+ }
+}
+
+// Test: 2.2 - Employee can read project_ops
+async function test_2_2(){
+ setTestResult('2-2', 'running');
+ try{
+  const snap = await path('project_ops').once('value');
+  setTestResult('2-2', 'pass', `✅ OK: ${Object.keys(snap.val()||{}).length} ops okundu`);
+ }catch(e){
+  setTestResult('2-2', 'fail', e.message);
+ }
+}
+
+// Test: 2.3 - Employee cannot read ledger
+async function test_2_3(){
+ setTestResult('2-3', 'running');
+ try{
+  const snap = await path('ledger').once('value');
+  if(snap.exists()){
+   setTestResult('2-3', 'fail', '❌ Ledger okunabildi (güvenlik açığı)');
+  }else{
+   setTestResult('2-3', 'pass', '✅ OK: Erişim engellendi');
+  }
+ }catch(e){
+  if(e.code === 'PERMISSION_DENIED'){
+   setTestResult('2-3', 'pass', '✅ OK: PERMISSION_DENIED');
+  }else{
+   setTestResult('2-3', 'fail', e.message);
+  }
+ }
+}
+
+// Test: 2.4 - Employee cannot read receipts
+async function test_2_4(){
+ setTestResult('2-4', 'running');
+ try{
+  const snap = await path('receipts').once('value');
+  if(snap.exists()){
+   setTestResult('2-4', 'fail', '❌ Receipts okunabildi (güvenlik açığı)');
+  }else{
+   setTestResult('2-4', 'pass', '✅ OK: Erişim engellendi');
+  }
+ }catch(e){
+  if(e.code === 'PERMISSION_DENIED'){
+   setTestResult('2-4', 'pass', '✅ OK: PERMISSION_DENIED');
+  }else{
+   setTestResult('2-4', 'fail', e.message);
+  }
+ }
+}
+
+// Run security tests
+async function runSecurityTests(){
+ await test_1_1();
+ await test_1_2();
+ await test_1_3();
+ await test_2_1();
+ await test_2_2();
+ await test_2_3();
+ await test_2_4();
+}
+
+function runAllTests(){
+ alert('Tüm testler için admin, partner, employee hesaplarıyla manuel giriş yapılması gerekir. Şimdilik security testleri çalıştırılıyor.');
+ runSecurityTests();
+}
+
+function runConcurrencyTests(){
+ alert('Eş zamanlı testler için özel test setup gerekir (2 browser, 2 user). Manuel test yapılmalı.');
+ setTestResult('4-1', 'skip', 'Manuel test gerekli');
+ setTestResult('4-2', 'skip', 'Manuel test gerekli');
+}
+
+// Auto-load config from localStorage
+window.onload = ()=>{
+ try{
+  const saved = localStorage.getItem('lavora_test_config');
+  if(saved) document.getElementById('firebaseConfig').value = saved;
+ }catch(e){}
+};
+
+// Save config
+document.getElementById('firebaseConfig').onblur = ()=>{
+ try{
+  const val = document.getElementById('firebaseConfig').value.trim();
+  if(val) localStorage.setItem('lavora_test_config', val);
+ }catch(e){}
+};
+</script>
+
+</body>
+</html>

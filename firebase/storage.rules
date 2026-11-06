@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper: get user role from Firestore
+    function userRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return request.auth != null && userRole() == 'admin';
+    }
+    
+    function isPartner() {
+      return request.auth != null && userRole() == 'partner';
+    }
+    
+    function isEmployee() {
+      return request.auth != null && userRole() == 'employee';
+    }
+    
+    function isCustomer() {
+      return request.auth != null && userRole() == 'customer';
+    }
+    
+    function isAdminOrPartner() {
+      let role = userRole();
+      return request.auth != null && (role == 'admin' || role == 'partner');
+    }
+    
+    // Receipt images — admin & partner only
+    match /receipts/{receiptId}/{allPaths=**} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Scan images — admin & partner only
+    match /scans/{scanId}/{allPaths=**} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Workflow photos — admin, partner, employee
+    match /workflow_photos/{photoId}/{allPaths=**} {
+      allow read, write: if isAdminOrPartner() || isEmployee();
+    }
+    
+    // Custom sounds — admin, partner, employee
+    match /custom_sounds/{soundId}/{allPaths=**} {
+      allow read, write: if isAdminOrPartner() || isEmployee();
+    }
+    
+    // Company logo/settings media — admin & partner only
+    match /settings/{allPaths=**} {
+      allow read, write: if isAdminOrPartner();
+    }
+    
+    // Customers cannot upload or read storage files directly
+    // They only see project summaries via Firestore customer_projects
+  }
+}
