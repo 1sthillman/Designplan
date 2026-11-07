@@ -858,14 +858,23 @@ img.onerror = reject;
 };
 
 window.LavoraAI.chatReply = async function(conversationHistory) {
-  const systemPrompt = "Sen Lavora Design'ın lüks özel imalat ve mimari mobilya yapay zeka danışmanısın. Müşteriyle sıcak, vizyoner ve profesyonel Türkçe konuş. Cevapların kısa olsun (en fazla 2-3 cümle). Müşterinin hayalini anlamak için en fazla 1 mimari soru sor (ölçü, ahşap türü veya fonksiyon). Yanıtının en sonuna mutlaka müşterinin tek tıkla basabileceği 3-4 adet öneri hapı ekle:\n[ÖNERİLER: Seçenek 1 | Seçenek 2 | Seçenek 3 | Tasarımı 3D Oluştur ✨]";
+  const systemPrompt = "Sen Lavora Design'ın baş iç mimarı ve lüks mobilya tasarım uzmanısın.\n" +
+    "Adın: Lavora Tasarım Mimarı.\n" +
+    "Müşteriyle karşılıklı olarak evine veya ofisine özel mobilya tasarlıyorsunuz.\n\n" +
+    "İLETİŞİM KURALLARI VE DİLİN:\n" +
+    "1. Gerçek, son derece yetkin ve vizyoner bir insan mimar gibi konuş. Samimi, seçkin, kibar ve profesyonel ol.\n" +
+    "2. ASLA 'Seçenek 1', 'Seçenek 2', robotik maddeler veya şablon listeler KULLANMA. Hiçbir köşe parantezli öneri kalıbı yazma.\n" +
+    "3. Müşterinin anlattığı her detayı (ahşap cinsi, ölçüler, renk tonları, kulp/ayak tercihleri, fonksiyonlar) dikkatle dinle. Ona mimari değer katan estetik malzeme önerilerinde bulun (örneğin: masif ceviz ile fırçalanmış pirinç kulpların zarafeti, hazeran kapaklar, gizli LED aydınlatma, füme cam veya mat siyah metal ayaklar).\n" +
+    "4. Her cevabında müşterinin mekanını veya kullanım alışkanlığını daha iyi anlamak için sadece 1 adet akıcı ve merak uyandıran mimari soru sor (örneğin: kapakların hazeran mı masif ahşap mı olması, odadaki genişlik sınırı, çekmece/raf ihtiyacı veya duvara asılı/ayaklı tercih).\n" +
+    "5. Cevabın çok uzun olmasın (en fazla 2-3 cümle), akıcı, net ve sıcak olsun.\n" +
+    "6. Müşteri 'tasarla', 'üret', 'görselleştir', 'oluştur' veya 'tamamdır' dediğinde, tüm detayların harika olduğunu ve 3D stüdyo modelinin hazırlandığını belirt.";
   
   try {
     const messages = [
       { role: 'system', content: systemPrompt },
       ...conversationHistory.map(m => ({ role: m.role, content: m.content }))
     ];
-    const data = await this.callApi('text', { messages, max_tokens: 350 });
+    const data = await this.callApi('text', { messages, max_tokens: 350, temperature: 0.65 });
     let text = '';
     if (typeof data?.result?.response === 'string') text = data.result.response;
     else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
@@ -873,10 +882,12 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
     else if (typeof data === 'string') text = data;
     else text = JSON.stringify(data || '');
 
-    return text.trim();
+    // Clean any accidental bracket tokens or robot text
+    let clean = text.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
+    return clean || 'Harika bir tasarım vizyonu! Mekanınızın boyutları ve tercih edeceğiniz ahşap tonu hakkında biraz daha detay paylaşabilir misiniz?';
   } catch(err) {
     console.warn('chatReply error:', err);
-    return 'Fikriniz harika! Ahşap dokusu olarak açık doğal meşe mi, koyu Amerikan ceviz mi tercih edersiniz?\n[ÖNERİLER: Doğal Meşe | Koyu Amerikan Ceviz | Tasarımı 3D Oluştur ✨]';
+    return 'Tasarım vizyonunuz çok etkileyici! Masif ahşap dokusu olarak açık doğal meşe mi yoksa asil Amerikan ceviz mi tercih edersiniz?';
   }
 };
 
@@ -886,11 +897,11 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     chatText + "\n\n" +
     "Lütfen sadece şu JSON formatında yanıt ver:\n" +
     "{\n" +
-    '  "itemName": "Mobilya Adı (örn: Özel Tasarım TV Ünitesi)",\n' +
-    '  "dimensions": "Genişlik × Derinlik × Yükseklik cm (örn: 200 × 45 × 55 cm)",\n' +
-    '  "material": "Ahşap ve malzeme dokusu (örn: Doğal Açık Meşe)",\n' +
-    '  "specs": "Tasarım detayları ve fonksiyonlar",\n' +
-    '  "fluxPrompt": "award winning studio product photo of modern [furniture item description in English with details and colors], solid natural light oak wood, minimalist studio, warm soft studio lighting, ultra detailed grain, 3/4 perspective, 8k resolution, photorealistic"\n' +
+    '  "itemName": "Mobilya Adı (örn: Özel Tasarım Ceviz Konsol)",\n' +
+    '  "dimensions": "Genişlik × Derinlik × Yükseklik cm (örn: 190 × 45 × 75 cm)",\n' +
+    '  "material": "Ahşap ve malzeme dokusu (örn: Doğal Amerikan Masif Ceviz)",\n' +
+    '  "specs": "Ayaklar, kulplar ve mimari fonksiyon detayları",\n' +
+    '  "fluxPrompt": "award winning commercial studio product photograph of bespoke custom [furniture item in English with materials, colors, legs, handles], solid natural wood, clean minimalist studio background, warm soft dramatic studio lighting, ultra detailed wood grain, 3/4 perspective, 8k resolution, photorealistic"\n' +
     "}";
 
   try {
@@ -899,7 +910,8 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
         { role: 'system', content: 'Sen sadece geçerli JSON döndüren bir mimari analiz motorusun.' },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 450
+      max_tokens: 450,
+      temperature: 0.2
     });
 
     let text = '';
@@ -909,7 +921,7 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     else if (typeof data === 'string') text = data;
     else text = JSON.stringify(data || '');
 
-    const cleanStr = text.replace(/\\```json/gi, '').replace(/\\```/g, '').trim();
+    const cleanStr = text.replace(/```json/gi, '').split('```').join('').trim();
     const match = cleanStr.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]);
   } catch(err) {
@@ -921,7 +933,7 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
   let name = 'Özel İmalat Mobilya';
   if (/tv/i.test(fullUserText)) name = 'Özel Tasarım TV Ünitesi';
   else if (/masa|çalışma/i.test(fullUserText)) name = 'Özel Çalışma Masası';
-  else if (/konsol/i.test(fullUserText)) name = 'Özel Tasarım Konsol';
+  else if (/konsol/i.test(fullUserText)) name = 'Özel Retro Konsol';
   else if (/yemek/i.test(fullUserText)) name = 'Masif Ahşap Yemek Masası';
   else if (/gardrop|dolap/i.test(fullUserText)) name = 'Özel İmalat Gardrop';
   else if (/kitap/i.test(fullUserText)) name = 'Özel Tasarım Kütüphane';
@@ -931,7 +943,7 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     dimensions: '180 × 50 × 65 cm',
     material: /ceviz/i.test(fullUserText) ? 'Masif Amerikan Ceviz' : /lake/i.test(fullUserText) ? 'İpek Mat Lake' : 'Doğal Masif Meşe',
     specs: fullUserText.slice(0, 80) || 'Kişiye özel ölçü ve imalat',
-    fluxPrompt: 'award winning commercial studio product photograph of bespoke custom ' + name + ', premium natural wood, warm soft studio lighting, ultra detailed grain, 3/4 perspective, clean background, 8k resolution, photorealistic'
+    fluxPrompt: 'award winning commercial studio product photograph of bespoke custom ' + name + ', solid natural wood, warm soft studio lighting, ultra detailed grain, 3/4 perspective, clean background, 8k resolution, photorealistic'
   };
 };
 
@@ -953,19 +965,13 @@ window.lvOpenCustomerRequest = function(target) {
 
   const md = document.createElement('div');
   md.id = 'lv-creq-modal';
-  md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.82);display:grid;place-items:center;padding:12px;backdrop-filter:blur(10px)';
+  md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(3,7,18,0.88);backdrop-filter:blur(20px);display:grid;place-items:center;padding:16px;box-sizing:border-box';
 
-  // Conversation state
+  // Initial Conversation
   const conversation = [
     {
       role: 'assistant',
-      content: 'Merhaba! Ben Lavora Mimari Tasarım Danışmanınız. Mekanınız için hayal ettiğiniz özel mobilyayı birlikte tasarlayalım.\n\nKafanızda nasıl bir tasarım veya alan var? İster kısaca anlatın, ister fotoğraf yükleyin.',
-      suggestions: [
-        'Salon için TV Ünitesi & Konsol',
-        'Özel Çalışma Alanı & Kütüphane',
-        'Geniş Masif Yemek Masası',
-        'Minimalist Giyinme Odası'
-      ]
+      content: 'Merhaba! Ben Lavora Design baş mimarınızım. Mekanınız için tamamen size özel, birinci sınıf masif ve mimari bir mobilya tasarlayacağız.\n\nAklınızdaki mobilyayı kısaca anlatın: Hangi oda için, nasıl bir tarz ve hangi ahşap tonları hayal ediyorsunuz? Dilerseniz mekanınızın veya beğendiğiniz bir örneğin fotoğrafını da sol alttaki kamera butonundan ekleyebilirsiniz.'
     }
   ];
 
@@ -976,13 +982,7 @@ window.lvOpenCustomerRequest = function(target) {
     });
     conversation.push({
       role: 'assistant',
-      content: esc(itName) + ' için harika bir fikir! Mekanınızın boyutları veya tercih ettiğiniz ahşap tonu (Doğal Meşe, Koyu Ceviz, Lake) hakkında nasıl bir hayaliniz var?',
-      suggestions: [
-        'Doğal Masif Meşe & Siyah Metal',
-        'Asil Koyu Amerikan Ceviz',
-        'İpek Mat Lake & Minimal',
-        'Hemen 3D Tasarla ✨'
-      ]
+      content: esc(itName) + ' için harika bir fikir! Mekanınızın genişliği ve tercih edeceğiniz ahşap dokusu (Doğal Meşe, Koyu Ceviz veya İpek Mat Lake) hakkında nasıl bir hayaliniz var?'
     });
   }
 
@@ -991,113 +991,148 @@ window.lvOpenCustomerRequest = function(target) {
   let currentDesignSpecs = null;
   let currentEstimate = null;
 
-  const projBanner = pName ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(20,184,166,0.12);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;color:var(--ac);border:1px solid rgba(20,184,166,0.25)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>' + esc(pName) + '</span></div>' : '';
+  const projBanner = pName ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(20,184,166,0.14);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#14b8a6;border:1px solid rgba(20,184,166,0.3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>' + esc(pName) + '</span></div>' : '';
 
-  md.innerHTML = '<div style="width:min(100%,600px);background:#0f172a;border-radius:24px;border:1.5px solid rgba(20,184,166,0.35);box-shadow:0 24px 64px rgba(0,0,0,0.65), 0 0 28px rgba(20,184,166,0.15);overflow:hidden;display:flex;flex-direction:column;max-height:92vh;box-sizing:border-box">' +
-   '<!-- Header -->' +
-   '<div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.95);display:flex;justify-content:space-between;align-items:center;backdrop-filter:blur(8px);gap:10px">' +
-    '<div style="display:flex;align-items:center;gap:12px">' +
-     '<div style="position:relative;width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0d9488,#0284c7);display:grid;place-items:center;color:#fff;box-shadow:0 0 16px rgba(13,148,136,0.5)">' +
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' +
-      '<span style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid #0f172a"></span>' +
+  md.innerHTML = '<div style="width:min(96vw,840px);height:min(92vh,800px);background:linear-gradient(180deg,#0d1527 0%,#080d19 100%);border-radius:24px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 32px 90px rgba(0,0,0,0.85), 0 0 40px rgba(20,184,166,0.15);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box">' +
+   '<!-- HEADER -->' +
+   '<div style="padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(13,21,39,0.92);display:flex;justify-content:space-between;align-items:center;backdrop-filter:blur(12px);gap:12px">' +
+    '<div style="display:flex;align-items:center;gap:14px">' +
+     '<div style="position:relative;width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#0d9488,#0284c7);display:grid;place-items:center;color:#fff;box-shadow:0 0 20px rgba(13,148,136,0.5);border:1px solid rgba(255,255,255,0.2)">' +
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+      '<span style="position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:#10b981;border:2px solid #0d1527;box-shadow:0 0 8px #10b981"></span>' +
      '</div>' +
      '<div>' +
-      '<div style="display:flex;align-items:center;gap:8px">' +
-       '<h3 style="margin:0;font-size:16px;font-weight:800;color:#f8fafc">Lavora AI Tasarım Danışmanı</h3>' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+       '<h3 style="margin:0;font-size:17px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em">Lavora Mimari Yapay Zeka Stüdyosu</h3>' +
        projBanner +
       '</div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:2px">Doğal dille mobilya tasarımı, ölçülendirme ve 3D modelleme</div>' +
+      '<div style="font-size:12px;color:#94a3b8;margin-top:3px;display:flex;align-items:center;gap:6px">' +
+       '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#14b8a6"></span>' +
+       '<span>Canlı Mimar Danışmanı • Doğal Dil & 8K 3D Stüdyo</span>' +
+      '</div>' +
      '</div>' +
     '</div>' +
-    '<div style="display:flex;align-items:center;gap:8px">' +
-     '<button id="lv-ai-instant-gen" type="button" style="padding:7px 12px;background:linear-gradient(135deg,#0d9488,#0284c7);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(13,148,136,0.3)">' +
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
-      '<span>3D Tasarla</span>' +
+    '<div style="display:flex;align-items:center;gap:10px">' +
+     '<button id="lv-ai-instant-gen" type="button" style="padding:9px 18px;background:linear-gradient(135deg,#0d9488,#0284c7);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(13,148,136,0.35);transition:all .2s">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+      '<span>✨ 3D Tasarla & Fiyatlandır</span>' +
      '</button>' +
-     '<button id="lv-creq-close" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;padding:4px">×</button>' +
+     '<button id="lv-creq-close" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);font-size:20px;cursor:pointer;color:#94a3b8;display:grid;place-items:center;transition:all .15s">✕</button>' +
     '</div>' +
    '</div>' +
 
    '<!-- CHAT CONTAINER -->' +
-   '<div id="lv-ai-chat-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden">' +
+   '<div id="lv-ai-chat-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative">' +
     '<!-- Stream -->' +
-    '<div id="lv-ai-chat-stream" style="flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px;background:#0b1120"></div>' +
+    '<div id="lv-ai-chat-stream" style="flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px;background:#090e1b"></div>' +
 
     '<!-- Photo attachment preview badge (hidden by default) -->' +
-    '<div id="lv-ai-att-badge" style="display:none;padding:8px 20px;background:#1e293b;border-top:1px solid rgba(255,255,255,0.06);align-items:center;justify-content:space-between">' +
-     '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#cbd5e1">' +
-      '<img id="lv-ai-att-thumb" style="width:28px;height:28px;border-radius:6px;object-fit:cover;border:1px solid var(--ac)">' +
+    '<div id="lv-ai-att-badge" style="display:none;padding:10px 24px;background:#131c31;border-top:1px solid rgba(255,255,255,0.08);align-items:center;justify-content:space-between">' +
+     '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#cbd5e1">' +
+      '<img id="lv-ai-att-thumb" style="width:34px;height:34px;border-radius:8px;object-fit:cover;border:1.5px solid #14b8a6">' +
       '<span id="lv-ai-att-name">Fotoğraf eklendi</span>' +
      '</div>' +
-     '<button id="lv-ai-att-remove" type="button" style="background:none;border:none;color:#f87171;font-size:12px;font-weight:700;cursor:pointer">Kaldır</button>' +
+     '<button id="lv-ai-att-remove" type="button" style="background:none;border:none;color:#f87171;font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px">Kaldır</button>' +
+    '</div>' +
+
+    '<!-- Quick-Idea Chips (Click to insert text) -->' +
+    '<div id="lv-ai-hints-bar" style="padding:8px 24px 4px 24px;background:rgba(13,21,39,0.95);display:flex;gap:8px;overflow-x:auto;scrollbar-width:none">' +
+     '<button type="button" class="lv-hint-chip" data-text="180cm retro ceviz konsol istiyorum pirinç kulplu olsun" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s">✦ 180cm Retro Ceviz Konsol</button>' +
+     '<button type="button" class="lv-hint-chip" data-text="Doğal masif meşe ve siyah metal ayaklı modern TV ünitesi" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s">✦ Masif Meşe TV Ünitesi</button>' +
+     '<button type="button" class="lv-hint-chip" data-text="Kütüphaneli ve çekmeceli masif ahşap çalışma masası" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s">✦ Kütüphaneli Çalışma Masası</button>' +
+     '<button type="button" class="lv-hint-chip" data-text="Minimalist giyinme odası için dolap ve çekmece modülü" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s">✦ Minimalist Gardrop</button>' +
     '</div>' +
 
     '<!-- Input bar -->' +
-    '<div style="padding:12px 16px;background:rgba(15,23,42,0.98);border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px">' +
-     '<button id="lv-ai-photo-btn" type="button" title="Referans fotoğraf veya oda görseli ekle" style="width:38px;height:38px;border-radius:10px;background:#1e293b;border:1px solid rgba(255,255,255,0.12);color:#94a3b8;display:grid;place-items:center;cursor:pointer;transition:all .15s">' +
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+    '<div style="padding:12px 20px 18px 20px;background:rgba(13,21,39,0.98);border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:12px">' +
+     '<button id="lv-ai-photo-btn" type="button" title="Referans fotoğraf veya oda görseli ekle" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;display:grid;place-items:center;cursor:pointer;transition:all .15s;flex-shrink:0">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
      '</button>' +
      '<input id="lv-ai-photo-input" type="file" accept="image/*" hidden>' +
-     '<input id="lv-ai-input" placeholder="Hayalinizdeki mobilyayı anlatın… (örn: 2 metre doğal meşe TV ünitesi)" style="flex:1;background:#1e293b;border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:10px 14px;color:#fff;font-size:13px;outline:none;transition:border-color .15s">' +
-     '<button id="lv-ai-send-btn" type="button" style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#0284c7);border:none;color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 12px rgba(13,148,136,0.3)">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+     '<input id="lv-ai-input" placeholder="Hayalinizdeki mobilyayı mimarımıza anlatın… (örn: 190 cm ceviz konsol, hazeran kapaklı)" style="flex:1;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px 18px;color:#fff;font-size:13.5px;outline:none;transition:border-color .15s">' +
+     '<button id="lv-ai-send-btn" type="button" style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#0d9488,#0284c7);border:none;color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 14px rgba(13,148,136,0.35);flex-shrink:0">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
      '</button>' +
     '</div>' +
    '</div>' +
 
    '<!-- 3D RESULT VIEW (HIDDEN INITIALLY) -->' +
-   '<div id="lv-ai-result-view" style="display:none;padding:20px;overflow-y:auto">' +
-    '<div style="position:relative;border-radius:16px;overflow:hidden;border:1.5px solid rgba(20,184,166,0.5);background:#020617;min-height:280px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 12px 32px rgba(0,0,0,0.5)">' +
-     '<div id="lv-ai-loading" style="position:absolute;inset:0;background:rgba(15,23,42,0.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;z-index:10">' +
-      '<svg class="spin" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>' +
-      '<div style="font-size:14px;font-weight:800;letter-spacing:.02em">Yapay Zeka 3D Modeli İşliyor…</div>' +
-      '<div style="font-size:11px;color:#94a3b8;max-width:320px;text-align:center">Doğal ahşap lif dokuları, oranlar ve stüdyo ışığı hesaplanıyor (birkaç saniye)</div>' +
+   '<div id="lv-ai-result-view" style="display:none;padding:24px 28px;overflow-y:auto;flex:1;background:#090e1b">' +
+    '<div style="position:relative;border-radius:18px;overflow:hidden;border:1.5px solid rgba(20,184,166,0.45);background:#020617;min-height:320px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 16px 40px rgba(0,0,0,0.6)">' +
+     '<div id="lv-ai-loading" style="position:absolute;inset:0;background:rgba(13,21,39,0.94);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;z-index:10">' +
+      '<svg class="spin" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>' +
+      '<div style="font-size:16px;font-weight:800;letter-spacing:.02em">Yapay Zeka 3D Stüdyo Modelini İşliyor…</div>' +
+      '<div id="lv-ai-progress-status" style="font-size:12px;color:#94a3b8;max-width:380px;text-align:center">Doğal masif ahşap lifleri, oranlar ve stüdyo ışığı hesaplanıyor (1-3 sn)</div>' +
      '</div>' +
-     '<img id="lv-ai-result-img" style="width:100%;max-height:360px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">' +
-     '<button id="lv-ai-fullscreen" type="button" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.75);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);z-index:5">Tam Ekran</button>' +
+     '<img id="lv-ai-result-img" style="width:100%;max-height:420px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">' +
+     '<button id="lv-ai-fullscreen" type="button" style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.75);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);z-index:5">Tam Ekran</button>' +
     '</div>' +
 
-    '<div style="background:#1e293b;border-radius:14px;padding:14px 16px;border:1px solid rgba(255,255,255,0.08);margin-bottom:14px">' +
-     '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">' +
-      '<div>' +
-       '<div id="lv-ai-item-title" style="font-size:16px;font-weight:900;color:#f8fafc">Özel İmalat Mobilya</div>' +
-       '<div id="lv-ai-price-text" style="font-size:20px;font-weight:900;color:var(--ac);margin-top:2px"></div>' +
-      '</div>' +
-      '<div id="lv-ai-days-text" style="font-size:12px;color:#cbd5e1;background:#0f172a;padding:5px 11px;border-radius:8px;font-weight:700;border:1px solid rgba(255,255,255,0.1)"></div>' +
+    '<!-- SPECS & PRICING GRID -->' +
+    '<div id="lv-ai-specs-card" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:18px 22px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Mobilya Adı</div>' +
+      '<div id="lv-ai-spec-name" style="font-size:15px;font-weight:800;color:#f8fafc;margin-top:2px">-</div>' +
      '</div>' +
-     '<div id="lv-ai-specs-text" style="font-size:12px;color:#cbd5e1;font-weight:600;margin-top:4px"></div>' +
-     '<div id="lv-ai-desc-text" style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.4"></div>' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Tahmini Ölçüler</div>' +
+      '<div id="lv-ai-spec-dim" style="font-size:15px;font-weight:800;color:#f8fafc;margin-top:2px">-</div>' +
+     '</div>' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Ahşap & Malzeme</div>' +
+      '<div id="lv-ai-spec-mat" style="font-size:15px;font-weight:800;color:#14b8a6;margin-top:2px">-</div>' +
+     '</div>' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Tasarım Aksamları</div>' +
+      '<div id="lv-ai-spec-specs" style="font-size:13px;font-weight:600;color:#cbd5e1;margin-top:2px">-</div>' +
+     '</div>' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Tahmini İmalat Bütçesi</div>' +
+      '<div id="lv-ai-spec-price" style="font-size:18px;font-weight:900;color:#10b981;margin-top:2px">-</div>' +
+     '</div>' +
+     '<div>' +
+      '<div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em">İmalat Süresi</div>' +
+      '<div id="lv-ai-spec-time" style="font-size:15px;font-weight:800;color:#f8fafc;margin-top:2px">-</div>' +
+     '</div>' +
     '</div>' +
 
-    '<div style="display:flex;gap:10px">' +
-     '<button id="lv-ai-back-chat-btn" type="button" style="padding:12px 16px;background:#1e293b;color:#f8fafc;border:1px solid rgba(255,255,255,0.12);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>' +
-      'Sohbete Dön' +
-     '</button>' +
-     '<button id="lv-ai-regen-btn" type="button" style="padding:12px 14px;background:#1e293b;color:#f8fafc;border:1px solid rgba(255,255,255,0.12);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer" title="Farklı bir varyasyon üret">' +
-      'Yeniden Üret' +
-     '</button>' +
-     '<button id="lv-ai-submit-btn" type="button" style="flex:1;padding:13px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 8px 20px rgba(13,148,136,0.35)">' +
-      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
-      'Talebi Yöneticiye Gönder' +
-     '</button>' +
+    '<!-- Action buttons -->' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end">' +
+     '<button id="lv-ai-back-btn" type="button" style="padding:12px 20px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:13px;font-weight:700;cursor:pointer">← Sohbete Dön & Revize İste</button>' +
+     '<button id="lv-ai-regen-btn" type="button" style="padding:12px 20px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:13px;font-weight:700;cursor:pointer">↻ Farklı Açıdan Üret</button>' +
+     '<button id="lv-ai-submit-btn" type="button" style="padding:12px 26px;border-radius:12px;background:linear-gradient(135deg,#10b981,#0d9488);border:none;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(16,185,129,0.35)">Talebi Onayla & Atölyeye Gönder ✓</button>' +
     '</div>' +
    '</div>' +
   '</div>';
 
   document.body.append(md);
-  md.onclick = e => { if (e.target === md) md.remove(); };
-  document.getElementById('lv-creq-close').onclick = () => md.remove();
 
+  // Close handlers
+  const closeModal = () => md.remove();
+  document.getElementById('lv-creq-close').onclick = closeModal;
+  md.onclick = e => { if (e.target === md) closeModal(); };
+
+  // Elements
+  const chatView = document.getElementById('lv-ai-chat-view');
+  const resultView = document.getElementById('lv-ai-result-view');
   const streamEl = document.getElementById('lv-ai-chat-stream');
   const inputEl = document.getElementById('lv-ai-input');
   const sendBtn = document.getElementById('lv-ai-send-btn');
+  const instantGenBtn = document.getElementById('lv-ai-instant-gen');
   const photoBtn = document.getElementById('lv-ai-photo-btn');
   const photoInput = document.getElementById('lv-ai-photo-input');
   const attBadge = document.getElementById('lv-ai-att-badge');
   const attThumb = document.getElementById('lv-ai-att-thumb');
   const attName = document.getElementById('lv-ai-att-name');
   const attRemove = document.getElementById('lv-ai-att-remove');
+
+  // Hint Chips
+  document.querySelectorAll('.lv-hint-chip').forEach(btn => {
+    btn.onclick = () => {
+      inputEl.value = btn.getAttribute('data-text') || '';
+      inputEl.focus();
+    };
+  });
 
   // Render a chat message
   const renderMessage = msg => {
@@ -1107,53 +1142,20 @@ window.lvOpenCustomerRequest = function(target) {
 
     const bubble = document.createElement('div');
     bubble.style.cssText = isUser ?
-      'max-width:82%;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:13px;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,0.25);word-break:break-word' :
-      'max-width:85%;background:#1e293b;border:1px solid rgba(255,255,255,0.08);color:#f1f5f9;padding:12px 16px;border-radius:18px 18px 18px 4px;font-size:13px;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,0.25);word-break:break-word';
+      'max-width:82%;background:linear-gradient(135deg,#0d9488,#0369a1);color:#fff;padding:14px 18px;border-radius:18px 18px 4px 18px;font-size:13.5px;line-height:1.55;box-shadow:0 4px 14px rgba(0,0,0,0.3);word-break:break-word' :
+      'max-width:85%;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.08);border-left:3px solid #14b8a6;color:#f1f5f9;padding:14px 18px;border-radius:4px 18px 18px 18px;font-size:13.5px;line-height:1.6;box-shadow:0 4px 14px rgba(0,0,0,0.2);word-break:break-word';
 
-    // Parse suggestions out of AI text if present
     let rawText = msg.content || '';
-    let parsedSuggestions = msg.suggestions || [];
-
-    const sugMatch = rawText.match(/\[(ÖNERİLER|SUGGESTIONS|Öneri|Öneriler):\s*([^\]]+)\]/i);
-    if (sugMatch) {
-      rawText = rawText.replace(sugMatch[0], '').trim();
-      if (!parsedSuggestions.length) {
-        parsedSuggestions = sugMatch[2].split('|').map(s => s.trim()).filter(Boolean);
-      }
-    }
+    // Strip any lingering placeholder brackets
+    rawText = rawText.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
 
     let textHtml = esc(rawText).replace(/\n/g, '<br>');
     if (msg.photo) {
-      textHtml += '<div style="margin-top:8px"><img src="' + msg.photo + '" style="max-width:180px;max-height:140px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);display:block;cursor:pointer"></div>';
+      textHtml += '<div style="margin-top:10px"><img src="' + msg.photo + '" style="max-width:220px;max-height:160px;border-radius:10px;border:1px solid rgba(255,255,255,0.25);display:block;cursor:pointer"></div>';
     }
 
     bubble.innerHTML = textHtml;
     wrap.append(bubble);
-
-    // Suggestion pills below AI messages
-    if (!isUser && parsedSuggestions && parsedSuggestions.length) {
-      const pillsWrap = document.createElement('div');
-      pillsWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;max-width:90%';
-      parsedSuggestions.forEach(sug => {
-        const pill = document.createElement('button');
-        pill.type = 'button';
-        const isGen = /3D|Tasarla|Görselleştir|Model/i.test(sug);
-        pill.style.cssText = isGen ?
-          'padding:6px 12px;border-radius:9px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,0.3)' :
-          'padding:6px 11px;border-radius:9px;background:#1e293b;border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s';
-        pill.textContent = sug;
-        pill.onclick = () => {
-          if (isGen) {
-            triggerGeneration();
-          } else {
-            sendUserMessage(sug);
-          }
-        };
-        pillsWrap.append(pill);
-      });
-      wrap.append(pillsWrap);
-    }
-
     streamEl.append(wrap);
     streamEl.scrollTop = streamEl.scrollHeight;
   };
@@ -1171,8 +1173,8 @@ window.lvOpenCustomerRequest = function(target) {
         attThumb.src = userAttachedPhoto;
         attName.textContent = file.name;
         attBadge.style.display = 'flex';
-        photoBtn.style.color = 'var(--ac)';
-        photoBtn.style.borderColor = 'var(--ac)';
+        photoBtn.style.color = '#14b8a6';
+        photoBtn.style.borderColor = '#14b8a6';
       } catch(e) {
         if (typeof toast === 'function') toast('Fotoğraf eklenemedi');
       }
@@ -1206,7 +1208,7 @@ window.lvOpenCustomerRequest = function(target) {
     photoBtn.style.borderColor = 'rgba(255,255,255,0.12)';
 
     // Check if user is asking to render directly
-    if (/oluştur|tasarla|tamamdır|üret|görselleştir|model/i.test(text) && conversation.length >= 3) {
+    if (/oluştur|tasarla|tamamdır|üret|görselleştir|model|çiz/i.test(text) && conversation.length >= 3) {
       triggerGeneration();
       return;
     }
@@ -1214,8 +1216,8 @@ window.lvOpenCustomerRequest = function(target) {
     // Show typing indicator
     const typingIndicator = document.createElement('div');
     typingIndicator.id = 'lv-ai-typing';
-    typingIndicator.style.cssText = 'display:flex;align-items:center;gap:4px;padding:10px 14px;background:#1e293b;border-radius:14px;width:fit-content;color:#94a3b8;font-size:12px;font-weight:700';
-    typingIndicator.innerHTML = '<span class="spin" style="display:inline-block">✦</span> Yapay zeka düşünüyor…';
+    typingIndicator.style.cssText = 'display:flex;align-items:center;gap:6px;padding:12px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-left:3px solid #14b8a6;border-radius:4px 14px 14px 14px;width:fit-content;color:#94a3b8;font-size:12.5px;font-weight:700';
+    typingIndicator.innerHTML = '<span class="spin" style="display:inline-block;color:#14b8a6">✦</span> Mimar düşünüyor…';
     streamEl.append(typingIndicator);
     streamEl.scrollTop = streamEl.scrollHeight;
 
@@ -1231,8 +1233,7 @@ window.lvOpenCustomerRequest = function(target) {
       typingIndicator.remove();
       const fallbackMsg = {
         role: 'assistant',
-        content: 'Tasarım tercihinizi not aldım! Doğal açık meşe tonu ve gizli depolama detaylarıyla harika bir model ortaya çıkarabiliriz.',
-        suggestions: ['Şimdi 3D Tasarla ✨', 'Koyu Ahşap İncele', 'Ölçüleri Belirle']
+        content: 'Tasarım vizyonunuzu harika anladım! Masif Amerikan ceviz veya doğal meşe detaylarıyla mükemmel bir derinlik sağlayabiliriz. Ölçüler veya kapaklar hakkında aklınızda başka bir detay var mı?'
       };
       conversation.push(fallbackMsg);
       renderMessage(fallbackMsg);
@@ -1252,119 +1253,113 @@ window.lvOpenCustomerRequest = function(target) {
 
   // Trigger 3D Generation
   const triggerGeneration = async () => {
-    document.getElementById('lv-ai-chat-view').style.display = 'none';
-    document.getElementById('lv-ai-result-view').style.display = 'block';
+    chatView.style.display = 'none';
+    resultView.style.display = 'block';
 
-    const loadingEl = document.getElementById('lv-ai-loading');
+    const loading = document.getElementById('lv-ai-loading');
     const resultImg = document.getElementById('lv-ai-result-img');
-    loadingEl.style.display = 'flex';
+    const progressStatus = document.getElementById('lv-ai-progress-status');
+    loading.style.display = 'flex';
+    resultImg.src = '';
 
     try {
-      // 1. Extract design parameters from conversation
+      // 1. Extract specs from conversation
+      if (progressStatus) progressStatus.textContent = '1/3 Mimari form ve malzeme analizi yapılıyor…';
       currentDesignSpecs = await window.LavoraAI.extractDesignFromChat(conversation);
 
-      document.getElementById('lv-ai-item-title').textContent = currentDesignSpecs.itemName || 'Özel İmalat Mobilya';
+      document.getElementById('lv-ai-spec-name').textContent = currentDesignSpecs.itemName || 'Özel Tasarım Mobilya';
+      document.getElementById('lv-ai-spec-dim').textContent = currentDesignSpecs.dimensions || '180 × 50 × 65 cm';
+      document.getElementById('lv-ai-spec-mat').textContent = currentDesignSpecs.material || 'Doğal Masif Ahşap';
+      document.getElementById('lv-ai-spec-specs').textContent = currentDesignSpecs.specs || 'Kişiye özel mimari imalat';
 
-      // 2. Estimate pricing
-      let w = 180, d = 55, h = 65;
-      const dimMatch = (currentDesignSpecs.dimensions || '').match(/(\d+)\s*[×x*]\s*(\d+)(?:\s*[×x*]\s*(\d+))?/i);
-      if (dimMatch) {
-        w = +dimMatch[1] || 180;
-        d = +dimMatch[2] || 55;
-        h = +dimMatch[3] || 65;
-      }
+      // Estimate price
+      currentEstimate = window.lvEstimateFurniturePrice(currentDesignSpecs);
+      document.getElementById('lv-ai-spec-price').textContent = currentEstimate.minStr + ' – ' + currentEstimate.maxStr;
+      document.getElementById('lv-ai-spec-time').textContent = currentEstimate.days + ' İş Günü';
 
-      let matKey = 'masif_mese';
-      if (/ceviz/i.test(currentDesignSpecs.material)) matKey = 'masif_ceviz';
-      else if (/lake/i.test(currentDesignSpecs.material)) matKey = 'lake';
+      // 2. Generate 3D studio catalog visual with Flux
+      if (progressStatus) progressStatus.textContent = '2/3 8K 3D Stüdyo sahnesi işleniyor (Flux-1-schnell)…';
+      const prompt = currentDesignSpecs.fluxPrompt ||
+        ('award winning commercial studio product photograph of bespoke custom ' + (currentDesignSpecs.itemName || 'furniture') + ', solid natural wood, clean background, warm soft lighting, 8k resolution, photorealistic');
 
-      currentEstimate = window.LavoraAI.estimatePricing(currentDesignSpecs.itemName, w, d, h, matKey);
-
-      document.getElementById('lv-ai-price-text').textContent = currentEstimate.formatted;
-      document.getElementById('lv-ai-days-text').textContent = 'Tahmini Süre: ' + currentEstimate.estimatedDays;
-      document.getElementById('lv-ai-specs-text').textContent = 'Ölçü: ' + currentDesignSpecs.dimensions + ' · ' + currentDesignSpecs.material;
-      document.getElementById('lv-ai-desc-text').textContent = currentDesignSpecs.specs ? ('Detaylar: ' + currentDesignSpecs.specs) : '';
-
-      // 3. Generate concept image with Flux Schnell
-      const prompt = currentDesignSpecs.fluxPrompt || ('award winning studio product photo of bespoke ' + currentDesignSpecs.itemName + ', solid wood, photorealistic 8k, warm soft studio lighting, 3/4 angle');
-      const imgDataUrl = await window.LavoraAI.generateConceptImage(prompt);
-
-      if (imgDataUrl) {
-        generatedVisualUrl = imgDataUrl;
-        resultImg.src = generatedVisualUrl;
-        if (typeof toast === 'function') toast('3D Tasarım modeli başarıyla oluşturuldu');
-      } else {
-        resultImg.src = userAttachedPhoto || '';
-        if (typeof toast === 'function') toast('Tasarım özellikleri ve bütçe hazırlandı');
-      }
+      const imgDataUrl = await window.LavoraAI.generateProductVisual(prompt);
+      generatedVisualUrl = imgDataUrl;
+      resultImg.src = imgDataUrl;
+      loading.style.display = 'none';
     } catch(err) {
-      console.warn('triggerGeneration error:', err);
-      if (typeof toast === 'function') toast('Tasarım oluşturulurken bir hata oluştu');
-    } finally {
-      loadingEl.style.display = 'none';
+      console.error('Generation error:', err);
+      loading.style.display = 'none';
+      if (typeof toast === 'function') toast('Görsel üretilemedi: ' + err.message);
+      else alert('Görsel üretilemedi: ' + err.message);
     }
   };
 
-  document.getElementById('lv-ai-instant-gen').onclick = triggerGeneration;
-  document.getElementById('lv-ai-regen-btn').onclick = triggerGeneration;
+  instantGenBtn.onclick = triggerGeneration;
 
-  document.getElementById('lv-ai-back-chat-btn').onclick = () => {
-    document.getElementById('lv-ai-result-view').style.display = 'none';
-    document.getElementById('lv-ai-chat-view').style.display = 'flex';
+  // Back to chat
+  document.getElementById('lv-ai-back-btn').onclick = () => {
+    resultView.style.display = 'none';
+    chatView.style.display = 'flex';
+    inputEl.focus();
   };
 
-  const openFullscreen = () => {
-    if (generatedVisualUrl && typeof window._lvImgModal === 'function') {
-      window._lvImgModal(generatedVisualUrl, [generatedVisualUrl], 0, (currentDesignSpecs && currentDesignSpecs.itemName) || '3D Tasarım');
-    }
+  // Regenerate
+  document.getElementById('lv-ai-regen-btn').onclick = () => {
+    triggerGeneration();
   };
-  document.getElementById('lv-ai-fullscreen').onclick = openFullscreen;
-  document.getElementById('lv-ai-result-img').onclick = openFullscreen;
+
+  // Fullscreen
+  document.getElementById('lv-ai-fullscreen').onclick = () => {
+    const src = document.getElementById('lv-ai-result-img').src;
+    if (!src) return;
+    const fs = document.createElement('div');
+    fs.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.95);display:grid;place-items:center;padding:20px;cursor:pointer';
+    fs.innerHTML = '<img src="' + src + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:12px;box-shadow:0 0 40px rgba(0,0,0,0.8)">';
+    fs.onclick = () => fs.remove();
+    document.body.append(fs);
+  };
 
   // Submit to Firebase
   document.getElementById('lv-ai-submit-btn').onclick = async () => {
     const btn = document.getElementById('lv-ai-submit-btn');
     btn.disabled = true;
-    btn.textContent = 'Gönderiliyor…';
-
-    const itemName = (currentDesignSpecs && currentDesignSpecs.itemName) || 'Özel Tasarım Mobilya';
-    const dimensions = (currentDesignSpecs && currentDesignSpecs.dimensions) || '180 × 50 × 65 cm';
-    const material = (currentDesignSpecs && currentDesignSpecs.material) || 'Doğal Masif Ahşap';
-    const specs = (currentDesignSpecs && currentDesignSpecs.specs) || '';
-
-    const chatSummary = conversation.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar AI: ') + m.content).join('\n\n');
-
-    const payload = {
-      uid: currentUser.uid,
-      email: currentUser.email || '',
-      projectId: pId,
-      projectName: pName,
-      itemId: itId,
-      itemName: itemName,
-      subject: 'Yapay Zeka Tasarım: ' + itemName,
-      text: specs ? (specs + '\n\nÖlçü: ' + dimensions + '\nMalzeme: ' + material) : (dimensions + ' ' + material + ' özel imalat mobilya.'),
-      dimensions: dimensions,
-      material: material,
-      chatTranscript: chatSummary,
-      aiEstimate: (currentEstimate && currentEstimate.formatted) || '',
-      isAiAssisted: true,
-      createdAt: Date.now(),
-      status: 'open'
-    };
-
-    if (generatedVisualUrl) payload.aiConceptImage = generatedVisualUrl;
-    if (userAttachedPhoto) payload.furnitureReference = userAttachedPhoto;
+    btn.textContent = 'İletiliyor…';
 
     try {
-      const reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-      await path('customer_requests').child(currentUser.uid).child(reqId).set(payload);
-      md.remove();
-      const tabReq = document.getElementById('lv-ctab-req');
-      if (tabReq) tabReq.click();
-      if (typeof toast === 'function') toast('Tasarım talebiniz başarıyla mimari ekibimize iletildi');
+      const summaryNotes = conversation.filter(m => m.role === 'user').map(m => m.content).join(' | ');
+      const newReq = {
+        requestId: 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        projectId: pId || 'genel',
+        projectName: pName || 'Genel Müşteri Tasarımı',
+        itemId: itId || '',
+        furnitureType: currentDesignSpecs?.itemName || 'Özel İmalat Mobilya',
+        woodType: currentDesignSpecs?.material || 'Masif Ahşap',
+        dimensions: currentDesignSpecs?.dimensions || 'Özel Ölçü',
+        customNotes: summaryNotes || 'Yapay Zeka Mimar Görüşmesi',
+        referencePhotoUrl: conversation.find(m => m.photo)?.photo || '',
+        aiGeneratedPreviewUrl: generatedVisualUrl || '',
+        aiEstimatedBudgetMin: currentEstimate?.min || 25000,
+        aiEstimatedBudgetMax: currentEstimate?.max || 35000,
+        estimatedDeliveryDays: currentEstimate?.days || 15,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      if (window.LV_DB && typeof window.LV_DB.addCustomerRequest === 'function') {
+        await window.LV_DB.addCustomerRequest(newReq);
+      } else if (window.firebase && window.firebase.database) {
+        await window.firebase.database().ref('customer_requests/' + newReq.requestId).set(newReq);
+      }
+
+      btn.textContent = 'İletildi ✓';
+      btn.style.background = '#059669';
+      setTimeout(() => {
+        closeModal();
+        if (typeof toast === 'function') toast('Tasarım talebiniz atölye üretim kuyruğuna iletildi!');
+      }, 1200);
     } catch(err) {
       btn.disabled = false;
-      btn.textContent = 'Talebi Yöneticiye Gönder';
+      btn.textContent = 'Talebi Onayla & Atölyeye Gönder ✓';
       if (typeof toast === 'function') toast('Gönderilemedi: ' + err.message);
     }
   };
