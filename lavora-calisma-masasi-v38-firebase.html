@@ -948,6 +948,41 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
 };
 
 
+window.LavoraAI.generateProductVisual = async function(prompt) {
+  // Calls Cloudflare Worker -> Flux-1-schnell image generation
+  // Returns base64 data URL string
+  try {
+    const cleanPrompt = (prompt || '').substring(0, 1000);
+    const data = await window.LavoraAI.callApi('image', { prompt: cleanPrompt });
+
+    // Response can be: { result: { image: '<base64>' } } or ArrayBuffer or Blob or base64 string
+    if (data && data.result && data.result.image) {
+      const b64 = data.result.image;
+      return 'data:image/png;base64,' + b64;
+    }
+    if (data && typeof data === 'string' && data.startsWith('data:')) {
+      return data;
+    }
+    if (data instanceof ArrayBuffer || (data && data.byteLength)) {
+      const bytes = new Uint8Array(data instanceof ArrayBuffer ? data : data.buffer);
+      let binary = '';
+      bytes.forEach(b => { binary += String.fromCharCode(b); });
+      return 'data:image/png;base64,' + btoa(binary);
+    }
+    // Try to parse if it's a JSON-like object with image key
+    if (data && typeof data === 'object') {
+      const img = data.image || (data.result && data.result.image) || '';
+      if (img) return 'data:image/png;base64,' + img;
+    }
+    throw new Error('Unexpected image API response format');
+  } catch (err) {
+    console.error('generateProductVisual error:', err);
+    throw err;
+  }
+};
+
+
+
 window.lvEstimateFurniturePrice = function(specs) {
   const name = (specs && specs.itemName || '').toLowerCase();
   const mat  = (specs && specs.material  || '').toLowerCase();
