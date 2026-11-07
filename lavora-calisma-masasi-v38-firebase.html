@@ -855,84 +855,84 @@ img.onerror = reject;
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
 
-  async chatReply(conversationHistory) {
-    const systemPrompt = "Sen Lavora Design'ın lüks özel imalat ve mimari mobilya yapay zeka danışmanısın. Müşteriyle sıcak, vizyoner ve profesyonel Türkçe konuş. Cevapların kısa olsun (en fazla 2-3 cümle). Müşterinin hayalini anlamak için en fazla 1 mimari soru sor (ölçü, ahşap türü veya fonksiyon). Yanıtının en sonuna mutlaka müşterinin tek tıkla basabileceği 3-4 adet öneri hapı ekle:\n[ÖNERİLER: Seçenek 1 | Seçenek 2 | Seçenek 3 | Tasarımı 3D Oluştur ✨]";
-    
-    try {
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory.map(m => ({ role: m.role, content: m.content }))
-      ];
-      const data = await this.callApi('text', { messages, max_tokens: 350 });
-      let text = '';
-      if (typeof data?.result?.response === 'string') text = data.result.response;
-      else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
-      else if (typeof data?.response === 'string') text = data.response;
-      else if (typeof data === 'string') text = data;
-      else text = JSON.stringify(data || '');
+window.LavoraAI.chatReply = async function(conversationHistory) {
+  const systemPrompt = "Sen Lavora Design'ın lüks özel imalat ve mimari mobilya yapay zeka danışmanısın. Müşteriyle sıcak, vizyoner ve profesyonel Türkçe konuş. Cevapların kısa olsun (en fazla 2-3 cümle). Müşterinin hayalini anlamak için en fazla 1 mimari soru sor (ölçü, ahşap türü veya fonksiyon). Yanıtının en sonuna mutlaka müşterinin tek tıkla basabileceği 3-4 adet öneri hapı ekle:\n[ÖNERİLER: Seçenek 1 | Seçenek 2 | Seçenek 3 | Tasarımı 3D Oluştur ✨]";
+  
+  try {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.map(m => ({ role: m.role, content: m.content }))
+    ];
+    const data = await this.callApi('text', { messages, max_tokens: 350 });
+    let text = '';
+    if (typeof data?.result?.response === 'string') text = data.result.response;
+    else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
+    else if (typeof data?.response === 'string') text = data.response;
+    else if (typeof data === 'string') text = data;
+    else text = JSON.stringify(data || '');
 
-      return text.trim();
-    } catch(err) {
-      console.warn('chatReply error:', err);
-      return 'Fikriniz harika! Ahşap dokusu olarak açık doğal meşe mi, koyu Amerikan ceviz mi tercih edersiniz?\n[ÖNERİLER: Doğal Meşe | Koyu Amerikan Ceviz | Tasarımı 3D Oluştur ✨]';
-    }
-  },
+    return text.trim();
+  } catch(err) {
+    console.warn('chatReply error:', err);
+    return 'Fikriniz harika! Ahşap dokusu olarak açık doğal meşe mi, koyu Amerikan ceviz mi tercih edersiniz?\n[ÖNERİLER: Doğal Meşe | Koyu Amerikan Ceviz | Tasarımı 3D Oluştur ✨]';
+  }
+};
 
-  async extractDesignFromChat(conversationHistory) {
-    const chatText = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
-    const prompt = "Aşağıdaki mimari mobilya sohbetini analiz et ve JSON formatında ürün özelliklerini ve Flux görsel üretim promptunu oluştur:\n" +
-      chatText + "\n\n" +
-      "Lütfen sadece şu JSON formatında yanıt ver:\n" +
-      "{\n" +
-      '  "itemName": "Mobilya Adı (örn: Özel Tasarım TV Ünitesi)",\n' +
-      '  "dimensions": "Genişlik × Derinlik × Yükseklik cm (örn: 200 × 45 × 55 cm)",\n' +
-      '  "material": "Ahşap ve malzeme dokusu (örn: Doğal Açık Meşe)",\n' +
-      '  "specs": "Tasarım detayları ve fonksiyonlar",\n' +
-      '  "fluxPrompt": "award winning studio product photo of modern [furniture item description in English with details and colors], solid natural light oak wood, minimalist studio, warm soft studio lighting, ultra detailed grain, 3/4 perspective, 8k resolution, photorealistic"\n' +
-      "}";
+window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
+  const chatText = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
+  const prompt = "Aşağıdaki mimari mobilya sohbetini analiz et ve JSON formatında ürün özelliklerini ve Flux görsel üretim promptunu oluştur:\n" +
+    chatText + "\n\n" +
+    "Lütfen sadece şu JSON formatında yanıt ver:\n" +
+    "{\n" +
+    '  "itemName": "Mobilya Adı (örn: Özel Tasarım TV Ünitesi)",\n' +
+    '  "dimensions": "Genişlik × Derinlik × Yükseklik cm (örn: 200 × 45 × 55 cm)",\n' +
+    '  "material": "Ahşap ve malzeme dokusu (örn: Doğal Açık Meşe)",\n' +
+    '  "specs": "Tasarım detayları ve fonksiyonlar",\n' +
+    '  "fluxPrompt": "award winning studio product photo of modern [furniture item description in English with details and colors], solid natural light oak wood, minimalist studio, warm soft studio lighting, ultra detailed grain, 3/4 perspective, 8k resolution, photorealistic"\n' +
+    "}";
 
-    try {
-      const data = await this.callApi('text', {
-        messages: [
-          { role: 'system', content: 'Sen sadece geçerli JSON döndüren bir mimari analiz motorusun.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 450
-      });
+  try {
+    const data = await this.callApi('text', {
+      messages: [
+        { role: 'system', content: 'Sen sadece geçerli JSON döndüren bir mimari analiz motorusun.' },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 450
+    });
 
-      let text = '';
-      if (typeof data?.result?.response === 'string') text = data.result.response;
-      else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
-      else if (typeof data?.response === 'string') text = data.response;
-      else if (typeof data === 'string') text = data;
-      else text = JSON.stringify(data || '');
+    let text = '';
+    if (typeof data?.result?.response === 'string') text = data.result.response;
+    else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
+    else if (typeof data?.response === 'string') text = data.response;
+    else if (typeof data === 'string') text = data;
+    else text = JSON.stringify(data || '');
 
-      const cleanStr = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const match = cleanStr.match(/\{[\s\S]*\}/);
-      if (match) return JSON.parse(match[0]);
-    } catch(err) {
-      console.warn('extractDesignFromChat error:', err);
-    }
+    const cleanStr = text.replace(/\\```json/gi, '').replace(/\\```/g, '').trim();
+    const match = cleanStr.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch(err) {
+    console.warn('extractDesignFromChat error:', err);
+  }
 
-    // Smart fallback from chat content
-    const fullUserText = conversationHistory.filter(m => m.role === 'user').map(m => m.content).join(' ');
-    let name = 'Özel İmalat Mobilya';
-    if (/tv/i.test(fullUserText)) name = 'Özel Tasarım TV Ünitesi';
-    else if (/masa|çalışma/i.test(fullUserText)) name = 'Özel Çalışma Masası';
-    else if (/konsol/i.test(fullUserText)) name = 'Özel Tasarım Konsol';
-    else if (/yemek/i.test(fullUserText)) name = 'Masif Ahşap Yemek Masası';
-    else if (/gardrop|dolap/i.test(fullUserText)) name = 'Özel İmalat Gardrop';
-    else if (/kitap/i.test(fullUserText)) name = 'Özel Tasarım Kütüphane';
+  // Smart fallback from chat content
+  const fullUserText = conversationHistory.filter(m => m.role === 'user').map(m => m.content).join(' ');
+  let name = 'Özel İmalat Mobilya';
+  if (/tv/i.test(fullUserText)) name = 'Özel Tasarım TV Ünitesi';
+  else if (/masa|çalışma/i.test(fullUserText)) name = 'Özel Çalışma Masası';
+  else if (/konsol/i.test(fullUserText)) name = 'Özel Tasarım Konsol';
+  else if (/yemek/i.test(fullUserText)) name = 'Masif Ahşap Yemek Masası';
+  else if (/gardrop|dolap/i.test(fullUserText)) name = 'Özel İmalat Gardrop';
+  else if (/kitap/i.test(fullUserText)) name = 'Özel Tasarım Kütüphane';
 
-    return {
-      itemName: name,
-      dimensions: '180 × 50 × 65 cm',
-      material: /ceviz/i.test(fullUserText) ? 'Masif Amerikan Ceviz' : /lake/i.test(fullUserText) ? 'İpek Mat Lake' : 'Doğal Masif Meşe',
-      specs: fullUserText.slice(0, 80) || 'Kişiye özel ölçü ve imalat',
-      fluxPrompt: 'award winning commercial studio product photograph of bespoke custom ' + name + ', premium natural wood, warm soft studio lighting, ultra detailed grain, 3/4 perspective, clean background, 8k resolution, photorealistic'
-    };
-  },
+  return {
+    itemName: name,
+    dimensions: '180 × 50 × 65 cm',
+    material: /ceviz/i.test(fullUserText) ? 'Masif Amerikan Ceviz' : /lake/i.test(fullUserText) ? 'İpek Mat Lake' : 'Doğal Masif Meşe',
+    specs: fullUserText.slice(0, 80) || 'Kişiye özel ölçü ve imalat',
+    fluxPrompt: 'award winning commercial studio product photograph of bespoke custom ' + name + ', premium natural wood, warm soft studio lighting, ultra detailed grain, 3/4 perspective, clean background, 8k resolution, photorealistic'
+  };
 };
 
 window.lvOpenCustomerRequest = function(target) {
