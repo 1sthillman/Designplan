@@ -1336,20 +1336,23 @@ window.lvOpenCustomerRequest = function(target) {
     runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Yapay zeka 3D mekan görselini üretiyor…';
 
     const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
+    const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
 
     try {
       // 1. Calculate pricing
       currentAiEstimate = window.LavoraAI.estimatePricing(selectedItemName, selectedW, selectedD, selectedH, selectedMaterial);
       document.getElementById('lv-final-price-text').textContent = currentAiEstimate.formatted;
       document.getElementById('lv-final-days-text').textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
-      document.getElementById('lv-final-specs-chip').textContent = `Ölçü: ${selectedW} × ${selectedD} × ${selectedH} cm · ${currentAiEstimate.materialLabel} · Konum: ${currentPlacement.replace(/_/g, ' ')}`;
+      document.getElementById('lv-final-specs-chip').textContent = 'Ölçü: ' + selectedW + ' × ' + selectedD + ' × ' + selectedH + ' cm · ' + currentAiEstimate.materialLabel + ' · Konum: ' + currentPlacement.replace(/_/g, ' ');
 
       // 2. Open step 4 with live architectural rendering overlay
       goToStep(4);
       const finalImgEl = document.getElementById('lv-final-preview-img');
-      const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
-      loadingOverlay.style.display = 'flex';
-      loadingOverlay.querySelector('span').textContent = 'Yapay zeka mekanınızın mimari açısına uygun 3D görseli üretiyor… (birkaç saniye sürebilir)';
+      if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        const spanTxt = loadingOverlay.querySelector('span');
+        if (spanTxt) spanTxt.textContent = 'Yapay zeka mekanınızın mimari açısına uygun 3D görseli üretiyor… (birkaç saniye sürebilir)';
+      }
 
       if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
 
@@ -1382,62 +1385,12 @@ window.lvOpenCustomerRequest = function(target) {
       console.error('[LavoraAI error]:', err);
       goToStep(4);
     } finally {
-      loadingOverlay.style.display = 'none';
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
       runBtn.disabled = false;
       runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Tasarımı Odamda Canlandır ve Fiyatla';
     }
   };
 
-  // --- STEP 4 DRAGGING ON PREVIEW ---
-  const previewCont = document.getElementById('lv-preview-container');
-  const previewImg = document.getElementById('lv-final-preview-img');
-
-  let dragThrottleTimer = null;
-  const handlePreviewDrag = (clientX, clientY) => {
-    if (!uploadedSpacePhoto || showingOriginal) return;
-    const rect = previewImg.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const normX = Math.max(0.12, Math.min(0.88, (clientX - rect.left) / rect.width));
-    // Keep baseline strictly in the floor area (between 0.72 and 0.96 of height)
-    const normBottomY = Math.max(0.74, Math.min(0.96, (clientY - rect.top) / rect.height));
-
-    const tempImg = new Image();
-    tempImg.src = uploadedSpacePhoto;
-    const nw = tempImg.naturalWidth || 800;
-    const nh = tempImg.naturalHeight || 600;
-
-    customX = normX * nw;
-    customBottomY = normBottomY * nh;
-
-    if (dragThrottleTimer) return;
-    dragThrottleTimer = setTimeout(() => {
-      dragThrottleTimer = null;
-      renderCompositePreview();
-    }, 40);
-  };
-
-  previewCont.addEventListener('pointerdown', e => {
-    if (e.target.closest('#lv-toggle-original-btn') || e.target.closest('#lv-preview-fullscreen-btn')) return;
-    isDraggingOnPreview = true;
-    previewImg.style.cursor = 'grabbing';
-    handlePreviewDrag(e.clientX, e.clientY);
-  });
-
-  window.addEventListener('pointermove', e => {
-    if (!isDraggingOnPreview) return;
-    handlePreviewDrag(e.clientX, e.clientY);
-  });
-
-  window.addEventListener('pointerup', () => {
-    if (isDraggingOnPreview) {
-      isDraggingOnPreview = false;
-      previewImg.style.cursor = 'grab';
-      renderCompositePreview();
-    }
-  });
-
-  // --- STEP 4 CONTROLS ---
   document.querySelectorAll('.lv-tune-pos').forEach(btn => {
     btn.onclick = async () => {
       document.querySelectorAll('.lv-tune-pos').forEach(b => {
