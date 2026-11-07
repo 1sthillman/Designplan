@@ -608,26 +608,31 @@ Lütfen şu JSON formatında yanıt ver:
     };
   },
 
-  buildArchitecturalPrompt(itemType, wCm, dCm, hCm, materialLabel, placement, extraNotes, roomVisionNotes) {
-    let matDesc = 'solid natural oak wood';
-    if (/ceviz/i.test(materialLabel)) matDesc = 'luxurious American walnut';
-    else if (/lake/i.test(materialLabel)) matDesc = 'matte silk lacquered finish in soft architectural tone';
-    else if (/kaplama/i.test(materialLabel)) matDesc = 'warm natural wood veneer with subtle grain texture';
-    else if (/mdf/i.test(materialLabel)) matDesc = 'contemporary high-density wood composite laminate';
+  buildProductPrompt(itemType, sizeVal, matVal, styleVal, userNotes) {
+    let matDesc = 'solid natural oak wood with visible rich grain';
+    if (matVal === 'ceviz') matDesc = 'luxurious solid American walnut wood with warm deep tones';
+    else if (matVal === 'lake') matDesc = 'smooth matte silk lacquered finish in contemporary architectural tone';
+    else if (matVal === 'metal_ahsap') matDesc = 'natural solid oak wood tabletop combined with matte black powder-coated steel legs';
 
-    let placeDesc = 'placed along the left plain wall, standing firmly on the wooden floor';
-    if (placement === 'pencere_onu') placeDesc = 'positioned on the parquet floor in front of the window area';
-    else if (placement === 'sag_duvar') placeDesc = 'fitted along the right wall on the wooden floor';
-    else if (placement === 'orta') placeDesc = 'placed in the center of the room on the parquet floor';
+    let styleDesc = 'clean minimalist architectural aesthetic';
+    if (styleVal === 'depolamali') styleDesc = 'modern design with seamlessly integrated smooth push-to-open soft-close drawers';
+    else if (styleVal === 'rafli') styleDesc = 'integrated elegant open display shelves';
 
-    let roomCtx = roomVisionNotes || 'apartment room with light gray walls, wooden parquet laminate floor, corner double window with radiator, natural daylight';
-    if (extraNotes) roomCtx += ', ' + extraNotes;
+    let sizeDesc = 'balanced proportions';
+    if (sizeVal === 'kompakt') sizeDesc = 'compact space-saving dimensions around 140cm';
+    else if (sizeVal === 'genis') sizeDesc = 'large executive wide proportions around 220cm';
 
-    return `High-end architectural interior photograph of a custom ${itemType} (${wCm}x${dCm}x${hCm} cm) masterfully crafted from ${matDesc}, ${placeDesc}. Room features ${roomCtx}. Professional architectural lighting, realistic wood grain, natural soft shadows on the wooden floor, Hasselblad H6D-100c, 8k resolution, photorealistic interior design portfolio, master woodwork, ultra detailed, cinematic daylight`;
+    let extra = (userNotes && userNotes.trim()) ? (', customer custom design notes: ' + userNotes.trim()) : '';
+
+    return 'High-end professional studio product photograph of a luxury custom ' + itemType + ', crafted from ' + matDesc + ', ' + styleDesc + ', ' + sizeDesc + extra + '. Isolated 3/4 angle view in an architectural studio setting, neutral minimalist background, soft diffused studio lighting, authentic tactile wood texture, master woodwork, 8k resolution, Hasselblad H6D-100c, award-winning industrial furniture design';
   },
 
-  buildImagePrompt(itemType, wCm, dCm, hCm, materialLabel, extraNotes, placement, roomVisionNotes) {
-    return this.buildArchitecturalPrompt(itemType, wCm, dCm, hCm, materialLabel, placement, extraNotes, roomVisionNotes);
+  buildArchitecturalPrompt(itemType, wCm, dCm, hCm, materialLabel, placement, extraNotes) {
+    return this.buildProductPrompt(itemType, 'standart', 'mese', 'minimalist', extraNotes);
+  },
+
+  buildImagePrompt(itemType, wCm, dCm, hCm, materialLabel, extraNotes) {
+    return this.buildProductPrompt(itemType, 'standart', 'mese', 'minimalist', extraNotes);
   },
 
   async generateConceptImage(prompt) {
@@ -870,604 +875,309 @@ window.lvOpenCustomerRequest = function(target) {
 
   const md = document.createElement('div');
   md.id = 'lv-creq-modal';
-  md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.76);display:grid;place-items:center;padding:16px;backdrop-filter:blur(8px)';
+  md.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.78);display:grid;place-items:center;padding:16px;backdrop-filter:blur(8px)';
 
-  let currentStep = 1;
-  let uploadedSpacePhoto = '';
-  let uploadedFurnPhoto = '';
-  let generatedIsolatedFurn = '';
-  let finalCompositeImage = '';
-  let currentAiEstimate = null;
-  let currentPlacement = 'sol_duvar';
-  let currentScale = 1.0;
-  let currentFlip = false;
-  let showingOriginal = false;
-  let customX = null;
-  let customBottomY = null;
-  let isDraggingOnPreview = false;
+  // Customer choices
+  let selectedItem = itName || 'Çalışma Masası';
+  let selectedSize = 'standart';
+  let selectedMat = 'mese';
+  let selectedStyle = 'depolamali';
+  let userRefPhoto = '';
+  let generatedVisualUrl = '';
+  let currentEstimate = null;
 
-  let selectedItemName = itName || 'Çalışma Masası';
-  let selectedW = 160, selectedD = 80, selectedH = 75;
-  let selectedMaterial = 'masif_mese';
-  let aiQuestionsData = null;
+  const itemTypes = ['Çalışma Masası', 'TV Ünitesi', 'Yemek Masası', 'Konsol', 'Gardrop', 'Kitaplık', 'Özel İmalat'];
 
-  md.innerHTML = `<div style="width:min(100%,600px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">
-   <!-- Header -->
-   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px">
-     <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;display:grid;place-items:center">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-     </div>
-     <div>
-      <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">Mekanınızda Görün & Bütçelendirin</h3>
-      <div style="font-size:11px;color:var(--mu)">Lavora Mimari ve Yapay Zeka Tasarım Asistanı</div>
-     </div>
-    </div>
-    <button id="lv-creq-close" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--mu);line-height:1;padding:4px">×</button>
-   </div>` +
+  const typeButtonsHtml = itemTypes.map(name => {
+    const isSel = (name === selectedItem);
+    return '<button type="button" class="lv-c-btn ' + (isSel ? 'on' : '') + '" data-val="' + name + '" style="padding:8px 14px;border-radius:9px;font-size:12px;font-weight:700;border:1.5px solid ' + (isSel ? 'var(--ac)' : 'var(--ln)') + ';background:' + (isSel ? 'var(--ac)' : 'var(--s2)') + ';color:' + (isSel ? '#fff' : 'var(--ink)') + ';cursor:pointer;transition:all .15s">' + name + '</button>';
+  }).join('');
 
-   (pName ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;border:1px solid var(--ln)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>Proje: ${esc(pName)}</span></div>` : '') +
+  const projBanner = pName ? '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:14px;border:1px solid var(--ln)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span>Proje: ' + esc(pName) + '</span></div>' : '';
 
-   `<!-- Step Progress Bar -->
-   <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:18px">
-    <div id="lv-step-bar-1" style="height:4px;border-radius:2px;background:var(--ac);transition:background .2s"></div>
-    <div id="lv-step-bar-2" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
-    <div id="lv-step-bar-3" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
-    <div id="lv-step-bar-4" style="height:4px;border-radius:2px;background:var(--ln);transition:background .2s"></div>
-   </div>
+  md.innerHTML = '<div style="width:min(100%,560px);background:var(--s);border-radius:24px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);border:1px solid var(--ln);box-sizing:border-box">' +
+   '<!-- Header -->' +
+   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+    '<div style="display:flex;align-items:center;gap:10px">' +
+     '<div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;display:grid;place-items:center">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' +
+     '</div>' +
+     '<div>' +
+      '<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">Hayalinizdeki Mobilyayı Tasarlayın</h3>' +
+      '<div style="font-size:11px;color:var(--mu)">Lavora Özel İmalat & Yapay Zeka Tasarım Asistanı</div>' +
+     '</div>' +
+    '</div>' +
+    '<button id="lv-creq-close" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--mu);line-height:1;padding:4px">×</button>' +
+   '</div>' +
 
-   <!-- STEP 1: ROOM / SPACE PHOTO -->
-   <div id="lv-wizard-step-1" style="display:block">
-    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">1. Adım: Mekanınızın Fotoğrafı</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Odanızın veya mobilyanın konulacağı alanın fotoğrafını ekleyin. Yapay zeka odanızı inceleyecek ve açısını birebir koruyacaktır.</div>
+   projBanner +
 
-    <div style="background:var(--s2);border:2px dashed var(--ln);border-radius:16px;padding:20px;text-align:center;margin-bottom:14px">
-     <div id="lv-room-preview-wrap" style="display:none;position:relative;margin-bottom:12px;border-radius:12px;overflow:hidden;border:1px solid var(--ln);background:#000">
-      <img id="lv-room-preview-img" style="width:100%;max-height:240px;object-fit:cover;display:block">
-      <button id="lv-room-remove-btn" type="button" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Fotoğrafı Değiştir</button>
-     </div>
-     <div id="lv-room-upload-zone">
-      <input type="file" id="lv-room-file-input" accept="image/*" style="display:none">
-      <div style="width:52px;height:52px;border-radius:50%;background:var(--s);color:var(--ac);margin:0 auto 10px;display:grid;place-items:center;border:1px solid var(--ln)">
-       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      </div>
-      <button id="lv-room-choose-btn" type="button" style="padding:10px 18px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-       Fotoğraf Çek / Galeriden Yükle
-      </button>
-      <div style="font-size:11px;color:var(--mu);margin-top:8px">Odanızın gün ışığı alan geniş bir fotoğrafı en iyi sonucu verir</div>
-     </div>
-    </div>
+   '<!-- STEP 1: CUSTOMER DESIGN PREFERENCES -->' +
+   '<div id="lv-cust-step-1" style="display:block">' +
+    '<label style="font-size:12px;font-weight:800;color:var(--ink);display:block;margin-bottom:8px">1. Hangi Mobilyayı Tasarlıyoruz?</label>' +
+    '<div id="lv-cust-types" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">' +
+     typeButtonsHtml +
+    '</div>' +
 
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-     <button id="lv-skip-room-btn" type="button" style="background:none;border:none;color:var(--mu);font-size:12px;font-weight:700;cursor:pointer;padding:8px">
-      Fotoğrafsız Devam Et
-     </button>
-     <button id="lv-step-1-next" type="button" style="padding:11px 22px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-      Devam Et
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-     </button>
-    </div>
-   </div>
+    '<label style="font-size:12px;font-weight:800;color:var(--ink);display:block;margin-bottom:8px">2. Alan ve Boyut İhtiyacınız</label>' +
+    '<div id="lv-cust-sizes" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">' +
+     '<button type="button" class="lv-size-card" data-val="kompakt" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Kompakt</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Küçük odalar (~140 cm)</div>' +
+     '</button>' +
+     '<button type="button" class="lv-size-card on" data-val="standart" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">İdeal Standart</div>' +
+      '<div style="font-size:10px;opacity:0.9;margin-top:2px">En popüler (~160-180 cm)</div>' +
+     '</button>' +
+     '<button type="button" class="lv-size-card" data-val="genis" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Geniş & Ferah</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Geniş salon/ofis (~200+ cm)</div>' +
+     '</button>' +
+    '</div>' +
 
-   <!-- STEP 2: FURNITURE REFERENCE & TYPE -->
-   <div id="lv-wizard-step-2" style="display:none">
-    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">2. Adım: Ne İstiyorsunuz?</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Mobilya türünü seçin veya beğendiğiniz bir modelin görselini ekleyin.</div>
+    '<label style="font-size:12px;font-weight:800;color:var(--ink);display:block;margin-bottom:8px">3. Ağaç ve Malzeme Dokusu</label>' +
+    '<div id="lv-cust-mats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">' +
+     '<button type="button" class="lv-mat-card on" data-val="mese" style="padding:10px;border-radius:11px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Doğal Açık Meşe</div>' +
+      '<div style="font-size:10px;opacity:0.9;margin-top:2px">Sıcak, aydınlık gerçek masif ahşap</div>' +
+     '</button>' +
+     '<button type="button" class="lv-mat-card" data-val="ceviz" style="padding:10px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Koyu Amerikan Ceviz</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Asil, zengin ve koyu ahşap tonu</div>' +
+     '</button>' +
+     '<button type="button" class="lv-mat-card" data-val="lake" style="padding:10px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">İpek Mat Lake</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Modern pürüzsüz mimari boya</div>' +
+     '</button>' +
+     '<button type="button" class="lv-mat-card" data-val="metal_ahsap" style="padding:10px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Ahşap & Siyah Metal</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Modern endüstriyel metal ayak</div>' +
+     '</button>' +
+    '</div>' +
 
-    <!-- Furniture Reference Photo (Optional) -->
-    <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:14px;padding:12px;margin-bottom:14px">
-     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--ink)">Beğendiğiniz Mobilya Görseli (İsteğe Bağlı)</span>
-      <span style="font-size:10px;color:var(--mu)">Pinterest, Katalog vb.</span>
-     </div>
-     <div id="lv-furn-preview-wrap" style="display:none;position:relative;margin-bottom:10px;border-radius:10px;overflow:hidden;border:1px solid var(--ln)">
-      <img id="lv-furn-preview-img" style="width:100%;max-height:160px;object-fit:cover;display:block">
-      <button id="lv-furn-remove-btn" type="button" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.75);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer">Görseli Kaldır</button>
-     </div>
-     <input type="file" id="lv-furn-file-input" accept="image/*" style="display:none">
-     <button id="lv-furn-choose-btn" type="button" style="width:100%;padding:9px;background:var(--s);color:var(--ink);border:1.5px dashed var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-      Mobilya Referans Fotoğrafı Yükle
-     </button>
-    </div>
+    '<label style="font-size:12px;font-weight:800;color:var(--ink);display:block;margin-bottom:8px">4. Tarz ve Kullanım Tercihi</label>' +
+    '<div id="lv-cust-styles" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">' +
+     '<button type="button" class="lv-style-card" data-val="minimalist" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Sade Minimalist</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Düz ince hatlar</div>' +
+     '</button>' +
+     '<button type="button" class="lv-style-card on" data-val="depolamali" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ac);background:var(--ac);color:#fff;text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Çekmeceli</div>' +
+      '<div style="font-size:10px;opacity:0.9;margin-top:2px">Gizli kulplu çekmeceler</div>' +
+     '</button>' +
+     '<button type="button" class="lv-style-card" data-val="rafli" style="padding:10px 8px;border-radius:11px;border:1.5px solid var(--ln);background:var(--s2);color:var(--ink);text-align:left;cursor:pointer">' +
+      '<div style="font-size:12px;font-weight:800">Raflı Modül</div>' +
+      '<div style="font-size:10px;color:var(--mu);margin-top:2px">Açık kitaplık & raf</div>' +
+     '</button>' +
+    '</div>' +
 
-    <!-- Category Chips -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px">Mobilya Türü</label>
-    <div id="lv-wiz-item-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-     ${['Çalışma Masası', 'Yemek Masası', 'TV Ünitesi', 'Gardrop / Dolap', 'Konsol & Ayna', 'Kitaplık', 'Özel İmalat'].map(name => `
-      <button type="button" class="lv-chip-btn ${name === selectedItemName ? 'selected' : ''}" data-val="${name}" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid ${name === selectedItemName ? 'var(--ac)' : 'var(--ln)'};background:${name === selectedItemName ? 'var(--ac)' : 'var(--s2)'};color:${name === selectedItemName ? '#fff' : 'var(--ink)'};cursor:pointer">${name}</button>
-     `).join('')}
-    </div>
+    '<label style="font-size:12px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">Hayalinizdeki Özel Detaylar (İsteğe Bağlı)</label>' +
+    '<textarea id="lv-cust-notes" rows="2" placeholder="Ör: Çekmeceleri kulpsuz frenli olsun, kablo geçiş yuvası bulunsun, ayakları siyah mat metal olsun…" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:11px;background:var(--s2);color:var(--ink);font-size:13px;margin-bottom:14px;resize:vertical"></textarea>' +
 
-    <!-- Custom note / description -->
-    <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px">Kısaca Nasıl Bir Şey Hayal Ediyorsunuz?</label>
-    <textarea id="lv-wiz-notes" rows="2" placeholder="Ör: Sol duvar boyunca sade, doğal meşe dokusunda zeminle uyumlu bir ünite…" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s2);color:var(--ink);font-size:13px;margin-bottom:14px;resize:vertical"></textarea>
+    '<div style="background:var(--s2);border:1.5px dashed var(--ln);border-radius:12px;padding:10px 14px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">' +
+     '<div style="display:flex;align-items:center;gap:8px">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+      '<div>' +
+       '<div style="font-size:12px;font-weight:700;color:var(--ink)">Beğendiğiniz Örnek Fotoğraf (İsteğe Bağlı)</div>' +
+       '<div id="lv-cust-file-name" style="font-size:10px;color:var(--mu)">Pinterest veya telefonunuzdan örnek ekleyebilirsiniz</div>' +
+      '</div>' +
+     '</div>' +
+     '<input type="file" id="lv-cust-file-input" accept="image/*" style="display:none">' +
+     '<button id="lv-cust-file-btn" type="button" style="padding:6px 12px;background:var(--s);border:1px solid var(--ln);border-radius:8px;font-size:11px;font-weight:700;color:var(--ink);cursor:pointer">Fotoğraf Seç</button>' +
+    '</div>' +
 
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-     <button id="lv-step-2-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
-      Geri
-     </button>
-     <button id="lv-step-2-next" type="button" style="padding:11px 22px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-      Mekanı İncele & Soruları Al
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-     </button>
-    </div>
-   </div>
+    '<button id="lv-cust-generate-btn" type="button" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 20px rgba(0,0,0,0.22)">' +
+     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' +
+     'Yapay Zeka ile Tasarımı Oluştur ve Bütçelendir' +
+    '</button>' +
+   '</div>' +
 
-   <!-- STEP 3: AI VISION OBSERVATION & SMART QUESTIONS -->
-   <div id="lv-wizard-step-3" style="display:none">
-    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:4px">3. Adım: Yapay Zeka Mimari Soruları</div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Yapay zeka mekanınızın fotoğrafını inceledi ve alanınıza özel mimari sorular hazırladı.</div>
+   '<!-- STEP 2: RESULT PREVIEW & BUDGET -->' +
+   '<div id="lv-cust-step-2" style="display:none">' +
+    '<div style="position:relative;border-radius:16px;overflow:hidden;border:1.5px solid var(--ac);background:#0f172a;min-height:300px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 12px 32px rgba(0,0,0,0.3)">' +
+     '<div id="lv-cust-loading" style="position:absolute;inset:0;background:rgba(15,23,42,0.88);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;z-index:10">' +
+      '<svg class="spin" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>' +
+      '<div style="font-size:14px;font-weight:800">Yapay Zeka Mobilyanızı Modelliyor…</div>' +
+      '<div style="font-size:11px;color:#94a3b8">Doğal ahşap dokusu, oranlar ve stüdyo aydınlatması işleniyor (birkaç saniye)</div>' +
+     '</div>' +
+     '<img id="lv-cust-result-img" style="width:100%;max-height:360px;object-fit:contain;display:block;margin:0 auto;cursor:pointer">' +
+     '<button id="lv-cust-fullscreen" type="button" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);z-index:5">Tam Ekran</button>' +
+    '</div>' +
 
-    <!-- AI Loading State -->
-    <div id="lv-ai-analysis-loading" style="padding:32px 16px;text-align:center;background:var(--s2);border-radius:16px;border:1.5px dashed var(--ac);margin-bottom:14px">
-     <div style="width:48px;height:48px;border-radius:50%;background:var(--s);color:var(--ac);margin:0 auto 12px;display:grid;place-items:center">
-      <svg class="spin" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-     </div>
-     <div style="font-weight:800;font-size:14px;color:var(--ink)">Yapay Zeka Mekanınızı İnceliyor…</div>
-     <div style="font-size:12px;color:var(--mu);margin-top:4px">Odanızdaki duvarlar, pencere açısı, radyatör ve zemin dokusu tespit ediliyor.</div>
-    </div>
+    '<div style="background:var(--s2);border-radius:14px;padding:14px 16px;border:1px solid var(--ln);margin-bottom:14px">' +
+     '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">' +
+      '<div>' +
+       '<div style="font-size:11px;color:var(--mu);font-weight:700">Tahmini İmalat Bütçesi</div>' +
+       '<div id="lv-cust-price-text" style="font-size:22px;font-weight:900;color:var(--ac);margin-top:2px"></div>' +
+      '</div>' +
+      '<div id="lv-cust-days-text" style="font-size:12px;color:var(--ink);background:var(--s);padding:5px 11px;border-radius:8px;font-weight:700;border:1px solid var(--ln)"></div>' +
+     '</div>' +
+     '<div id="lv-cust-specs-text" style="font-size:12px;color:var(--ink);font-weight:600;margin-top:4px"></div>' +
+     '<div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.4">' +
+      'Nihai fiyat mekan keşfi, aksesuar seçimleri (Blum / Häfele donanım) ve montaj şartlarına göre teklif aşamasında netleşir.' +
+     '</div>' +
+    '</div>' +
 
-    <!-- AI Questions & Observation Content -->
-    <div id="lv-ai-questions-content" style="display:none">
-     <!-- AI Observation Card -->
-     <div id="lv-ai-observation-box" style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(2,132,199,0.08));border:1.5px solid var(--ac);border-radius:14px;padding:14px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-       <div style="width:20px;height:20px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-       </div>
-       <span style="font-size:12px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:0.5px">Yapay Zeka Mimari Tespiti</span>
-      </div>
-      <div id="lv-ai-obs-text" style="font-size:13px;line-height:1.5;color:var(--ink);font-weight:600"></div>
-     </div>
-
-     <!-- Dynamic Question Container -->
-     <div id="lv-dynamic-questions-list" style="margin-bottom:16px"></div>
-
-     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <button id="lv-step-3-back" type="button" style="padding:10px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
-       Geri
-      </button>
-      <button id="lv-step-3-run" type="button" style="flex:1;padding:12px 18px;background:linear-gradient(135deg,var(--ac),#0284c7);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 6px 18px rgba(0,0,0,0.18)">
-       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-       Tasarımı Odamda Canlandır ve Fiyatla
-      </button>
-     </div>
-    </div>
-   </div>
-
-   <!-- STEP 4: LIVE IN-ROOM PREVIEW & ESTIMATE -->
-   <div id="lv-wizard-step-4" style="display:none">
-    <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:2px">4. Adım: Mekanda Görünüm & Bütçe</div>
-    <div style="font-size:11px;color:var(--ac);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:5px">
-     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M15 19l-3 3-3-3M19 15l3-3-3-3M9 5l3-3 3 3M5 9l-3 3 3 3"/></svg>
-     Yapay zeka odanızın mimari açısını, zeminini ve ışığını analiz ederek bu 3D tasarımı oluşturdu.
-    </div>
-
-    <!-- Live In-Room Preview Frame -->
-    <div id="lv-preview-container" style="position:relative;min-height:280px;margin-bottom:12px;border-radius:16px;overflow:hidden;border:1.5px solid var(--ac);background:#0f172a;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,0.25);touch-action:none;user-select:none">
-     <div id="lv-preview-loading-overlay" style="display:none;position:absolute;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff">
-      <svg class="spin" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-      <span style="font-size:13px;font-weight:700">Yapay zeka mobilyayı mekanınıza yerleştiriyor…</span>
-     </div>
-     <img id="lv-final-preview-img" draggable="false" style="width:100%;max-height:340px;object-fit:contain;display:block;margin:0 auto;cursor:grab">
-     <div id="lv-toggle-original-btn" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);display:inline-flex;align-items:center;gap:5px;z-index:5">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
-      Orijinal Odayı Gör
-     </div>
-     <div id="lv-preview-fullscreen-btn" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.72);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;backdrop-filter:blur(6px);z-index:5">
-      Tam Ekran
-     </div>
-    </div>
-
-    <!-- Interactive In-Room Placement Controls -->
-    <div style="background:var(--s2);border-radius:12px;padding:10px 14px;margin-bottom:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-     <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:11px;font-weight:800;color:var(--mu)">Konum:</span>
-      <div style="display:flex;gap:4px">
-       <button type="button" class="lv-tune-pos on" data-pos="sol_duvar" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ac);background:var(--ac);color:#fff;font-size:11px;font-weight:700;cursor:pointer">Sol Duvar</button>
-       <button type="button" class="lv-tune-pos" data-pos="pencere_onu" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Pencere Önü</button>
-       <button type="button" class="lv-tune-pos" data-pos="orta" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Orta</button>
-       <button type="button" class="lv-tune-pos" data-pos="sag_duvar" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Sağ</button>
-      </div>
-     </div>
-     <div style="display:flex;align-items:center;gap:4px">
-      <button id="lv-ground-btn" type="button" title="Zemine İndir" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Zemine İndir</button>
-      <button id="lv-scale-down-btn" type="button" title="Küçült" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:12px;font-weight:800;cursor:pointer">−</button>
-      <button id="lv-scale-up-btn" type="button" title="Büyüt" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:12px;font-weight:800;cursor:pointer">+</button>
-      <button id="lv-flip-btn" type="button" title="Yatay Çevir" style="padding:4px 9px;border-radius:6px;border:1px solid var(--ln);background:var(--s);color:var(--ink);font-size:11px;font-weight:700;cursor:pointer">Çevir</button>
-     </div>
-    </div>
-
-    <!-- Pricing and Specs Card -->
-    <div style="background:var(--s2);border-radius:14px;padding:14px 16px;border:1px solid var(--ln);margin-bottom:14px">
-     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      <div>
-       <div style="font-size:11px;color:var(--mu);font-weight:700">Tahmini İmalat Bütçesi</div>
-       <div id="lv-final-price-text" style="font-size:20px;font-weight:900;color:var(--ac);margin-top:2px"></div>
-      </div>
-      <div id="lv-final-days-text" style="font-size:11px;color:var(--ink);background:var(--s);padding:5px 10px;border-radius:8px;font-weight:700;border:1px solid var(--ln)"></div>
-     </div>
-     <div id="lv-final-specs-chip" style="font-size:11px;color:var(--mu);font-weight:600"></div>
-     <div style="font-size:10px;color:var(--mu);margin-top:6px;line-height:1.4">
-      Nihai fiyat mekan keşfi, aksesuar seçimleri (Blum / Häfele ray donanımı) ve montaj şartlarına göre teklif aşamasında kesinleşir.
-     </div>
-    </div>
-
-    <!-- Actions -->
-    <div style="display:flex;gap:10px">
-     <button id="lv-step-4-back" type="button" style="padding:11px 16px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
-      Geri
-     </button>
-     <button id="lv-creq-send-final" type="button" style="flex:1;padding:12px;background:var(--ac);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      Talebi Yöneticiye Gönder
-     </button>
-    </div>
-   </div>
-  </div>`;
+    '<div style="display:flex;gap:10px">' +
+     '<button id="lv-cust-back-btn" type="button" style="padding:12px 18px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer">' +
+      'Düzenle' +
+     '</button>' +
+     '<button id="lv-cust-regen-btn" type="button" style="padding:12px 14px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer" title="Farklı bir varyasyon üret">' +
+      'Yeniden Üret' +
+     '</button>' +
+     '<button id="lv-cust-submit-btn" type="button" style="flex:1;padding:13px;background:var(--ac);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+      'Talebi Yöneticiye Gönder' +
+     '</button>' +
+    '</div>' +
+   '</div>' +
+  '</div>';
 
   document.body.append(md);
   md.onclick = e => { if (e.target === md) md.remove(); };
   document.getElementById('lv-creq-close').onclick = () => md.remove();
 
-  const goToStep = (step) => {
-    currentStep = step;
-    for (let s = 1; s <= 4; s++) {
-      const p = document.getElementById('lv-wizard-step-' + s);
-      const b = document.getElementById('lv-step-bar-' + s);
-      if (p) p.style.display = s === step ? 'block' : 'none';
-      if (b) b.style.background = s <= step ? 'var(--ac)' : 'var(--ln)';
-    }
-  };
-
-  // --- STEP 1 ---
-  const roomFileInput = document.getElementById('lv-room-file-input');
-  const roomChooseBtn = document.getElementById('lv-room-choose-btn');
-  const roomPreviewWrap = document.getElementById('lv-room-preview-wrap');
-  const roomPreviewImg = document.getElementById('lv-room-preview-img');
-  const roomRemoveBtn = document.getElementById('lv-room-remove-btn');
-  const roomUploadZone = document.getElementById('lv-room-upload-zone');
-
-  roomChooseBtn.onclick = () => roomFileInput.click();
-  roomRemoveBtn.onclick = () => {
-    uploadedSpacePhoto = '';
-    roomFileInput.value = '';
-    roomPreviewWrap.style.display = 'none';
-    roomUploadZone.style.display = 'block';
-  };
-
-  roomFileInput.onchange = async () => {
-    if (roomFileInput.files && roomFileInput.files[0]) {
-      try {
-        roomChooseBtn.textContent = 'Görsel işleniyor…';
-        uploadedSpacePhoto = await window._lvCompressImageFile(roomFileInput.files[0], 1200, 0.85);
-        roomPreviewImg.src = uploadedSpacePhoto;
-        roomPreviewWrap.style.display = 'block';
-        roomUploadZone.style.display = 'none';
-      } catch (err) {
-        if (typeof toast === 'function') toast('Fotoğraf yüklenemedi: ' + err.message);
-      } finally {
-        roomChooseBtn.textContent = 'Fotoğraf Çek / Galeriden Yükle';
-      }
-    }
-  };
-
-  document.getElementById('lv-skip-room-btn').onclick = () => goToStep(2);
-  document.getElementById('lv-step-1-next').onclick = () => goToStep(2);
-
-  // --- STEP 2 ---
-  const furnFileInput = document.getElementById('lv-furn-file-input');
-  const furnChooseBtn = document.getElementById('lv-furn-choose-btn');
-  const furnPreviewWrap = document.getElementById('lv-furn-preview-wrap');
-  const furnPreviewImg = document.getElementById('lv-furn-preview-img');
-  const furnRemoveBtn = document.getElementById('lv-furn-remove-btn');
-
-  furnChooseBtn.onclick = () => furnFileInput.click();
-  furnRemoveBtn.onclick = () => {
-    uploadedFurnPhoto = '';
-    furnFileInput.value = '';
-    furnPreviewWrap.style.display = 'none';
-    furnChooseBtn.style.display = 'inline-flex';
-  };
-
-  furnFileInput.onchange = async () => {
-    if (furnFileInput.files && furnFileInput.files[0]) {
-      try {
-        furnChooseBtn.textContent = 'Yükleniyor…';
-        uploadedFurnPhoto = await window._lvCompressImageFile(furnFileInput.files[0], 900, 0.82);
-        furnPreviewImg.src = uploadedFurnPhoto;
-        furnPreviewWrap.style.display = 'block';
-        furnChooseBtn.style.display = 'none';
-      } catch (err) {
-        if (typeof toast === 'function') toast('Mobilya fotoğrafı yüklenemedi');
-      } finally {
-        furnChooseBtn.textContent = 'Mobilya Referans Fotoğrafı Yükle';
-      }
-    }
-  };
-
-  document.querySelectorAll('#lv-wiz-item-chips .lv-chip-btn').forEach(btn => {
+  // Type selection
+  document.querySelectorAll('#lv-cust-types .lv-c-btn').forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll('#lv-wiz-item-chips .lv-chip-btn').forEach(b => {
-        b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--ln)';
+      document.querySelectorAll('#lv-cust-types .lv-c-btn').forEach(b => {
+        b.style.borderColor = 'var(--ln)'; b.style.background = 'var(--s2)'; b.style.color = 'var(--ink)';
       });
-      btn.style.background = 'var(--ac)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--ac)';
-      selectedItemName = btn.dataset.val;
-      if (/yemek/i.test(selectedItemName)) { selectedW = 180; selectedD = 90; selectedH = 75; }
-      else if (/çalışma/i.test(selectedItemName)) { selectedW = 160; selectedD = 75; selectedH = 75; }
-      else if (/tv/i.test(selectedItemName)) { selectedW = 210; selectedD = 45; selectedH = 55; }
-      else if (/gardrop/i.test(selectedItemName)) { selectedW = 240; selectedD = 60; selectedH = 230; }
-      else if (/konsol/i.test(selectedItemName)) { selectedW = 180; selectedD = 45; selectedH = 85; }
+      btn.style.borderColor = 'var(--ac)'; btn.style.background = 'var(--ac)'; btn.style.color = '#fff';
+      selectedItem = btn.dataset.val;
     };
   });
 
-  document.getElementById('lv-step-2-back').onclick = () => goToStep(1);
-
-  // Transition from Step 2 to Step 3 -> AI analyzes photo and asks tailored questions!
-  document.getElementById('lv-step-2-next').onclick = async () => {
-    goToStep(3);
-    const loadingEl = document.getElementById('lv-ai-analysis-loading');
-    const contentEl = document.getElementById('lv-ai-questions-content');
-    loadingEl.style.display = 'block';
-    contentEl.style.display = 'none';
-
-    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
-
-    try {
-      aiQuestionsData = await window.LavoraAI.analyzeRoomAndGenerateQuestions(uploadedSpacePhoto, selectedItemName, notes);
-      
-      document.getElementById('lv-ai-obs-text').textContent = aiQuestionsData.observation || 'Odanızın mimari hatları ve zemin dokusu incelendi.';
-
-      // Render questions dynamically
-      const qListEl = document.getElementById('lv-dynamic-questions-list');
-      qListEl.innerHTML = '';
-
-      (aiQuestionsData.questions || []).forEach((qObj, qIdx) => {
-        const qCard = document.createElement('div');
-        qCard.style.cssText = 'background:var(--s2);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:12px';
-        
-        qCard.innerHTML = `<div style="font-size:11px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${esc(qObj.title || ('Soru ' + (qIdx + 1)))}</div>
-         <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(qObj.question)}</div>
-         <div class="lv-q-options" data-qid="${esc(qObj.id)}" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>`;
-
-        const optContainer = qCard.querySelector('.lv-q-options');
-
-        (qObj.options || []).forEach((opt, optIdx) => {
-          const isSelected = optIdx === 0;
-          const optBtn = document.createElement('button');
-          optBtn.type = 'button';
-          optBtn.className = 'lv-dyn-opt-btn ' + (isSelected ? 'on' : '');
-          optBtn.dataset.qid = qObj.id;
-          optBtn.dataset.val = opt.val;
-          optBtn.style.cssText = `padding:10px;border-radius:10px;border:1.5px solid ${isSelected ? 'var(--ac)' : 'var(--ln)'};background:${isSelected ? 'var(--ac)' : 'var(--s)'};color:${isSelected ? '#fff' : 'var(--ink)'};text-align:left;cursor:pointer;transition:all .15s`;
-
-          optBtn.innerHTML = `<div style="font-size:12px;font-weight:800">${esc(opt.label)}</div>` +
-            (opt.desc ? `<div style="font-size:10px;opacity:0.85;margin-top:2px">${esc(opt.desc)}</div>` : '');
-
-          optBtn.onclick = () => {
-            optContainer.querySelectorAll('.lv-dyn-opt-btn').forEach(b => {
-              b.style.borderColor = 'var(--ln)';
-              b.style.background = 'var(--s)';
-              b.style.color = 'var(--ink)';
-            });
-            optBtn.style.borderColor = 'var(--ac)';
-            optBtn.style.background = 'var(--ac)';
-            optBtn.style.color = '#fff';
-
-            // Apply selected value to wizard state
-            if (qObj.id === 'placement') {
-              currentPlacement = opt.val;
-              customX = null; customBottomY = null;
-            } else if (qObj.id === 'material') {
-              selectedMaterial = opt.val;
-            } else if (qObj.id === 'dimension') {
-              const numVal = parseInt(opt.val, 10) || 160;
-              selectedW = numVal;
-              selectedD = Math.round(numVal * 0.48);
-              selectedH = 75;
-            }
-          };
-
-          optContainer.append(optBtn);
-
-          // Initialize default choice
-          if (isSelected) {
-            if (qObj.id === 'placement') currentPlacement = opt.val;
-            else if (qObj.id === 'material') selectedMaterial = opt.val;
-            else if (qObj.id === 'dimension') {
-              const numVal = parseInt(opt.val, 10) || 160;
-              selectedW = numVal;
-            }
-          }
+  const setupCardGroup = (containerId, onSelect) => {
+    const cards = document.querySelectorAll('#' + containerId + ' button');
+    cards.forEach(card => {
+      card.onclick = () => {
+        cards.forEach(c => {
+          c.style.borderColor = 'var(--ln)'; c.style.background = 'var(--s2)'; c.style.color = 'var(--ink)';
         });
+        card.style.borderColor = 'var(--ac)'; card.style.background = 'var(--ac)'; card.style.color = '#fff';
+        onSelect(card.dataset.val);
+      };
+    });
+  };
 
-        qListEl.append(qCard);
-      });
+  setupCardGroup('lv-cust-sizes', val => { selectedSize = val; });
+  setupCardGroup('lv-cust-mats', val => { selectedMat = val; });
+  setupCardGroup('lv-cust-styles', val => { selectedStyle = val; });
 
-      loadingEl.style.display = 'none';
-      contentEl.style.display = 'block';
-    } catch(err) {
-      console.warn('AI analysis error:', err);
-      loadingEl.style.display = 'none';
-      contentEl.style.display = 'block';
+  // Optional Reference Photo
+  const fileInput = document.getElementById('lv-cust-file-input');
+  const fileBtn = document.getElementById('lv-cust-file-btn');
+  const fileNameTxt = document.getElementById('lv-cust-file-name');
+
+  fileBtn.onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    if (fileInput.files && fileInput.files[0]) {
+      try {
+        fileBtn.textContent = 'Yükleniyor…';
+        userRefPhoto = await window._lvCompressImageFile(fileInput.files[0], 900, 0.82);
+        fileNameTxt.textContent = 'Fotoğraf eklendi (' + fileInput.files[0].name + ')';
+        fileBtn.textContent = 'Değiştir';
+      } catch(e) {
+        if (typeof toast === 'function') toast('Fotoğraf eklenemedi');
+      }
     }
   };
 
-  document.getElementById('lv-step-3-back').onclick = () => goToStep(2);
+  // Generate Action
+  const doGenerate = async () => {
+    document.getElementById('lv-cust-step-1').style.display = 'none';
+    document.getElementById('lv-cust-step-2').style.display = 'block';
 
-  // Render composite image on Step 4
-  const renderCompositePreview = async () => {
-    const finalImgEl = document.getElementById('lv-final-preview-img');
-    const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
-    loadingOverlay.style.display = 'flex';
+    const loadingEl = document.getElementById('lv-cust-loading');
+    const resultImg = document.getElementById('lv-cust-result-img');
+    loadingEl.style.display = 'flex';
 
-    try {
-      const furnSrc = uploadedFurnPhoto || generatedIsolatedFurn;
+    const userNotes = (document.getElementById('lv-cust-notes').value || '').trim();
 
-      if (uploadedSpacePhoto && furnSrc) {
-        finalCompositeImage = await window.LavoraAI.compositeInRoom(uploadedSpacePhoto, furnSrc, {
-          placement: currentPlacement,
-          scaleFactor: currentScale,
-          flipX: currentFlip,
-          customX: customX,
-          customBottomY: customBottomY
-        });
-        finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
-      } else if (uploadedSpacePhoto && !furnSrc) {
-        finalImgEl.src = uploadedSpacePhoto;
-        finalCompositeImage = uploadedSpacePhoto;
-      } else if (furnSrc) {
-        finalImgEl.src = furnSrc;
-        finalCompositeImage = furnSrc;
-      }
-    } catch(err) {
-      console.warn('renderCompositePreview error:', err);
-      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
-    } finally {
-      loadingOverlay.style.display = 'none';
-    }
-  };
+    let w = 160, d = 75, h = 75;
+    if (selectedSize === 'kompakt') { w = 140; d = 65; h = 75; }
+    else if (selectedSize === 'genis') { w = 210; d = 85; h = 75; }
 
-  // Step 3 Run AI -> Generates REAL architectural interior 3D visual!
-  document.getElementById('lv-step-3-run').onclick = async () => {
-    const runBtn = document.getElementById('lv-step-3-run');
-    runBtn.disabled = true;
-    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Yapay zeka 3D mekan görselini üretiyor…';
+    if (/tv/i.test(selectedItem)) { d = 45; h = 55; }
+    else if (/yemek/i.test(selectedItem)) { d = 90; h = 75; }
+    else if (/konsol/i.test(selectedItem)) { d = 45; h = 85; }
+    else if (/gardrop/i.test(selectedItem)) { d = 60; h = 230; }
 
-    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
-    const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
+    let matKeyForEstimate = 'masif_mese';
+    if (selectedMat === 'ceviz') matKeyForEstimate = 'masif_ceviz';
+    else if (selectedMat === 'lake') matKeyForEstimate = 'lake';
+    else if (selectedMat === 'metal_ahsap') matKeyForEstimate = 'masif_mese';
+
+    currentEstimate = window.LavoraAI.estimatePricing(selectedItem, w, d, h, matKeyForEstimate);
+
+    document.getElementById('lv-cust-price-text').textContent = currentEstimate.formatted;
+    document.getElementById('lv-cust-days-text').textContent = 'Tahmini Süre: ' + currentEstimate.estimatedDays;
+
+    const matLabelText = {
+      mese: 'Doğal Masif Meşe',
+      ceviz: 'Masif Amerikan Ceviz',
+      lake: 'İpek Mat Lake',
+      metal_ahsap: 'Masif Meşe & Siyah Metal Ayak'
+    }[selectedMat] || 'Doğal Ahşap';
+
+    const styleLabelText = (selectedStyle === 'depolamali' ? 'Çekmeceli Tasarım' : selectedStyle === 'rafli' ? 'Raflı Tasarım' : 'Minimalist Tasarım');
+    document.getElementById('lv-cust-specs-text').textContent = 'Ölçü: ' + w + ' × ' + d + ' × ' + h + ' cm · ' + matLabelText + ' · ' + styleLabelText;
 
     try {
-      // 1. Calculate pricing
-      currentAiEstimate = window.LavoraAI.estimatePricing(selectedItemName, selectedW, selectedD, selectedH, selectedMaterial);
-      document.getElementById('lv-final-price-text').textContent = currentAiEstimate.formatted;
-      document.getElementById('lv-final-days-text').textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
-      document.getElementById('lv-final-specs-chip').textContent = 'Ölçü: ' + selectedW + ' × ' + selectedD + ' × ' + selectedH + ' cm · ' + currentAiEstimate.materialLabel + ' · Konum: ' + currentPlacement.replace(/_/g, ' ');
+      const prompt = window.LavoraAI.buildProductPrompt(selectedItem, selectedSize, selectedMat, selectedStyle, userNotes);
+      const imgDataUrl = await window.LavoraAI.generateConceptImage(prompt);
 
-      // 2. Open step 4 with live architectural rendering overlay
-      goToStep(4);
-      const finalImgEl = document.getElementById('lv-final-preview-img');
-      if (loadingOverlay) {
-        loadingOverlay.style.display = 'flex';
-        const spanTxt = loadingOverlay.querySelector('span');
-        if (spanTxt) spanTxt.textContent = 'Yapay zeka mekanınızın mimari açısına uygun 3D görseli üretiyor… (birkaç saniye sürebilir)';
-      }
-
-      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
-
-      // 3. Build comprehensive architectural prompt matching user's room architecture
-      const roomObs = (aiQuestionsData && aiQuestionsData.observation) || 'açık gri duvarlar, meşe laminat zemin, gün ışığı alan pencere ve radyatör';
-      const prompt = window.LavoraAI.buildArchitecturalPrompt(
-        selectedItemName,
-        selectedW,
-        selectedD,
-        selectedH,
-        currentAiEstimate.materialLabel,
-        currentPlacement,
-        notes,
-        roomObs
-      );
-
-      // 4. Generate high-resolution architectural interior visual with Flux
-      const generatedImage = await window.LavoraAI.generateConceptImage(prompt);
-      if (generatedImage) {
-        finalCompositeImage = generatedImage;
-        finalImgEl.src = finalCompositeImage;
-        showingOriginal = false;
-        if (typeof toast === 'function') toast('3D Mimari görsel başarıyla oluşturuldu');
+      if (imgDataUrl) {
+        generatedVisualUrl = imgDataUrl;
+        resultImg.src = generatedVisualUrl;
+        if (typeof toast === 'function') toast('Tasarım görseli başarıyla oluşturuldu');
       } else {
-        // Fallback to room photo
-        finalCompositeImage = uploadedSpacePhoto || uploadedFurnPhoto || '';
-        finalImgEl.src = finalCompositeImage;
+        resultImg.src = userRefPhoto || '';
+        if (typeof toast === 'function') toast('Görsel oluşturulamadı, bütçe hazırlandı');
       }
     } catch(err) {
-      console.error('[LavoraAI error]:', err);
-      goToStep(4);
+      console.warn('Generate error:', err);
+      if (typeof toast === 'function') toast('Tasarım oluşturulurken bir hata oluştu');
     } finally {
-      if (loadingOverlay) loadingOverlay.style.display = 'none';
-      runBtn.disabled = false;
-      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Tasarımı Odamda Canlandır ve Fiyatla';
+      loadingEl.style.display = 'none';
     }
   };
 
-  document.querySelectorAll('.lv-tune-pos').forEach(btn => {
-    btn.onclick = async () => {
-      document.querySelectorAll('.lv-tune-pos').forEach(b => {
-        b.style.borderColor = 'var(--ln)';
-        b.style.background = 'var(--s)';
-        b.style.color = 'var(--ink)';
-      });
-      btn.style.borderColor = 'var(--ac)';
-      btn.style.background = 'var(--ac)';
-      btn.style.color = '#fff';
-      currentPlacement = btn.dataset.pos;
-      customX = null;
-      customBottomY = null; // resets to clean floor-grounded position
-      showingOriginal = false;
-      await renderCompositePreview();
-    };
-  });
+  document.getElementById('lv-cust-generate-btn').onclick = doGenerate;
+  document.getElementById('lv-cust-regen-btn').onclick = doGenerate;
 
-  document.getElementById('lv-ground-btn').onclick = async () => {
-    customBottomY = null; // snaps back down to floor level
-    showingOriginal = false;
-    await renderCompositePreview();
-    if (typeof toast === 'function') toast('Mobilya zemine sağlam şekilde oturtuldu');
-  };
-
-  document.getElementById('lv-scale-up-btn').onclick = async () => {
-    currentScale = Math.min(1.4, currentScale + 0.08);
-    showingOriginal = false;
-    await renderCompositePreview();
-  };
-
-  document.getElementById('lv-scale-down-btn').onclick = async () => {
-    currentScale = Math.max(0.65, currentScale - 0.08);
-    showingOriginal = false;
-    await renderCompositePreview();
-  };
-
-  document.getElementById('lv-flip-btn').onclick = async () => {
-    currentFlip = !currentFlip;
-    showingOriginal = false;
-    await renderCompositePreview();
-  };
-
-  const toggleOrigBtn = document.getElementById('lv-toggle-original-btn');
-  toggleOrigBtn.onclick = () => {
-    if (!uploadedSpacePhoto) return;
-    showingOriginal = !showingOriginal;
-    const finalImgEl = document.getElementById('lv-final-preview-img');
-    finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
-    toggleOrigBtn.innerHTML = showingOriginal 
-      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Yapay Zeka Tasarımını Gör'
-      : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg> Orijinal Odayı Gör';
+  document.getElementById('lv-cust-back-btn').onclick = () => {
+    document.getElementById('lv-cust-step-2').style.display = 'none';
+    document.getElementById('lv-cust-step-1').style.display = 'block';
   };
 
   const openFullscreen = () => {
-    const src = showingOriginal ? uploadedSpacePhoto : (finalCompositeImage || uploadedSpacePhoto || uploadedFurnPhoto);
-    if (src && typeof window._lvImgModal === 'function') {
-      window._lvImgModal(src, [src], 0, selectedItemName || 'Tasarım Görseli');
+    if (generatedVisualUrl && typeof window._lvImgModal === 'function') {
+      window._lvImgModal(generatedVisualUrl, [generatedVisualUrl], 0, selectedItem + ' - 3D Tasarım');
     }
   };
-  document.getElementById('lv-preview-fullscreen-btn').onclick = openFullscreen;
-  document.getElementById('lv-final-preview-img').onclick = (e) => {
-    if (!isDraggingOnPreview) openFullscreen();
-  };
+  document.getElementById('lv-cust-fullscreen').onclick = openFullscreen;
+  document.getElementById('lv-cust-result-img').onclick = openFullscreen;
 
-  document.getElementById('lv-step-4-back').onclick = () => goToStep(3);
-
-  // Submit to Firebase
-  document.getElementById('lv-creq-send-final').onclick = async () => {
-    const btn = document.getElementById('lv-creq-send-final');
+  // Submit Request to Firebase
+  document.getElementById('lv-cust-submit-btn').onclick = async () => {
+    const btn = document.getElementById('lv-cust-submit-btn');
     btn.disabled = true;
     btn.textContent = 'Gönderiliyor…';
 
-    const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
-    if (!currentAiEstimate) {
-      currentAiEstimate = window.LavoraAI.estimatePricing(selectedItemName, selectedW, selectedD, selectedH, selectedMaterial);
-    }
+    const userNotes = (document.getElementById('lv-cust-notes').value || '').trim();
+
+    let w = 160, d = 75, h = 75;
+    if (selectedSize === 'kompakt') { w = 140; d = 65; h = 75; }
+    else if (selectedSize === 'genis') { w = 210; d = 85; h = 75; }
+
+    const matLabelText = {
+      mese: 'Doğal Masif Meşe',
+      ceviz: 'Masif Amerikan Ceviz',
+      lake: 'İpek Mat Lake',
+      metal_ahsap: 'Masif Meşe & Siyah Metal Ayak'
+    }[selectedMat] || 'Doğal Ahşap';
 
     const payload = {
       uid: currentUser.uid,
@@ -1475,21 +1185,19 @@ window.lvOpenCustomerRequest = function(target) {
       projectId: pId,
       projectName: pName,
       itemId: itId,
-      itemName: selectedItemName,
-      subject: `Özel Tasarım: ${selectedItemName} (${currentAiEstimate.materialLabel.split('(')[0].trim()})`,
-      text: notes || `${selectedItemName} için ${selectedW}x${selectedD}x${selectedH} cm ölçülerinde, ${currentPlacement.replace(/_/g, ' ')} yerleşimi ve ${currentAiEstimate.materialLabel} tercih edilmiştir.`,
-      dimensions: `${selectedW} × ${selectedD} × ${selectedH} cm`,
-      material: currentAiEstimate.materialLabel,
-      placement: currentPlacement,
-      aiEstimate: currentAiEstimate.formatted,
+      itemName: selectedItem,
+      subject: 'Özel Tasarım: ' + selectedItem + ' (' + matLabelText + ')',
+      text: userNotes || (selectedItem + ' için ' + w + 'x' + d + 'x' + h + ' cm ölçülerinde, ' + matLabelText + ' malzeme ve ' + selectedStyle + ' tercih edilmiştir.'),
+      dimensions: w + ' × ' + d + ' × ' + h + ' cm',
+      material: matLabelText,
+      aiEstimate: (currentEstimate && currentEstimate.formatted) || '',
       isAiAssisted: true,
       createdAt: Date.now(),
       status: 'open'
     };
 
-    if (finalCompositeImage) payload.aiConceptImage = finalCompositeImage;
-    if (uploadedSpacePhoto) payload.customerPhoto = uploadedSpacePhoto;
-    if (uploadedFurnPhoto) payload.furnitureReference = uploadedFurnPhoto;
+    if (generatedVisualUrl) payload.aiConceptImage = generatedVisualUrl;
+    if (userRefPhoto) payload.furnitureReference = userRefPhoto;
 
     try {
       const reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
