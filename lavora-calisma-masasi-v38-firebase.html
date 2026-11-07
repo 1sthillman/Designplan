@@ -892,31 +892,33 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
 };
 
 window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
-  const chatText = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
+  // Get all user messages
+  const userMsgs = conversationHistory.filter(m => m.role === 'user').map(m => m.content);
+  const latestUserMsg = userMsgs[userMsgs.length - 1] || '';
+  const fullChat = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
 
-  const systemPrompt = 'You are a world-class luxury bespoke furniture architect and expert Flux diffusion prompt engineer.\n' +
-    'Your mission: Analyze the customer conversation in Turkish and extract the EXACT bespoke furniture design they envision.\n' +
-    'CRITICAL INSTRUCTION FOR fluxPrompt:\n' +
-    '1. The fluxPrompt MUST BE 100% IN DESCRIPTIVE ENGLISH. NEVER include Turkish words (do NOT say ayakkabilik, ceviz, mese, lake, pirinc, bombeli, komodin, konsol, masa). Always translate them into vivid English visual terms (e.g. shoe cabinet, credenza, solid American walnut, fluted oak, glossy burgundy crimson gradient lacquer, brushed brass tapered legs, curved rounded pillowed oval shape, soft ambient studio lighting).\n' +
-    '2. You MUST include EVERY specific detail the customer asked for: primary and secondary materials, exact colors, gradient finishes, leg design, handle hardware, dimensions/silhouette, doors/drawers, internal compartments.\n' +
-    '3. Format as a professional commercial architectural product photograph for Flux-1 diffusion model.\n\n' +
-    'Output ONLY valid JSON in this exact structure:\n' +
+  const systemPrompt = 'You are an elite interior architect and Flux-1 diffusion prompt engineer.\n' +
+    'Your task: Analyze the user Turkish furniture request and extract the EXACT design into a structured JSON.\n\n' +
+    'CRITICAL RULES:\n' +
+    '1. NEVER use canned placeholder text. Extract ONLY what the user actually asked for.\n' +
+    '2. fluxPrompt MUST be 100% in English. Faithfully translate and describe EVERY single object, material, color, leg, handle, background, wall, floor, and lighting mentioned in the user request.\n' +
+    '3. Output ONLY valid JSON with these exact keys:\n' +
     '{\n' +
-    '  "itemName": "Mobilya Adı (Türkçe, örn: Bordo Gradyanlı Oval Ayakkabılık)",\n' +
-    '  "dimensions": "Genişlik × Derinlik × Yükseklik cm (örn: 130 × 45 × 110 cm)",\n' +
-    '  "material": "Ahşap ve malzeme dokuları (Türkçe, örn: Doğal Masif Ceviz & Bordo Lake)",\n' +
-    '  "specs": "Ayaklar, kulplar ve mimari fonksiyon detayları (Türkçe)",\n' +
-    '  "fluxPrompt": "award-winning commercial studio product photograph of a bespoke [exact furniture item in English], [exact dimensions & silhouette in English], [exact colors & gradient finishes in English], [exact wood grain & materials in English], [exact legs, handles & hardware in English], clean minimalist architectural studio background, soft warm cinematic lighting, ultra-detailed 8k resolution, photorealistic, no text, no watermark"\n' +
+    '  "itemName": "Short Turkish title of the furniture (e.g. Masif Ceviz Konsol, Bordo Ayakkabılık, Meşe TV Ünitesi)",\n' +
+    '  "dimensions": "Dimensions in cm (e.g. 180 × 45 × 75 cm)",\n' +
+    '  "material": "Materials and wood species mentioned in Turkish",\n' +
+    '  "specs": "Key design features, legs, handles, doors mentioned in Turkish",\n' +
+    '  "fluxPrompt": "A highly detailed, photorealistic commercial product and interior editorial photograph in English describing the exact furniture, materials, colors, hardware, floor, wall, and lighting"\n' +
     '}';
 
   try {
     const data = await this.callApi('text', {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Müşteri Sohbeti:\n' + chatText + '\n\nJSON output:' }
+        { role: 'user', content: 'Müşteri Talebi:\n' + (latestUserMsg.length > 80 ? latestUserMsg : fullChat) + '\n\nJSON output:' }
       ],
-      max_tokens: 650,
-      temperature: 0.15
+      max_tokens: 700,
+      temperature: 0.1
     });
 
     let text = '';
@@ -926,33 +928,38 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     else if (typeof data === 'string') text = data;
     else text = JSON.stringify(data || '');
 
-    const cleanStr = text.replace(/```json/gi, '').split('```').join('').trim();
+    const cleanStr = text.replace(/\\```json/gi, '').split('\\```').join('').trim();
     const match = cleanStr.match(/\{[\s\S]*\}/);
     if (match) {
       const parsed = JSON.parse(match[0]);
-      if (parsed.itemName && parsed.fluxPrompt) return parsed;
+      if (parsed.itemName && parsed.fluxPrompt) {
+        // Sanity check: Ensure placeholder text didn't leak
+        if (!/örnek|bordo.*ayakkabılık/i.test(parsed.itemName) || /ayakkab/i.test(fullChat)) {
+          return parsed;
+        }
+      }
     }
   } catch(err) {
     console.warn('extractDesignFromChat error:', err);
   }
 
-  // Fallback if LLM parsing fails
-  const fullUserText = conversationHistory.filter(m => m.role === 'user').map(m => m.content).join(' ');
-  let name = 'Özel İmalat Mobilya';
-  let enName = 'bespoke luxury furniture';
-  if (/ayakkab/i.test(fullUserText)) { name = 'Özel Tasarım Ayakkabılık'; enName = 'bespoke luxury shoe cabinet credenza'; }
-  else if (/tv/i.test(fullUserText)) { name = 'Özel Tasarım TV Ünitesi'; enName = 'bespoke minimalist media console TV unit'; }
-  else if (/masa|çalışma/i.test(fullUserText)) { name = 'Özel Çalışma Masası'; enName = 'bespoke executive writing desk'; }
-  else if (/konsol/i.test(fullUserText)) { name = 'Özel Tasarım Konsol'; enName = 'bespoke modern sideboard credenza console'; }
-  else if (/yemek/i.test(fullUserText)) { name = 'Masif Ahşap Yemek Masası'; enName = 'bespoke solid wood dining table'; }
-  else if (/gardrop|dolap/i.test(fullUserText)) { name = 'Özel İmalat Gardrop'; enName = 'bespoke luxury wardrobe closet'; }
+  // Fallback: Smart direct extraction from user's words
+  const fullText = userMsgs.join(' ');
+  let title = 'Özel Tasarım Mobilya';
+  if (/konsol/i.test(fullText)) title = 'Özel Retro Ceviz Konsol';
+  else if (/ayakkab/i.test(fullText)) title = 'Özel Tasarım Ayakkabılık';
+  else if (/tv/i.test(fullText)) title = 'Özel Tasarım TV Ünitesi';
+  else if (/masa|çalışma/i.test(fullText)) title = 'Özel Çalışma Masası';
+  else if (/gardrop|dolap/i.test(fullText)) title = 'Özel İmalat Gardrop';
+  else if (/yemek/i.test(fullText)) title = 'Masif Yemek Masası';
 
+  // Translate user text directly for Flux if long
   return {
-    itemName: name,
-    dimensions: '160 × 45 × 85 cm',
-    material: /ceviz/i.test(fullUserText) ? 'Doğal Masif Amerikan Ceviz' : /lake/i.test(fullUserText) ? 'İpek Mat Mimari Lake' : 'Doğal Masif Meşe',
-    specs: fullUserText.slice(0, 100) || 'Kişiye özel ölçü ve imalat detayları',
-    fluxPrompt: 'award-winning commercial studio product photograph of a ' + enName + ', solid natural wood, clean minimalist architectural background, warm soft cinematic studio lighting, ultra-detailed wood grain, 8k resolution, photorealistic'
+    itemName: title,
+    dimensions: '180 × 45 × 75 cm',
+    material: /ceviz/i.test(fullText) ? 'Doğal Masif Ceviz' : /lake/i.test(fullText) ? 'İpek Mat Lake' : 'Doğal Masif Ahşap',
+    specs: fullText.slice(0, 100),
+    fluxPrompt: 'commercial editorial studio photograph of ' + title + ', bespoke solid wood craftsmanship, ' + (fullText.slice(0, 200)) + ', warm lighting, 8k resolution, photorealistic'
   };
 };
 
@@ -1591,11 +1598,17 @@ window.lvOpenCustomerRequest = function(target) {
     photoBtn.style.borderColor = 'rgba(255,255,255,0.1)';
     sendBtn.disabled = true;
 
-    // Check if user requests generation directly
-    var triggers = ['tamam', 'oluştur', 'üret', 'tasarla', 'görselleştir', 'tamamdır', 'yap', 'başla', 'hazır', 'görsel üret', 'çiz', 'model'];
-    var lc = text.toLowerCase();
-    var wantsGen = triggers.some(function(t) { return lc.indexOf(t) !== -1; });
-    if (wantsGen && conversation.length >= 4) {
+    // Check if user explicitly requests 3D visual generation
+    var lc = text.toLowerCase().trim();
+    // Match explicit action commands or long detailed prompts
+    var isExplicitCommand = /^(tamam|tamamdır|üret|tasarla|çiz|oluştur|başla|görsel\s*üret|3d\s*tasarla)$/i.test(lc) ||
+                           /(görselini|çizimini|modelini)\s*(üret|yap|hazırla|çiz|oluştur)/i.test(lc) ||
+                           /(tasarımı|modeli)\s*(göster|oluştur|çıkar)/i.test(lc);
+
+    // If user typed a complete, comprehensive architectural prompt (> 120 chars) or explicit command
+    var isComprehensiveBrief = text.length > 120 && /(konsol|masa|dolap|ünite|sehpa|gardrop|ayakkabılık|ahşap|ceviz|lake|meşe)/i.test(lc);
+
+    if (isExplicitCommand || isComprehensiveBrief) {
       sendBtn.disabled = false;
       promptInput.focus();
       triggerInChatGeneration();
