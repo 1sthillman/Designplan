@@ -1075,11 +1075,11 @@ window.lvOpenCustomerRequest = function(target) {
   // Conversation history
   var conversation = [{
     role: 'assistant',
-    content: 'Merhaba! Ben Lavora Mimari Yapay Zekâ Danışmanınız.\n\nMekanınız için hayal ettiğiniz özel mobilyayı birlikte tasarlayalım. Kafanızdaki mobilyanın türünü, ölçülerini, malzeme ve renk tercihlerini bana anlatabilirsiniz. Dilerseniz odanızın veya beğendiğiniz bir mobilyanın fotoğrafını da ekleyebilirsiniz.'
+    content: 'Merhaba! Ben Lavora Mimari Tasarım Danışmanınız.\n\nMekanınız için hayal ettiğiniz özel mobilyayı birlikte tasarlayalım. Aklınızdaki mobilya türünü, ölçülerini, malzeme veya renk tercihlerini anlatabilirsiniz. Dilerseniz mekanınızın fotoğrafını da ekleyebilirsiniz.'
   }];
   if (itName) {
     conversation.push({ role: 'user', content: itName + ' tasarlamak istiyorum.' });
-    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Bu mobilya için aklınızda nasıl bir ahşap tonu (örneğin masif ceviz, meşe, ipek lake) ve hangi ölçüler var?' });
+    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Bu tasarım için aklınızda nasıl bir ahşap tonu (masif ceviz, doğal meşe, ipek lake) ve hangi ölçüler var?' });
   }
 
   var userAttachedPhoto = '';
@@ -1102,10 +1102,10 @@ window.lvOpenCustomerRequest = function(target) {
       '.lv-gemini-scroll::-webkit-scrollbar { width: 5px; height: 5px; }',
       '.lv-gemini-scroll::-webkit-scrollbar-track { background: transparent; }',
       '.lv-gemini-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }',
-      '.lv-gemini-chip { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:50px; font-size:12.5px; font-weight:500; color:#e2e8f0; cursor:pointer; white-space:nowrap; transition:all .2s; user-select:none; }',
+      '.lv-gemini-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:50px; font-size:12px; font-weight:500; color:#e2e8f0; cursor:pointer; white-space:nowrap; transition:all .2s; user-select:none; }',
       '.lv-gemini-chip:hover { background:rgba(66,133,244,0.15); border-color:rgba(66,133,244,0.4); color:#93c5fd; transform:translateY(-1px); }',
       '.lv-gemini-chip:active { transform:scale(.96); }',
-      '.lv-gemini-input-wrap:focus-within { border-color: #60a5fa !important; box-shadow: 0 0 0 3px rgba(96,165,250,0.2), 0 8px 30px rgba(0,0,0,0.5) !important; }',
+      '.lv-gemini-input-shell:focus-within { border-color: #60a5fa !important; box-shadow: 0 0 0 3px rgba(96,165,250,0.2), 0 8px 30px rgba(0,0,0,0.5) !important; }',
       '.lv-cta-primary { background: linear-gradient(135deg, #4285F4 0%, #8b5cf6 50%, #ec4899 100%); background-size: 200% 200%; animation: lvShimmerGradient 4s ease infinite; color: #fff; border: none; font-weight: 700; cursor: pointer; transition: all .2s; }',
       '.lv-cta-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(66,133,244,0.4); }',
       '.lv-cta-primary:active { transform: scale(.98); }',
@@ -1113,11 +1113,14 @@ window.lvOpenCustomerRequest = function(target) {
       '.lv-cta-secondary:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); color: #fff; }',
       '.lv-bento-card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 14px 16px; display:flex; flex-direction:column; gap:4px; transition: border-color .2s; }',
       '.lv-bento-card:hover { border-color: rgba(255,255,255,0.15); }',
-      '@media (max-width: 768px) {',
+      '@media (max-width: 640px) {',
       '  #lv-gemini-container { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; max-width: 100vw !important; border-radius: 0 !important; border: none !important; }',
       '  #lv-gemini-modal { padding: 0 !important; }',
-      '  .lv-mobile-hide { display: none !important; }',
-      '  .lv-mobile-stack { grid-template-columns: 1fr !important; }',
+      '  .lv-hide-mobile { display: none !important; }',
+      '  .lv-stack-mobile { grid-template-columns: 1fr !important; }',
+      '  .lv-buttons-stack { flex-direction: column !important; }',
+      '  .lv-buttons-stack button { width: 100% !important; }',
+      '  .lv-chat-stream-pad { padding: 14px 14px 20px !important; }',
       '}'
     ].join('\n');
     document.head.appendChild(st);
@@ -1134,78 +1137,73 @@ window.lvOpenCustomerRequest = function(target) {
   container.style.cssText = 'position:relative;width:min(94vw,840px);height:min(94vh,860px);background:radial-gradient(circle at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 60%), radial-gradient(circle at 100% 100%, rgba(139,92,246,0.08) 0%, transparent 50%), #0d121d;border:1px solid rgba(255,255,255,0.1);border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,0.8),0 0 60px rgba(66,133,244,0.15);display:flex;flex-direction:column;overflow:hidden;animation:lvFadeInUp .25s cubic-bezier(0.16,1,0.3,1)';
   modal.appendChild(container);
 
-  // Project tag badge
-  var projectBadgeHtml = pName ? ('<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.3);color:#93c5fd;font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' + esc(pName) + '</span>') : '';
+  // Subtitle / Project text
+  var subText = pName ? ('Proje: ' + esc(pName)) : 'Canlı Mimar Danışmanı • 8K 3D Stüdyo';
 
   // Render Inner Content
   container.innerHTML = [
-    // Top Bar
-    '<div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;background:rgba(13,18,29,0.9);backdrop-filter:blur(16px);flex-shrink:0;z-index:10">',
-      '<div style="display:flex;align-items:center;gap:12px;min-width:0">',
+    // Top Bar (Clean, single-line, perfectly balanced)
+    '<div style="height:56px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;background:rgba(13,18,29,0.95);backdrop-filter:blur(16px);flex-shrink:0;z-index:10;gap:8px">',
+      // Left: Avatar + Title
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">',
         // Gemini Star Icon
-        '<div style="position:relative;width:42px;height:42px;flex-shrink:0;border-radius:14px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center;box-shadow:0 0 20px rgba(66,133,244,0.35)">',
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none">',
+        '<div style="position:relative;width:34px;height:34px;min-width:34px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center;box-shadow:0 0 16px rgba(66,133,244,0.35);flex-shrink:0">',
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none">',
             '<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/>',
             '<defs><linearGradient id="lv-g-grad" x1="2" y1="2" x2="22" y2="22"><stop offset="0%" stop-color="#60a5fa"/><stop offset="50%" stop-color="#c084fc"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>',
           '</svg>',
-          '<span style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid #0d121d;box-shadow:0 0 8px #10b981"></span>',
+          '<span style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:#10b981;border:1.5px solid #0d121d"></span>',
         '</div>',
-        '<div style="min-width:0">',
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">',
-            '<span style="font-size:16px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em">Lavora AI Mimari Stüdyo</span>',
-            projectBadgeHtml,
-          '</div>',
-          '<div style="font-size:11.5px;color:#94a3b8;margin-top:2px;display:flex;align-items:center;gap:6px">',
-            '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>',
-            '<span class="lv-mobile-hide">Doğal Dil ile Tasarım &bull; 8K Flux Render &bull; İmalat Analizi</span>',
-            '<span style="display:none" class="lv-mobile-show">Mimari Danışman</span>',
-          '</div>',
+        // Single Line Title + Truncated Subtitle
+        '<div style="min-width:0;overflow:hidden">',
+          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar</div>',
+          '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + subText + '</div>',
         '</div>',
       '</div>',
-      // Actions
-      '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">',
-        '<button id="lv-btn-instant-3d" type="button" class="lv-cta-primary" style="padding:9px 18px;border-radius:50px;font-size:13px;display:inline-flex;align-items:center;gap:7px;box-shadow:0 4px 18px rgba(66,133,244,0.35);white-space:nowrap">',
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-          '<span>3D Tasarla &amp; Fiyatlandır</span>',
+      // Right Actions: Compact 3D button + Close
+      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">',
+        '<button id="lv-btn-instant-3d" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(66,133,244,0.35);white-space:nowrap">',
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+          '<span>3D Tasarla</span>',
         '</button>',
-        '<button id="lv-btn-close-modal" type="button" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:18px;line-height:1;transition:all .2s">&#x2715;</button>',
+        '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1;transition:all .2s">&#x2715;</button>',
       '</div>',
     '</div>',
 
     // View 1: Chat Stream View
     '<div id="lv-chat-pane" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">',
       // Message list
-      '<div id="lv-chat-stream" class="lv-gemini-scroll" style="flex:1;overflow-y:auto;padding:24px 22px;display:flex;flex-direction:column;gap:18px"></div>',
+      '<div id="lv-chat-stream" class="lv-gemini-scroll lv-chat-stream-pad" style="flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:16px;-webkit-overflow-scrolling:touch"></div>',
 
-      // Chips suggestion row
-      '<div id="lv-chips-bar" style="padding:0 22px 10px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0">',
-        '<button class="lv-gemini-chip" data-hint="180 cm masif ceviz konsol, fırçalanmış pirinç kulplu">✦ 180cm Ceviz Konsol</button>',
+      // Chips suggestion row (Horizontal Swipe)
+      '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
+        '<button class="lv-gemini-chip" data-hint="180 cm masif ceviz konsol, pirinç kulplu">✦ 180cm Ceviz Konsol</button>',
         '<button class="lv-gemini-chip" data-hint="Masif meşe TV ünitesi, siyah metal ayak ve açık raf">✦ Meşe TV Ünitesi</button>',
-        '<button class="lv-gemini-chip" data-hint="İpek mat antrasit lake çalışma masası, gizli çekmeceli">✦ Lake Çalışma Masası</button>',
+        '<button class="lv-gemini-chip" data-hint="İpek mat antrasit lake çalışma masası, çekmeceli">✦ Lake Çalışma Masası</button>',
         '<button class="lv-gemini-chip" data-hint="Minimalist aynalı sürgülü gardrop, füme cam detaylı">✦ Minimalist Gardrop</button>',
         '<button class="lv-gemini-chip" data-hint="8 kişilik doğal kenar masif yemek masası">✦ Masif Yemek Masası</button>',
       '</div>',
 
-      // Attached photo preview banner (hidden by default)
-      '<div id="lv-photo-preview-bar" style="display:none;padding:6px 22px;background:rgba(15,23,42,0.9);border-top:1px solid rgba(255,255,255,0.08);align-items:center;gap:10px">',
-        '<div style="position:relative;width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid #38bdf8">',
+      // Attached photo preview banner
+      '<div id="lv-photo-preview-bar" style="display:none;padding:6px 16px;background:rgba(15,23,42,0.95);border-top:1px solid rgba(255,255,255,0.08);align-items:center;gap:10px">',
+        '<div style="position:relative;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1.5px solid #38bdf8;flex-shrink:0">',
           '<img id="lv-attached-img-thumb" src="" style="width:100%;height:100%;object-fit:cover;display:block">',
         '</div>',
-        '<div style="flex:1;font-size:12px;color:#94a3b8">Fotoğraf eklendi &bull; Tasarımda referans alınacak</div>',
+        '<div style="flex:1;font-size:12px;color:#cbd5e1">Fotoğraf eklendi &bull; Tasarıma aktarılacak</div>',
         '<button id="lv-remove-photo-btn" type="button" style="background:none;border:none;color:#ef4444;font-size:18px;cursor:pointer;padding:4px">&#x2715;</button>',
       '</div>',
 
-      // Bottom input bar
-      '<div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(10,15,24,0.95);flex-shrink:0">',
-        '<div id="lv-input-shell" class="lv-gemini-input-wrap" style="display:flex;align-items:flex-end;gap:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:8px 14px;transition:all .2s">',
+      // Bottom input bar (Centered, perfectly sized, never cut off)
+      '<div style="padding:10px 14px max(12px, env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,0.06);background:rgba(10,15,24,0.98);flex-shrink:0">',
+        '<div id="lv-input-shell" class="lv-gemini-input-shell" style="min-height:48px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:26px;padding:4px 6px 4px 12px;display:flex;align-items:center;gap:8px;transition:all .2s">',
           // Photo upload button
-          '<button id="lv-btn-photo-pick" type="button" title="Örnek Fotoğraf Ekle" style="width:38px;height:38px;min-width:38px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;margin-bottom:2px;transition:all .2s">',
+          '<button id="lv-btn-photo-pick" type="button" title="Örnek Fotoğraf Ekle" style="width:36px;height:36px;min-width:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;transition:all .2s;flex-shrink:0">',
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
           '</button>',
-          // Textarea
-          '<textarea id="lv-prompt-input" rows="1" placeholder="Hayalinizdeki mobilyayı mimara anlatın… (örn: 190 cm ceviz konsol)" style="flex:1;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14.5px;line-height:1.5;resize:none;max-height:120px;min-height:24px;font-family:inherit;padding:8px 4px"></textarea>',
+          // Auto-expanding textarea
+          '<textarea id="lv-prompt-input" rows="1" placeholder="Mobilyanızı anlatın… (örn: 190 cm ceviz konsol)" style="flex:1;height:24px;min-height:24px;max-height:96px;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14px;line-height:20px;font-family:inherit;padding:2px 0;resize:none;box-sizing:border-box"></textarea>',
           // Send button
-          '<button id="lv-btn-send-prompt" type="button" class="lv-cta-primary" style="width:38px;height:38px;min-width:38px;border-radius:50%;display:grid;place-items:center;margin-bottom:2px">',
+          '<button id="lv-btn-send-prompt" type="button" class="lv-cta-primary" style="width:38px;height:38px;min-width:38px;border-radius:50%;display:grid;place-items:center;flex-shrink:0">',
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
           '</button>',
         '</div>',
@@ -1214,85 +1212,85 @@ window.lvOpenCustomerRequest = function(target) {
     '</div>',
 
     // View 2: Showroom & 3D Specs Result View
-    '<div id="lv-showroom-pane" class="lv-gemini-scroll" style="flex:1;display:none;flex-direction:column;min-height:0;overflow-y:auto">',
+    '<div id="lv-showroom-pane" class="lv-gemini-scroll" style="flex:1;display:none;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch">',
       // Loading State
-      '<div id="lv-showroom-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:60px 24px;text-align:center">',
-        '<div style="position:relative;width:84px;height:84px">',
+      '<div id="lv-showroom-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:48px 20px;text-align:center">',
+        '<div style="position:relative;width:76px;height:76px">',
           '<div style="position:absolute;inset:0;border-radius:50%;border:3px solid rgba(66,133,244,0.15)"></div>',
           '<div style="position:absolute;inset:0;border-radius:50%;border:3px solid transparent;border-top-color:#60a5fa;border-right-color:#c084fc;animation:lvSpinSlow 1s linear infinite"></div>',
           '<div style="position:absolute;inset:0;display:grid;place-items:center">',
-            '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
+            '<svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
           '</div>',
         '</div>',
         '<div>',
-          '<div id="lv-showroom-status-text" style="font-size:17px;font-weight:700;color:#f8fafc;letter-spacing:-0.01em;margin-bottom:8px">1/3 Mimari form analizi yapılıyor…</div>',
-          '<div style="font-size:13px;color:#94a3b8">Flux AI fotogerçekçi 8K stüdyo render motoru çalışıyor</div>',
+          '<div id="lv-showroom-status-text" style="font-size:16px;font-weight:700;color:#f8fafc;letter-spacing:-0.01em;margin-bottom:6px">1/3 Mimari form analizi yapılıyor…</div>',
+          '<div style="font-size:12.5px;color:#94a3b8">Flux AI 8K fotogerçekçi stüdyo renderı işleniyor</div>',
         '</div>',
       '</div>',
 
       // Loaded Result Content
       '<div id="lv-showroom-content" style="display:none;flex-direction:column">',
         // Hero Image Canvas
-        '<div style="position:relative;background:#050811;width:100%;min-height:280px;max-height:420px;overflow:hidden;display:flex;align-items:center;justify-content:center">',
-          '<img id="lv-render-image" src="" alt="3D Mobilya Render" style="width:100%;max-height:420px;object-fit:contain;display:block">',
+        '<div style="position:relative;background:#050811;width:100%;min-height:240px;max-height:380px;overflow:hidden;display:flex;align-items:center;justify-content:center">',
+          '<img id="lv-render-image" src="" alt="3D Mobilya Render" style="width:100%;max-height:380px;object-fit:contain;display:block">',
           // Top Left Badge
-          '<div style="position:absolute;top:16px;left:16px;background:rgba(15,23,42,0.75);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);padding:6px 12px;border-radius:50px;font-size:11px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:6px">',
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#38bdf8"/></svg>',
-            '<span>8K FOTOGERÇEKÇİ STÜDYO ÇİZİMİ</span>',
+          '<div style="position:absolute;top:12px;left:12px;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);padding:5px 10px;border-radius:50px;font-size:10.5px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:5px">',
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#38bdf8"/></svg>',
+            '<span>8K FOTOGERÇEKÇİ ÇİZİM</span>',
           '</div>',
           // Back to chat button on image
-          '<button id="lv-btn-back-chat" type="button" class="lv-cta-secondary" style="position:absolute;top:16px;right:16px;padding:7px 14px;border-radius:50px;font-size:12px;display:flex;align-items:center;gap:6px">',
+          '<button id="lv-btn-back-chat" type="button" class="lv-cta-secondary" style="position:absolute;top:12px;right:12px;padding:6px 12px;border-radius:50px;font-size:11.5px;display:flex;align-items:center;gap:5px">',
             '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>',
             '<span>Sohbete Dön</span>',
           '</button>',
         '</div>',
 
         // Architectural Specification Bento Grid
-        '<div style="padding:22px;display:flex;flex-direction:column;gap:18px">',
-          '<div class="lv-mobile-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">',
+        '<div style="padding:16px;display:flex;flex-direction:column;gap:14px">',
+          '<div class="lv-stack-mobile" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">',
             // Card 1: Title
             '<div class="lv-bento-card" style="grid-column:1/-1">',
-              '<span style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Mobilya Tasarım Konsepti</span>',
-              '<span id="lv-spec-title" style="font-size:18px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em">Özel Tasarım Mobilya</span>',
+              '<span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Tasarım Konsepti</span>',
+              '<span id="lv-spec-title" style="font-size:16.5px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em">Özel Tasarım Mobilya</span>',
             '</div>',
             // Card 2: Dimensions
             '<div class="lv-bento-card">',
-              '<span style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Mekansal Ölçüler</span>',
-              '<span id="lv-spec-dimensions" style="font-size:14.5px;font-weight:700;color:#cbd5e1">180 × 50 × 65 cm</span>',
+              '<span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Mekansal Ölçüler</span>',
+              '<span id="lv-spec-dimensions" style="font-size:14px;font-weight:700;color:#cbd5e1">180 × 50 × 65 cm</span>',
             '</div>',
             // Card 3: Material
             '<div class="lv-bento-card">',
-              '<span style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Ağaç &amp; Malzeme Dokusu</span>',
-              '<span id="lv-spec-material" style="font-size:14.5px;font-weight:700;color:#38bdf8">Doğal Masif Ahşap</span>',
+              '<span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Ağaç &amp; Malzeme Dokusu</span>',
+              '<span id="lv-spec-material" style="font-size:14px;font-weight:700;color:#38bdf8">Doğal Masif Ahşap</span>',
             '</div>',
             // Card 4: Hardware Details
             '<div class="lv-bento-card" style="grid-column:1/-1">',
-              '<span style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Mimari Detaylar &amp; Fonksiyon</span>',
-              '<span id="lv-spec-details" style="font-size:13.5px;color:#94a3b8;line-height:1.5">Kişiye özel ölçü ve fonksiyonel mimari üretim</span>',
+              '<span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Mimari Detaylar &amp; Fonksiyon</span>',
+              '<span id="lv-spec-details" style="font-size:13px;color:#94a3b8;line-height:1.5">Kişiye özel ölçü ve fonksiyonel mimari üretim</span>',
             '</div>',
             // Card 5: Price (Highlighted)
             '<div class="lv-bento-card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(6,182,212,0.08));border:1px solid rgba(16,185,129,0.3)">',
-              '<span style="font-size:11px;font-weight:700;color:#34d399;letter-spacing:.06em;text-transform:uppercase">Tahmini İmalat Bütçesi</span>',
-              '<span id="lv-spec-budget" style="font-size:19px;font-weight:800;color:#10b981">24.000 ₺ – 32.000 ₺</span>',
-              '<span style="font-size:11px;color:#6ee7b7">Malzeme, atölye işçiliği ve montaj dahil</span>',
+              '<span style="font-size:10px;font-weight:700;color:#34d399;letter-spacing:.06em;text-transform:uppercase">Tahmini İmalat Bütçesi</span>',
+              '<span id="lv-spec-budget" style="font-size:18px;font-weight:800;color:#10b981">24.000 ₺ – 32.000 ₺</span>',
+              '<span style="font-size:10.5px;color:#6ee7b7">Malzeme, atölye işçiliği ve montaj dahil</span>',
             '</div>',
             // Card 6: Timeline
             '<div class="lv-bento-card">',
-              '<span style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Tahmini İmalat Süresi</span>',
-              '<span id="lv-spec-timeline" style="font-size:17px;font-weight:800;color:#e2e8f0">15 İş Günü</span>',
-              '<span style="font-size:11px;color:#64748b">Lavora Özel Üretim Atölyesi</span>',
+              '<span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Tahmini İmalat Süresi</span>',
+              '<span id="lv-spec-timeline" style="font-size:16px;font-weight:800;color:#e2e8f0">15 İş Günü</span>',
+              '<span style="font-size:10.5px;color:#64748b">Lavora Özel Üretim Atölyesi</span>',
             '</div>',
           '</div>',
 
-          // Showroom Action Buttons
-          '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">',
-            '<button id="lv-btn-regen-angle" type="button" class="lv-cta-secondary" style="flex:1;padding:14px 18px;border-radius:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">',
-              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
-              '<span>Farklı Açıdan Üret</span>',
-            '</button>',
-            '<button id="lv-btn-approve-request" type="button" class="lv-cta-primary" style="flex:1.5;padding:14px 22px;border-radius:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">',
+          // Showroom Action Buttons (Stacked cleanly on mobile)
+          '<div class="lv-buttons-stack" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">',
+            '<button id="lv-btn-approve-request" type="button" class="lv-cta-primary" style="flex:1.5;height:46px;padding:0 20px;border-radius:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">',
               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
               '<span>Talebi Onayla &amp; Atölyeye Gönder</span>',
+            '</button>',
+            '<button id="lv-btn-regen-angle" type="button" class="lv-cta-secondary" style="flex:1;height:44px;padding:0 16px;border-radius:14px;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:7px">',
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
+              '<span>Farklı Açıdan Üret</span>',
             '</button>',
           '</div>',
         '</div>',
@@ -1334,66 +1332,58 @@ window.lvOpenCustomerRequest = function(target) {
   var specBudget = container.querySelector('#lv-spec-budget');
   var specTimeline = container.querySelector('#lv-spec-timeline');
 
-  // Auto-resize textarea
+  // Auto-resize textarea with smooth height adjustment
   promptInput.addEventListener('input', function() {
-    promptInput.style.height = 'auto';
-    promptInput.style.height = Math.min(promptInput.scrollHeight, 120) + 'px';
+    promptInput.style.height = '24px';
+    var newH = Math.min(promptInput.scrollHeight, 96);
+    promptInput.style.height = Math.max(newH, 24) + 'px';
   });
 
   // Markdown Formatter for Assistant Messages
   function formatAssistantMessage(raw) {
     if (!raw) return '';
     var text = String(raw);
-    // Strip bracketed option tags and 3D action tokens
     text = text.replace(/\[(?:Se[c\u00e7]enek|Option|\d+)[^\]]*\]/gi, '');
     text = text.replace(/\|?\s*Tasar[i\u0131]m[i\u0131] 3D [^\n]*/gi, '');
     text = text.replace(/\|?\s*3D (?:Tasarla|Olu[s\u015f]tur)[^\n]*/gi, '');
     text = text.replace(/^(\s*\|[^\n]+\n?)+/gm, '');
     text = text.trim();
 
-    // Escape basic html
     var escHtml = esc(text);
-
-    // Bold **text**
     escHtml = escHtml.replace(/\*\*([^\*]+)\*\*/g, '<strong style="color:#f8fafc;font-weight:700">$1</strong>');
-
-    // Bullet points
-    escHtml = escHtml.replace(/^[\-*\u2022]\s+(.+)$/gm, '<li style="margin-left:18px;margin-bottom:4px;color:#cbd5e1">$1</li>');
-
-    // Numbered lists
-    escHtml = escHtml.replace(/^(\d+)\.\s+(.+)$/gm, '<li style="margin-left:18px;margin-bottom:4px;list-style-type:decimal;color:#cbd5e1">$2</li>');
-
-    // Paragraph line breaks
-    escHtml = escHtml.replace(/\n\n+/g, '</p><p style="margin:10px 0 0">');
+    escHtml = escHtml.replace(/^[\-*\u2022]\s+(.+)$/gm, '<li style="margin-left:16px;margin-bottom:3px;color:#cbd5e1">$1</li>');
+    escHtml = escHtml.replace(/^(\d+)\.\s+(.+)$/gm, '<li style="margin-left:16px;margin-bottom:3px;list-style-type:decimal;color:#cbd5e1">$2</li>');
+    escHtml = escHtml.replace(/\n\n+/g, '</p><p style="margin:8px 0 0">');
     escHtml = escHtml.replace(/\n/g, '<br>');
 
-    return '<p style="margin:0;line-height:1.65;font-size:14.5px;color:#e2e8f0">' + escHtml + '</p>';
+    return '<p style="margin:0;line-height:1.6;font-size:14px;color:#e2e8f0">' + escHtml + '</p>';
   }
 
-  // Render Single Message in Chat Stream
+  // Render Single Message in Chat Stream (Spacious, full width on mobile!)
   function renderMessage(msg) {
     var isUser = msg.role === 'user';
     var wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;gap:12px;align-items:flex-start;' + (isUser ? 'justify-content:flex-end;' : 'justify-content:flex-start;') + 'animation:lvFadeInUp .2s ease both';
+    wrap.style.cssText = 'display:flex;flex-direction:column;width:100%;' + (isUser ? 'align-items:flex-end;' : 'align-items:flex-start;') + 'animation:lvFadeInUp .2s ease both';
 
     if (!isUser) {
-      // AI Avatar
-      var avatar = document.createElement('div');
-      avatar.style.cssText = 'width:32px;height:32px;min-width:32px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center;margin-top:2px;box-shadow:0 0 14px rgba(66,133,244,0.3)';
-      avatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>';
-      wrap.appendChild(avatar);
+      // AI Message Header with tiny icon
+      var headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
+      headerRow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg><span style="font-size:11.5px;font-weight:700;color:#94a3b8">Lavora AI Mimar</span>';
+      wrap.appendChild(headerRow);
 
+      // AI Message Body (Takes generous full width on mobile, avoiding cramped boxes)
       var body = document.createElement('div');
-      body.style.cssText = 'max-width:85%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:4px 18px 18px 18px;padding:14px 18px;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+      body.style.cssText = 'width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
       body.innerHTML = formatAssistantMessage(msg.content);
       wrap.appendChild(body);
     } else {
-      // User message
+      // User message bubble
       var userBubble = document.createElement('div');
-      userBubble.style.cssText = 'max-width:82%;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid rgba(255,255,255,0.12);border-radius:18px 18px 4px 18px;padding:12px 18px;color:#f8fafc;font-size:14px;line-height:1.6;box-shadow:0 4px 14px rgba(0,0,0,0.3)';
+      userBubble.style.cssText = 'max-width:85%;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid rgba(255,255,255,0.12);border-radius:18px 18px 4px 18px;padding:11px 16px;color:#f8fafc;font-size:14px;line-height:1.55;box-shadow:0 4px 14px rgba(0,0,0,0.3)';
       var uHtml = esc(msg.content || '').replace(/\n/g, '<br>');
       if (msg.photo) {
-        uHtml += '<div style="margin-top:10px"><img src="' + msg.photo + '" style="max-width:220px;max-height:160px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);display:block"></div>';
+        uHtml += '<div style="margin-top:10px"><img src="' + msg.photo + '" style="max-width:200px;max-height:150px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);display:block"></div>';
       }
       userBubble.innerHTML = uHtml;
       wrap.appendChild(userBubble);
@@ -1507,7 +1497,7 @@ window.lvOpenCustomerRequest = function(target) {
 
     // Reset input
     promptInput.value = '';
-    promptInput.style.height = 'auto';
+    promptInput.style.height = '24px';
     userAttachedPhoto = '';
     photoPreviewBar.style.display = 'none';
     photoBtn.style.color = '#94a3b8';
@@ -1525,16 +1515,14 @@ window.lvOpenCustomerRequest = function(target) {
 
     // Typing indicator
     var typingWrap = document.createElement('div');
-    typingWrap.style.cssText = 'display:flex;align-items:center;gap:12px;animation:lvFadeInUp .2s ease both';
+    typingWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding-left:2px;animation:lvFadeInUp .2s ease both';
     typingWrap.innerHTML = [
-      '<div style="width:32px;height:32px;min-width:32px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center">',
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
-      '</div>',
-      '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:4px 18px 18px 18px;padding:12px 18px;display:flex;align-items:center;gap:6px">',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
+      '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:6px">',
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;animation:lvTypingDot 1.2s infinite ease-in-out"></span>',
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#c084fc;animation:lvTypingDot 1.2s infinite ease-in-out .2s"></span>',
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f472b6;animation:lvTypingDot 1.2s infinite ease-in-out .4s"></span>',
-        '<span style="font-size:12px;color:#94a3b8;margin-left:6px">Mimar düşünüyor…</span>',
+        '<span style="font-size:12px;color:#94a3b8;margin-left:4px">Mimar düşünüyor…</span>',
       '</div>'
     ].join('');
     chatStream.appendChild(typingWrap);
@@ -1618,7 +1606,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talep gönderilemedi: ' + err.message);
     }
   };
-};;;
+};;;;
 const $=s=>document.querySelector(s),LS=localStorage,D={logo:'data:image/jpeg;base64,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',key:''};
 const ld=(k,d)=>{try{return JSON.parse(LS.getItem(k))||d}catch(e){return d}};
 let S=ld('lvr_s',{logo:'',key:'',firm:'Lavora Design',tel:'',adr:''});window.S=S;let P=[],cur=null,si=0,view='cards',fq='',q='',opn=new Set(),tm,st;
