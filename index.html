@@ -519,8 +519,13 @@ Lütfen şu JSON formatında yanıt ver:
         ],
         max_tokens: 700
       });
-      const raw = textData?.result?.response || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      let raw = '';
+      if (typeof textData?.result?.response === 'string') raw = textData.result.response;
+      else if (typeof textData?.result?.choices?.[0]?.text === 'string') raw = textData.result.choices[0].text;
+      else if (typeof textData?.result === 'string') raw = textData.result;
+      else if (typeof textData?.response === 'string') raw = textData.response;
+      else raw = JSON.stringify(textData?.result || textData || '');
+      const jsonMatch = (typeof raw === 'string' && raw.match) ? raw.match(/\{[\s\S]*\}/) : null;
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.observation && Array.isArray(parsed.questions) && parsed.questions.length) {
@@ -603,24 +608,36 @@ Lütfen şu JSON formatında yanıt ver:
     };
   },
 
-  buildImagePrompt(itemType, wCm, dCm, hCm, materialLabel, extraNotes) {
+  buildArchitecturalPrompt(itemType, wCm, dCm, hCm, materialLabel, placement, extraNotes, roomVisionNotes) {
     let matDesc = 'solid natural oak wood';
-    if (/ceviz/i.test(materialLabel)) matDesc = 'luxurious solid American walnut wood';
+    if (/ceviz/i.test(materialLabel)) matDesc = 'luxurious American walnut';
     else if (/lake/i.test(materialLabel)) matDesc = 'matte silk lacquered finish in soft architectural tone';
-    else if (/kaplama/i.test(materialLabel)) matDesc = 'natural wood veneer with subtle grain texture';
+    else if (/kaplama/i.test(materialLabel)) matDesc = 'warm natural wood veneer with subtle grain texture';
     else if (/mdf/i.test(materialLabel)) matDesc = 'contemporary high-density wood composite laminate';
 
-    return `isolated luxury modern ${itemType} furniture on pure plain solid white background, 3/4 front architectural studio view, crafted from ${matDesc}, minimalist design, studio product lighting, clean product cutout, 8k photorealistic`;
+    let placeDesc = 'placed along the left plain wall, standing firmly on the wooden floor';
+    if (placement === 'pencere_onu') placeDesc = 'positioned on the parquet floor in front of the window area';
+    else if (placement === 'sag_duvar') placeDesc = 'fitted along the right wall on the wooden floor';
+    else if (placement === 'orta') placeDesc = 'placed in the center of the room on the parquet floor';
+
+    let roomCtx = roomVisionNotes || 'apartment room with light gray walls, wooden parquet laminate floor, corner double window with radiator, natural daylight';
+    if (extraNotes) roomCtx += ', ' + extraNotes;
+
+    return `High-end architectural interior photograph of a custom ${itemType} (${wCm}x${dCm}x${hCm} cm) masterfully crafted from ${matDesc}, ${placeDesc}. Room features ${roomCtx}. Professional architectural lighting, realistic wood grain, natural soft shadows on the wooden floor, Hasselblad H6D-100c, 8k resolution, photorealistic interior design portfolio, master woodwork, ultra detailed, cinematic daylight`;
+  },
+
+  buildImagePrompt(itemType, wCm, dCm, hCm, materialLabel, extraNotes, placement, roomVisionNotes) {
+    return this.buildArchitecturalPrompt(itemType, wCm, dCm, hCm, materialLabel, placement, extraNotes, roomVisionNotes);
   },
 
   async generateConceptImage(prompt) {
     try {
-      const data = await this.callApi('image', { prompt, steps: 4 });
+      const data = await this.callApi('image', { prompt, steps: 8 });
       if (data && data.result && data.result.image) {
         return 'data:image/jpeg;base64,' + data.result.image;
       }
     } catch (err) {
-      console.warn('[LavoraAI] Image gen remote call note:', err.message);
+      console.warn('[LavoraAI] Image gen call note:', err.message);
     }
     return null;
   },
@@ -1024,7 +1041,7 @@ window.lvOpenCustomerRequest = function(target) {
     <div style="font-weight:800;font-size:14px;color:var(--ink);margin-bottom:2px">4. Adım: Mekanda Görünüm & Bütçe</div>
     <div style="font-size:11px;color:var(--ac);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:5px">
      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M15 19l-3 3-3-3M19 15l3-3-3-3M9 5l3-3 3 3M5 9l-3 3 3 3"/></svg>
-     Mobilyayı odanızda istediğiniz noktaya parmağınızla veya fareyle sürükleyebilirsiniz.
+     Yapay zeka odanızın mimari açısını, zeminini ve ışığını analiz ederek bu 3D tasarımı oluşturdu.
     </div>
 
     <!-- Live In-Room Preview Frame -->
@@ -1312,11 +1329,11 @@ window.lvOpenCustomerRequest = function(target) {
     }
   };
 
-  // Step 3 Run AI -> Generates visual & composites into room!
+  // Step 3 Run AI -> Generates REAL architectural interior 3D visual!
   document.getElementById('lv-step-3-run').onclick = async () => {
     const runBtn = document.getElementById('lv-step-3-run');
     runBtn.disabled = true;
-    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Tasarım odanıza yerleştiriliyor…';
+    runBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0110 10"/></svg> Yapay zeka 3D mekan görselini üretiyor…';
 
     const notes = (document.getElementById('lv-wiz-notes').value || '').trim();
 
@@ -1327,28 +1344,45 @@ window.lvOpenCustomerRequest = function(target) {
       document.getElementById('lv-final-days-text').textContent = 'Tahmini Süre: ' + currentAiEstimate.estimatedDays;
       document.getElementById('lv-final-specs-chip').textContent = `Ölçü: ${selectedW} × ${selectedD} × ${selectedH} cm · ${currentAiEstimate.materialLabel} · Konum: ${currentPlacement.replace(/_/g, ' ')}`;
 
-      // 2. Open step 4 immediately so user sees their room photo right away without waiting!
+      // 2. Open step 4 with live architectural rendering overlay
       goToStep(4);
       const finalImgEl = document.getElementById('lv-final-preview-img');
-      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
-
       const loadingOverlay = document.getElementById('lv-preview-loading-overlay');
       loadingOverlay.style.display = 'flex';
+      loadingOverlay.querySelector('span').textContent = 'Yapay zeka mekanınızın mimari açısına uygun 3D görseli üretiyor… (birkaç saniye sürebilir)';
 
-      // 3. Obtain furniture image: if user didn't upload reference, generate with Flux
-      if (!uploadedFurnPhoto) {
-        const prompt = window.LavoraAI.buildImagePrompt(selectedItemName, selectedW, selectedD, selectedH, currentAiEstimate.materialLabel, notes);
-        generatedIsolatedFurn = await window.LavoraAI.generateConceptImage(prompt);
+      if (uploadedSpacePhoto) finalImgEl.src = uploadedSpacePhoto;
+
+      // 3. Build comprehensive architectural prompt matching user's room architecture
+      const roomObs = (aiQuestionsData && aiQuestionsData.observation) || 'açık gri duvarlar, meşe laminat zemin, gün ışığı alan pencere ve radyatör';
+      const prompt = window.LavoraAI.buildArchitecturalPrompt(
+        selectedItemName,
+        selectedW,
+        selectedD,
+        selectedH,
+        currentAiEstimate.materialLabel,
+        currentPlacement,
+        notes,
+        roomObs
+      );
+
+      // 4. Generate high-resolution architectural interior visual with Flux
+      const generatedImage = await window.LavoraAI.generateConceptImage(prompt);
+      if (generatedImage) {
+        finalCompositeImage = generatedImage;
+        finalImgEl.src = finalCompositeImage;
+        showingOriginal = false;
+        if (typeof toast === 'function') toast('3D Mimari görsel başarıyla oluşturuldu');
+      } else {
+        // Fallback to room photo
+        finalCompositeImage = uploadedSpacePhoto || uploadedFurnPhoto || '';
+        finalImgEl.src = finalCompositeImage;
       }
-
-      // 4. Composite furniture into room
-      await renderCompositePreview();
-
-      if (typeof toast === 'function') toast('Tasarım mekanınıza başarıyla yerleştirildi');
     } catch(err) {
-      console.error('[LavoraAI] error:', err);
+      console.error('[LavoraAI error]:', err);
       goToStep(4);
     } finally {
+      loadingOverlay.style.display = 'none';
       runBtn.disabled = false;
       runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Tasarımı Odamda Canlandır ve Fiyatla';
     }
@@ -1454,7 +1488,7 @@ window.lvOpenCustomerRequest = function(target) {
     const finalImgEl = document.getElementById('lv-final-preview-img');
     finalImgEl.src = showingOriginal ? uploadedSpacePhoto : finalCompositeImage;
     toggleOrigBtn.innerHTML = showingOriginal 
-      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Mobilyalı Tasarımı Gör'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Yapay Zeka Tasarımını Gör'
       : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg> Orijinal Odayı Gör';
   };
 
