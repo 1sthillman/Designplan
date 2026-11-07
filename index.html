@@ -1789,7 +1789,7 @@ wttSlow=()=>{wp.u=Date.now();clearTimeout(wtm);wtm=setTimeout(save,2500)},
 err=x=>{document.querySelector('.toast')?.remove();dbg('HATA: '+(x?.message||x));toast(x?.message||'İşlem başarısız',6e3)};
 /* fotoğraf deposu */
 const wcv=async(src,mx,q)=>{const b=typeof src=='string'?await(await fetch(src)).blob():src,im=await createImageBitmap(b),k=Math.min(1,mx/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);im.close?.();return c.toDataURL('image/jpeg',q)},
-wadd=async f=>{const id=wid();let img,th;try{img=await wcv(f,1280,.78);th=await wcv(img,260,.72)}catch(e){img=await rd(f);th=img}WC[id]=th;if(window.WC)window.WC[id]=th;try{await tx('readwrite',s=>s.put({id,t:Date.now(),img,th}),'wph')}catch(e){dbg('wph kaydetme hatası: '+(e&&e.message||e))}return id},
+wadd=async f=>{const id=wid();let img,th;try{img=await wcv(f,1280,.78);th=await wcv(img,260,.72)}catch(e){img=await rd(f);th=img}WC[id]=th;if(!window.WC)window.WC={};window.WC[id]=th;try{if(window.LV_DB&&window.LV_DB.tx)await tx('readwrite',s=>s.put({id,t:Date.now(),img,th}),'wph')}catch(e){dbg('wph kaydetme hatası: '+(e&&e.message||e))}return id};window.wcv=wcv;window.wadd=wadd;
 wget=async(id,full)=>{
   if(!id)return'';
   const mem=(window.WC&&window.WC[id])||(typeof WC!=='undefined'&&WC[id]);
@@ -2054,7 +2054,7 @@ window.lvRowPh=(p,s)=>{const o={};try{if(!p||!p.w||!p.w.items||!p.w.items.some(i
 window.lvwph=()=>{try{wph()}catch(e){}};{let t2=0;new MutationObserver(()=>{clearTimeout(t2);t2=setTimeout(window.lvwph,30)}).observe(document.body,{childList:true,subtree:true});setTimeout(window.lvwph,300)}
 {const fimg=document.createElement('input');fimg.type='file';fimg.accept='.xlsx,.xls';fimg.hidden=true;document.body.append(fimg);window.fimg=fimg;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a="imgx"]');if(!b)return;const p=(wm=='proj'&&wp)?wp:cur;if(!p||!p.s)return toast('Önce bir proje aç');if(!p.w||!p.w.items.length)return toast('Bu projede iş akışı ürünü yok');close();fimg.value='';fimg.onchange=async()=>{const f=fimg.files[0];if(!f)return;toast('Görseller okunuyor…',9e5);try{const n=await wimg2(p,await f.arrayBuffer());document.querySelector('.toast')?.remove();if(n){save();render();toast(n+' görsel eklendi',4e3)}else toast(wimg2.found?wimg2.found+' görsel bulundu ama bu projenin ürünleriyle eşleşmedi':'Dosyada görsel bulunamadı',6e3)}catch(x){document.querySelector('.toast')?.remove();dbg('imgx: '+(x?.message||x));toast('Görseller okunamadı')}};fimg.click()})}
-async function wimg2(p,buf,add,skipSave){add=add||wadd;let c=0;wimg2.found=0;const rp=wimg2.rep={total:0,attached:0,dup:0,hdr:0,miss:[],uniq:new Set};try{const I=new Uint8Array(buf,0,4)[0]==0xD0?xlsImgs(buf):await xlImgs(buf);
+async function wimg2(p,buf,add,skipSave){add=add||window.wadd||(typeof wadd!=='undefined'?wadd:null);let c=0;wimg2.found=0;const rp=wimg2.rep={total:0,attached:0,dup:0,hdr:0,miss:[],uniq:new Set};try{const I=new Uint8Array(buf,0,4)[0]==0xD0?xlsImgs(buf):await xlImgs(buf);
 for(const nm in I)rp.total+=I[nm].length;
 for(const s of p.s){const L=I[s.n];if(!L||!L.length||!s.rn)continue;const R=wrws(s);if(!R.length)continue;const rows=R.map(x=>({x,o:s.rn[x.ri]})).filter(z=>z.o!=null&&z.o>=0);if(!rows.length)continue;const first=Math.min(...rows.map(z=>z.o));
 for(const im of L){if(im.r2<first-1){rp.hdr++;continue}wimg2.found++;if(im.bad){rp.miss.push(s.n+' satır '+(im.r1+1)+' ('+im.bad+')');continue}const ct=(im.r1+im.r2)/2;let bx=null,bd=1e9;rows.forEach(z=>{if(z.o>=im.r1&&z.o<=im.r2&&Math.abs(z.o-ct)<bd){bd=Math.abs(z.o-ct);bx=z.x}});
@@ -2307,77 +2307,360 @@ addEventListener('afterprint',()=>{const p=$('#pr');if(p)p.className=''});
 const dl=(b,n)=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},4e3)};
 async function bkAll(){
   try{
-    toast('Yedek hazırlanıyor…', 9e5);
-    const ids = new Set(P.flatMap(p => (p.w?.items || []).flatMap(i => i.ph || [])));
-    let allPh = [];
-    try {
-      const pPh = tx('readonly', s => s.getAll(), 'wph');
-      allPh = await Promise.race([pPh, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
-    } catch(e) {
-      allPh = [...ids].map(id => ({ id, th: (window.WC && window.WC[id]) || '' })).filter(x => x.th);
+    if(typeof toast==='function')toast('Tüm veriler toplanıyor ve yedek hazırlanıyor…',9e5);
+    
+    // 1. Collect projects
+    const projects = Array.isArray(P) ? JSON.parse(JSON.stringify(P)) : [];
+    
+    // 2. Collect photos from memory and project items
+    const photoMap = new Map();
+    if(window.WC && typeof window.WC === 'object'){
+      Object.entries(window.WC).forEach(([id, th]) => {
+        if(id && th) photoMap.set(String(id), { id: String(id), th });
+      });
     }
-    const phMap = new Map((allPh || []).map(x => [String(x.id), x]));
-    const ph = [...ids].map(id => phMap.get(String(id))).filter(Boolean);
-
-    let rc = [];
-    try {
-      const pRc = tx('readonly', s => s.getAll(), 'rcpt');
-      const rcList = await Promise.race([pRc, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
-      for (const o of rcList) {
-        try { rc.push({ id: o.id, img: await sr(o) }); } catch(e) { if (o && o.img) rc.push({ id: o.id, img: o.img }); }
+    projects.forEach(p => {
+      if(p && p.w && Array.isArray(p.w.items)){
+        p.w.items.forEach(it => {
+          if(it.phData && Array.isArray(it.phData)){
+            it.phData.forEach(ph => {
+              if(ph && ph.id && (ph.th || ph.img)){
+                photoMap.set(String(ph.id), { id: String(ph.id), th: ph.th || ph.img });
+              }
+            });
+          }
+        });
       }
-    } catch(e) {}
-
-    let led = [];
-    try {
-      const pLed = tx('readonly', s => s.getAll(), 'led');
-      led = await Promise.race([pLed, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]) || [];
-    } catch(e) {
-      led = (typeof LR !== 'undefined' && Array.isArray(LR)) ? LR : [];
-    }
-
-    let scans = [];
-    try {
-      const pSc = tx('readonly', s => s.getAll(), 'scans');
-      const scanMeta = await Promise.race([pSc, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))]) || [];
-      for (const o of scanMeta) {
-        try {
-          const full = await tx('readonly', s => s.get(o.id), 'scans').catch(() => null);
-          if (full) scans.push(full);
-        } catch(e) {}
-      }
-    } catch(e) {}
-
-    const voice = [];
-    const { ak, key, ...S2 } = (typeof S !== 'undefined' ? S : (window.S || {}));
-
-    const blob = new Blob([JSON.stringify({ app: 'lavora-tam-yedek', v: 2, t: Date.now(), S: S2, P, ph, rc, led, scans, voice })], { type: 'application/json' });
+    });
+    const ph = Array.from(photoMap.values());
+    
+    // 3. Collect ledger (LR)
+    const led = (typeof LR !== 'undefined' && Array.isArray(LR)) ? JSON.parse(JSON.stringify(LR)) : [];
+    
+    // 4. Receipts
+    const rc = [];
+    
+    // 5. Settings
+    const curS = (typeof S !== 'undefined' && S) || (window.S) || {};
+    const { ak, key, ...cleanS } = curS;
+    
+    const backupObj = {
+      app: 'lavora-tam-yedek',
+      v: 2,
+      t: Date.now(),
+      generatedAt: new Date().toISOString(),
+      S: cleanS,
+      P: projects,
+      ph,
+      rc,
+      led
+    };
+    
+    const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'lavora-tam-yedek-' + today() + '.json';
+    const dateStr = (typeof today === 'function') ? today() : new Date().toISOString().slice(0, 10);
+    a.download = 'lavora-tam-yedek-' + dateStr + '.json';
     document.body.append(a);
     a.click();
-    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 3000);
-
-    if (typeof S !== 'undefined') S.fb = Date.now();
-    if (typeof save === 'function') save();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 3500);
+    
+    if(typeof S !== 'undefined') S.fb = Date.now();
+    if(typeof save === 'function') save();
     document.querySelector('.toast')?.remove();
-    toast(`Yedek indirildi: ${P.length} proje, ${ph.length} iş fotoğrafı, ${rc.length} fiş, ${led.length} defter kaydı`, 6e3);
+    if(typeof toast === 'function') toast('Yedek başarıyla indirildi: ' + projects.length + ' proje, ' + ph.length + ' fotoğraf, ' + led.length + ' defter kaydı', 5e3);
   } catch(x){
     document.querySelector('.toast')?.remove();
-    dbg('Tam yedek: ' + (x?.message || x));
-    toast('Yedek alınamadı: ' + (x?.message || 'hata'));
+    dbg('Tam yedek hatası: ' + (x?.message || x));
+    if(typeof toast === 'function') toast('Yedek alınamadı: ' + (x?.message || 'hata'));
   }
 }; window.bkAll = bkAll;
-const fr=document.createElement('input');fr.type='file';fr.accept='.json,application/json';fr.hidden=true;document.body.append(fr);window.fr=fr;
-fr.onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const j=JSON.parse(await f.text());if(j.app!='lavora-tam-yedek'||!Array.isArray(j.P))throw new Error('Bu bir Lavora tam yedeği değil');
-const _lp=j.P.filter(x=>x&&x.id),_ne=_lp.filter(x=>!P.some(o=>o.id==x.id)).length,_up=_lp.filter(x=>P.some(o=>o.id==x.id&&(x.u||0)>(o.u||0))).length,_sm=_lp.length-_ne-_up;
-if(!await sure({icon:'copy',title:'Yedek geri yüklensin mi?',text:`Yedekte ${_lp.length} proje, ${(j.ph||[]).length} iş fotoğrafı, ${(j.rc||[]).length} fiş, ${(j.scans||[]).length} tarama, ${(j.voice||[]).length} özel ses ve ${(j.led||[]).length} defter kaydı var. Eklenecek yeni proje: ${_ne}. Yedekteki sürümü daha güncel olduğu için değişecek proje: ${_up}${_up?' (bunların mevcut hâli “geri yükleme öncesi” adıyla Çöp kutusuna kopyalanır)':''}. Dokunulmayacak proje: ${_sm}. Defterde yalnızca henüz olmayan kayıtlar eklenir.`,ok:'Geri yükle'}))return;
-toast('Geri yükleniyor…',9e5);let n=0,sv=0;for(const p of j.P){if(!p||!p.id)continue;const o=P.find(x=>x.id==p.id);if(!o){P.push(p);n++}else if((p.u||0)>(o.u||0)){const bk=JSON.parse(JSON.stringify(o));bk.id=uid();bk.name+=' (geri yükleme öncesi)';bk.d=Date.now();bk.u=Date.now();P.push(bk);sv++;P=P.map(x=>x.id==p.id?p:x);n++}}
-if(j.ph?.length)await tx('readwrite',s=>j.ph.forEach(o=>s.put(o)),'wph');if(j.rc?.length)await tx('readwrite',s=>j.rc.forEach(o=>s.put(o)),'rcpt');if(j.led?.length){const have=new Set((await tx('readonly',s=>s.getAllKeys(),'led'))||[]),nl=j.led.filter(o=>o&&o.id&&!have.has(o.id));if(nl.length)await tx('readwrite',s=>nl.forEach(o=>s.put(o)),'led')}
-if(j.scans?.length)await tx('readwrite',s=>j.scans.forEach(o=>s.put(o)),'scans');
-if(j.voice?.length&&window.LV_AUDIO_IMPORT)await window.LV_AUDIO_IMPORT(j.voice);
-Object.keys(j.S||{}).forEach(k=>{if(S[k]==null||S[k]==='')S[k]=j.S[k]});sanitizeP();save();await lload();document.querySelector('.toast')?.remove();close();render();toast(`Geri yüklendi: ${n} proje güncellendi`+(sv?` · ezilen ${sv} yerel sürüm Çöp kutusuna alındı`:''),7e3)}catch(x){document.querySelector('.toast')?.remove();dbg('Geri yükleme: '+(x?.message||x));toast('Geri yüklenemedi: '+(x?.message||'bozuk dosya'),5e3)}};
+
+const fr = document.createElement('input');
+fr.type = 'file';
+fr.accept = '.json,application/json';
+fr.hidden = true;
+document.body.append(fr);
+window.fr = fr;
+
+window.rsAll = function(){
+  if(window.fr) window.fr.click();
+};
+
+fr.onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if(!f) return;
+  try{
+    const j = JSON.parse(await f.text());
+    if(!j || (j.app !== 'lavora-tam-yedek' && !Array.isArray(j.P))){
+      throw new Error('Seçilen dosya geçerli bir Lavora tam yedeği değil.');
+    }
+    const incomingP = Array.isArray(j.P) ? j.P.filter(x => x && x.id) : [];
+    const incomingLed = Array.isArray(j.led) ? j.led.filter(x => x && x.id) : [];
+    const incomingPh = Array.isArray(j.ph) ? j.ph.filter(x => x && x.id) : [];
+    
+    const confirmMsg = 'Yedek geri yüklensin mi?\n\n' +
+      '• Proje sayısı: ' + incomingP.length + '\n' +
+      '• Fotoğraf sayısı: ' + incomingPh.length + '\n' +
+      '• Defter kaydı: ' + incomingLed.length + '\n\n' +
+      'Mevcut kayıtlar silinmez, yedekteki veriler eklenir ve bulutla eşitlenir.';
+    
+    let ok = false;
+    if(typeof sure === 'function'){
+      ok = await sure({
+        icon: 'copy',
+        title: 'Yedek geri yüklensin mi?',
+        text: confirmMsg.replace(/\n/g, '<br>'),
+        ok: 'Geri Yükle'
+      });
+    } else {
+      ok = confirm(confirmMsg);
+    }
+    if(!ok) return;
+    
+    if(typeof toast === 'function') toast('Yedek geri yükleniyor ve eşitleniyor…', 9e5);
+    
+    // 1. Restore photos
+    if(!window.WC) window.WC = {};
+    incomingPh.forEach(item => {
+      if(item && item.id && (item.th || item.img)){
+        window.WC[item.id] = item.th || item.img;
+        if(typeof WC !== 'undefined') WC[item.id] = item.th || item.img;
+      }
+    });
+    
+    // 2. Restore projects
+    let addedP = 0, updatedP = 0;
+    if(!Array.isArray(P)) P = [];
+    incomingP.forEach(p => {
+      const existingIdx = P.findIndex(x => x.id == p.id);
+      p.u = Date.now();
+      if(typeof saved !== 'undefined') delete saved[p.id];
+      if(existingIdx >= 0){
+        P[existingIdx] = p;
+        updatedP++;
+      } else {
+        P.unshift(p);
+        addedP++;
+      }
+      try {
+        if(typeof path === 'function'){
+          path('projects').child(String(p.id)).set(p);
+        }
+      } catch(err){}
+    });
+    
+    // 3. Restore Ledger
+    let addedLed = 0;
+    if(incomingLed.length){
+      if(typeof LR === 'undefined' || !Array.isArray(LR)) window.LR = [];
+      const curLR = (typeof LR !== 'undefined' && Array.isArray(LR)) ? LR : window.LR;
+      incomingLed.forEach(l => {
+        if(!curLR.some(x => x.id == l.id)){
+          curLR.unshift(l);
+          addedLed++;
+          try {
+            if(typeof path === 'function'){
+              path('ledger').child(String(l.id)).set(l);
+            }
+          } catch(err){}
+        }
+      });
+    }
+    
+    // 4. Restore settings
+    if(j.S && typeof j.S === 'object'){
+      Object.assign(window.S || {}, j.S);
+      if(typeof S !== 'undefined') Object.assign(S, j.S);
+      try { localStorage.setItem('lvr_s', JSON.stringify(j.S)); } catch(e){}
+      try {
+        if(typeof path === 'function'){
+          path('settings').child('main').update(j.S);
+        }
+      } catch(err){}
+    }
+    
+    if(typeof sanitizeP === 'function') sanitizeP();
+    if(typeof save === 'function') save();
+    if(typeof render === 'function') render();
+    document.querySelector('.toast')?.remove();
+    if(typeof toast === 'function') toast('Yedek başarıyla geri yüklendi: ' + addedP + ' yeni, ' + updatedP + ' güncellenen proje, ' + addedLed + ' defter kaydı', 6e3);
+  } catch(x){
+    document.querySelector('.toast')?.remove();
+    dbg('Geri yükleme hatası: ' + (x?.message || x));
+    if(typeof toast === 'function') toast('Geri yüklenemedi: ' + (x?.message || 'bozuk dosya'));
+  }
+};
+
+window.lvAddExcelImages = function(){
+  const p = (typeof wm !== 'undefined' && wm === 'proj' && typeof wp !== 'undefined' && wp) ? wp : (typeof cur !== 'undefined' ? cur : null);
+  if(!p || !p.s){
+    if(typeof toast === 'function') toast('Önce bir proje açın (Projeler veya İş Akışı ekranından)');
+    return;
+  }
+  if(!p.w || !p.w.items || !p.w.items.length){
+    if(typeof toast === 'function') toast('Bu projede henüz iş akışı ürünü bulunmuyor.');
+    return;
+  }
+  const fimg = document.createElement('input');
+  fimg.type = 'file';
+  fimg.accept = '.xlsx,.xls';
+  fimg.hidden = true;
+  document.body.append(fimg);
+  fimg.onchange = async () => {
+    const f = fimg.files[0];
+    fimg.remove();
+    if(!f) return;
+    if(typeof toast === 'function') toast('Excel dosyasındaki görseller taranıyor…', 9e5);
+    try{
+      const buf = await f.arrayBuffer();
+      const n = await wimg2(p, buf, window.wadd);
+      document.querySelector('.toast')?.remove();
+      if(n > 0){
+        if(typeof save === 'function') save();
+        if(typeof render === 'function') render();
+        if(typeof toast === 'function') toast(n + ' görsel başarıyla ürünlerle eşleştirildi', 4e3);
+      } else {
+        if(typeof toast === 'function') toast('Excel dosyasında ürün adlarıyla eşleşen görsel bulunamadı', 5e3);
+      }
+    } catch(err){
+      document.querySelector('.toast')?.remove();
+      if(typeof toast === 'function') toast('Görseller okunamadı: ' + (err.message || err));
+    }
+  };
+  fimg.click();
+};
+
+/* ==========================================================================
+   LAVORA TOUCH SWIPE GESTURES (SAĞA: SİL, SOLA: DÜZENLE)
+   Projeler (.pc) ve İş Akışı kartlarında (.wit) sezgisel mobil hareket kontrolü
+   ========================================================================== */
+(function(){
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let activeCard = null;
+  let isHorizontalSwipe = false;
+  let cardType = '';
+
+  document.addEventListener('touchstart', e => {
+    const card = e.target.closest('.pc, .wit');
+    if (!card || e.touches.length > 1) return;
+    if (e.target.closest('button, input, textarea, a, select, [data-a]')) return;
+
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    activeCard = card;
+    cardType = card.classList.contains('pc') ? 'pc' : 'wit';
+    isHorizontalSwipe = false;
+    activeCard.style.transition = 'none';
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!activeCard || e.touches.length > 1) return;
+    const diffX = e.touches[0].clientX - touchStartX;
+    const diffY = e.touches[0].clientY - touchStartY;
+
+    if (!isHorizontalSwipe) {
+      if (Math.abs(diffX) > 12 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+        isHorizontalSwipe = true;
+      } else if (Math.abs(diffY) > 12) {
+        activeCard = null;
+        return;
+      }
+    }
+
+    if (isHorizontalSwipe) {
+      const maxDrag = 110;
+      const clampedX = Math.max(-maxDrag, Math.min(maxDrag, diffX));
+      activeCard.style.transform = 'translateX(' + clampedX + 'px)';
+
+      if (diffX > 35) {
+        activeCard.style.backgroundColor = 'rgba(239, 68, 68, 0.16)';
+        activeCard.style.borderColor = '#ef4444';
+      } else if (diffX < -35) {
+        activeCard.style.backgroundColor = 'rgba(15, 118, 110, 0.16)';
+        activeCard.style.borderColor = 'var(--ac)';
+      } else {
+        activeCard.style.backgroundColor = '';
+        activeCard.style.borderColor = '';
+      }
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!activeCard) return;
+    const card = activeCard;
+    const type = cardType;
+    activeCard = null;
+
+    card.style.transition = 'transform .22s cubic-bezier(0.16, 1, 0.3, 1), background-color .22s ease, border-color .22s ease';
+    card.style.transform = 'translateX(0)';
+    card.style.backgroundColor = '';
+    card.style.borderColor = '';
+
+    if (!isHorizontalSwipe) return;
+
+    const diffX = e.changedTouches[0].clientX - touchStartX;
+    const threshold = 60;
+
+    if (diffX > threshold) {
+      // SAĞA ÇEKİLDİ -> SİL
+      if (type === 'pc') {
+        const id = card.dataset.id;
+        const delBtn = card.querySelector('[data-a="del"]');
+        if (delBtn) delBtn.click();
+        else {
+          const p = P.find(x => x.id == id);
+          if (p && typeof sure === 'function') {
+            sure({ title: 'Çöp kutusuna taşınsın mı?', text: '30 gün içinde geri alabilirsin.', ok: 'Çöpe taşı', danger: 1 }).then(y => {
+              if (y) { p.d = Date.now(); p.u = Date.now(); if(typeof save==='function')save(); if(typeof render==='function')render(); if(typeof toast==='function')toast('Çöp kutusuna taşındı'); }
+            });
+          }
+        }
+      } else if (type === 'wit') {
+        const id = card.dataset.id;
+        if (typeof wp !== 'undefined' && wp && wp.w && Array.isArray(wp.w.items)) {
+          const it = wp.w.items.find(x => x.id == id);
+          if (it && typeof sure === 'function') {
+            sure({ title: 'Ürün silinsin mi?', text: '"' + (it.n || 'Ürün') + '" iş akışından silinecek.', ok: 'Sil', danger: 1 }).then(y => {
+              if (y) {
+                wp.w.items = wp.w.items.filter(x => x.id != id);
+                wp.u = Date.now();
+                if(typeof save==='function')save();
+                if(typeof wrender==='function')wrender();
+                if(typeof toast==='function')toast('Ürün silindi');
+              }
+            });
+          }
+        }
+      }
+    } else if (diffX < -threshold) {
+      // SOLA ÇEKİLDİ -> DÜZENLE
+      if (type === 'pc') {
+        const id = card.dataset.id;
+        const p = P.find(x => x.id == id);
+        if (p) {
+          cur = p;
+          if (cur.w && typeof window.wEns === 'function') window.wEns(cur);
+          si = 0; fq = ''; opn.clear();
+          if(typeof render === 'function') render();
+          scrollTo(0, 0);
+          if(typeof toast === 'function') toast('Proje düzenleme açıldı');
+        }
+      } else if (type === 'wit') {
+        const id = card.dataset.id;
+        if (typeof wp !== 'undefined' && wp && wp.w && Array.isArray(wp.w.items)) {
+          wi = wp.w.items.find(i => i.id == id);
+          if (wi && typeof wis === 'function') {
+            wis();
+            if(typeof toast === 'function') toast('Ürün düzenleme açıldı');
+          }
+        }
+      }
+    }
+  }, { passive: true });
+})();
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
 try{if(a=='bkall'){close();bkAll()}else if(a=='rsall'){close();fr.click()}
 else if(a=='duprow'&&cur){const s=cur.s[si],i=+b.dataset.i;if(!s.r[i])return;s.r.splice(i+1,0,[...s.r[i]]);s.rn&&s.rn.length==s.r.length-1&&s.rn.splice(i+1,0,null);window.lvShift&&lvShift(cur,s,i,'dup');opn.clear();opn.add(i+1);touch();rows();sum();toast('Satır kopyalandı')}
@@ -4780,41 +5063,26 @@ window._lvAdminHubModal = function(defaultTab){
 
   <!-- TAB 3: AYARLAR VE YEDEK -->
   <div id="_lv-hub-panel-settings" style="display:none">
-   <!-- Marka ve Ayarlar Form -->
-   <!-- Workers AI Settings Card -->
+   <!-- Marka ve Şirket Bilgileri -->
    <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:16px;padding:18px;margin-bottom:16px">
     <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">
-     <div style="width:24px;height:24px;border-radius:7px;background:var(--ac);color:#fff;display:grid;place-items:center">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-     </div>
-     Yapay Zeka (Workers AI) Entegrasyonu
+     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Marka, Logo ve Şirket Bilgileri
     </div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Llama 3.1 8B Instruct & Flux-1-Schnell 3D Tasarım Motoru</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">PDF tekliflerinde, antetli başlıklarda ve müşteri portalında görünen resmi işletme bilgileri.</div>
     <div style="display:grid;grid-template-columns:1fr;gap:12px">
+     <!-- Şirket Logosu -->
      <div>
-      <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">Cloudflare Account ID</label>
-      <input id="_lv-set-cf-account" value="5884faaabbba129c726403c97e0511ed" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:12px;font-family:monospace">
+      <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:6px">Şirket Logosu</label>
+      <div style="display:flex;align-items:center;gap:14px;background:var(--s);padding:10px 14px;border-radius:12px;border:1.5px solid var(--ln);flex-wrap:wrap">
+       <img id="_lv-set-logo-img" src="${logo()}" style="max-height:46px;max-width:140px;object-fit:contain;background:#fff;padding:4px 8px;border-radius:8px;border:1px solid var(--ln)" alt="Logo">
+       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="_lv-set-logo-change" type="button" style="padding:8px 14px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Logo Değiştir</button>
+        <button id="_lv-set-logo-reset" type="button" style="padding:8px 12px;background:var(--s2);color:var(--ink);border:1px solid var(--ln);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Varsayılana Dön</button>
+       </div>
+       <input id="_lv-set-logo-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      </div>
      </div>
-     <div>
-      <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">Cloudflare Worker Proxy URL <span style="font-weight:400">(GitHub Pages canlı yayını için)</span></label>
-      <input id="_lv-set-cf-worker" placeholder="Örn: https://lavora-ai.hesap.workers.dev" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:13px">
-     </div>
-     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button id="_lv-btn-copy-worker" type="button" style="padding:8px 14px;background:var(--s);color:var(--ink);border:1.5px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-       Worker Kodunu Kopyala
-      </button>
-      <span style="font-size:11px;color:var(--mu)">Ücretsiz 100.000 istek / 10.000 nöron kotası</span>
-     </div>
-    </div>
-   </div>
 
-   <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:16px;padding:18px;margin-bottom:16px">
-    <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">
-     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Marka ve Şirket Bilgileri
-    </div>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">PDF tekliflerinde ve müşteri belgelerinde görünen bilgiler.</div>
-    <div style="display:grid;grid-template-columns:1fr;gap:12px">
      <div>
       <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">Firma Adı (PDF Başlığı)</label>
       <input id="_lv-set-firm" value="${esc(window.S&&window.S.firm||'')}" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:13px">
@@ -4841,27 +5109,89 @@ window._lvAdminHubModal = function(defaultTab){
       <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">IBAN / Banka Bilgisi</label>
       <input id="_lv-set-iban" value="${esc(window.S&&window.S.iban||'')}" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:13px">
      </div>
-     <button id="_lv-save-brand-btn" style="padding:11px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Ayarları Kaydet
+     <button id="_lv-save-brand-btn" style="padding:12px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Ayarları ve Logoyu Kaydet
      </button>
     </div>
    </div>
-   
-   <!-- Quick Action Cards (Yedek, Defter) -->
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <div id="_lv-btn-set-backup" style="background:var(--s2);border:1.5px solid var(--ln);border-radius:14px;padding:14px;cursor:pointer;transition:transform .15s">
-     <div style="width:34px;height:34px;border-radius:10px;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:8px">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-     </div>
-     <div style="font-weight:800;font-size:13px;color:var(--ink)">Tam Yedek Al</div>
-     <div style="font-size:11px;color:var(--mu);margin-top:2px">Tek tıkla JSON dosyasını indir</div>
+
+   <!-- Veri ve Yedekleme Yönetimi Kartı -->
+   <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:16px;padding:18px;margin-bottom:16px">
+    <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">
+     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Veri, Yedekleme ve Excel İçe Aktarma
     </div>
-    <div id="_lv-btn-set-ledger" style="background:var(--s2);border:1.5px solid var(--ln);border-radius:14px;padding:14px;cursor:pointer;transition:transform .15s">
-     <div style="width:34px;height:34px;border-radius:10px;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:8px">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Tüm projeler, fotoğraflar, defter ve Excel resim eşleştirmeleri.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+     <button id="_lv-btn-set-backup" type="button" style="text-align:left;background:var(--s);border:1.5px solid var(--ln);border-radius:12px;padding:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;color:var(--ink)">
+       <div style="width:28px;height:28px;border-radius:8px;background:#10b981;color:#fff;display:grid;place-items:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+       </div>
+       Tam Yedek Al
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:4px">Projeler, fotoğraflar ve defter tek JSON</div>
+     </button>
+     
+     <button id="_lv-btn-set-restore" type="button" style="text-align:left;background:var(--s);border:1.5px solid var(--ln);border-radius:12px;padding:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;color:var(--ink)">
+       <div style="width:28px;height:28px;border-radius:8px;background:#0284c7;color:#fff;display:grid;place-items:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+       </div>
+       Yedekten Geri Yükle
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:4px">Tüm verileri JSON yedeğinden aktar</div>
+     </button>
+
+     <button id="_lv-btn-set-excel-img" type="button" style="text-align:left;background:var(--s);border:1.5px solid var(--ln);border-radius:12px;padding:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;color:var(--ink)">
+       <div style="width:28px;height:28px;border-radius:8px;background:#f59e0b;color:#fff;display:grid;place-items:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+       </div>
+       Excel'den Görselleri Ekle
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:4px">Açık projenin ürünlerine resimleri bağla</div>
+     </button>
+
+     <button id="_lv-btn-set-ledger-bk" type="button" style="text-align:left;background:var(--s);border:1.5px solid var(--ln);border-radius:12px;padding:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;color:var(--ink)">
+       <div style="width:28px;height:28px;border-radius:8px;background:#8b5cf6;color:#fff;display:grid;place-items:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+       </div>
+       Defteri Yedekle / Geri Yükle
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:4px">Kasa defterini ve fişleri aktar</div>
+     </button>
+    </div>
+   </div>
+
+   <!-- Workers AI Settings Card -->
+   <div style="background:var(--s2);border:1.5px solid var(--ln);border-radius:16px;padding:18px;margin-bottom:16px">
+    <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">
+     <div style="width:24px;height:24px;border-radius:7px;background:var(--ac);color:#fff;display:grid;place-items:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
      </div>
-     <div style="font-weight:800;font-size:13px;color:var(--ink)">Kasa ve Defter</div>
-     <div style="font-size:11px;color:var(--mu);margin-top:2px">Finansal muhasebe kayıtları</div>
+     Yapay Zeka (Workers AI) Entegrasyonu
+    </div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">Llama 3.1 8B Instruct & Flux-1-Schnell 3D Tasarım Motoru</div>
+    <div style="display:grid;grid-template-columns:1fr;gap:12px">
+     <div>
+      <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">Cloudflare Account ID</label>
+      <input id="_lv-set-cf-account" value="5884faaabbba129c726403c97e0511ed" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:12px;font-family:monospace">
+     </div>
+     <div>
+      <label style="font-size:11px;font-weight:700;color:var(--mu);display:block;margin-bottom:4px">Cloudflare Worker Proxy URL <span style="font-weight:400">(GitHub Pages canlı yayını için)</span></label>
+      <input id="_lv-set-cf-worker" placeholder="Örn: https://lavora-ai.hesap.workers.dev" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--ln);border-radius:10px;background:var(--s);color:var(--ink);font-size:13px">
+     </div>
+     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button id="_lv-btn-copy-worker" type="button" style="padding:8px 14px;background:var(--s);color:var(--ink);border:1.5px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+       Worker Kodunu Kopyala
+      </button>
+      <button id="_lv-btn-test-ai" type="button" style="padding:8px 14px;background:var(--s);color:var(--ink);border:1.5px solid var(--ln);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+       Bağlantıyı Test Et
+      </button>
+      <span style="font-size:11px;color:var(--mu)">100.000 istek / 10.000 nöron ücretsiz kota</span>
+     </div>
     </div>
    </div>
   </div>`;
@@ -4896,7 +5226,7 @@ window._lvAdminHubModal = function(defaultTab){
  document.getElementById('_lv-tab-team').onclick=()=>setTab('team');
  document.getElementById('_lv-tab-settings').onclick=()=>setTab('settings');
  
- // --- SETTINGS TAB ACTIONS (100% FUNCTIONAL) ---
+ // --- SETTINGS TAB ACTIONS (100% FUNCTIONAL & EXPANDED) ---
  const syncSettingsInputs=()=>{
   const elWk = document.getElementById('_lv-set-cf-worker');
   if (elWk) elWk.value = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
@@ -4930,6 +5260,30 @@ window._lvAdminHubModal = function(defaultTab){
     });
    };
   }
+
+  // AI Connection Test
+  const testAiBtn = document.getElementById('_lv-btn-test-ai');
+  if (testAiBtn) {
+   testAiBtn.onclick = async () => {
+    testAiBtn.disabled = true;
+    testAiBtn.textContent = 'Test ediliyor…';
+    try {
+      const t0 = Date.now();
+      const res = await window.LavoraAI.completeText('Ping: Is Workers AI responsive? Reply "OK".', 10);
+      const elapsed = Date.now() - t0;
+      testAiBtn.disabled = false;
+      testAiBtn.textContent = '✓ Çalışıyor (' + elapsed + ' ms)';
+      if (typeof toast === 'function') toast('✓ Yapay Zeka servisi aktif ve yanıt veriyor (' + elapsed + ' ms)');
+      setTimeout(() => { testAiBtn.textContent = 'Bağlantıyı Test Et'; }, 3000);
+    } catch(err) {
+      testAiBtn.disabled = false;
+      testAiBtn.textContent = 'Test Başarısız';
+      if (typeof toast === 'function') toast('Yapay zeka testi başarısız: ' + (err.message || err));
+      setTimeout(() => { testAiBtn.textContent = 'Bağlantıyı Test Et'; }, 3000);
+    }
+   };
+  }
+
   const curS=(typeof S!=='undefined'&&S)||(window.S)||{};
   const elF=document.getElementById('_lv-set-firm');if(elF)elF.value=curS.firm||'';
   const elT=document.getElementById('_lv-set-tel');if(elT)elT.value=curS.tel||'';
@@ -4937,6 +5291,48 @@ window._lvAdminHubModal = function(defaultTab){
   const elA=document.getElementById('_lv-set-adr');if(elA)elA.value=curS.adr||'';
   const elTr=document.getElementById('_lv-set-terms');if(elTr)elTr.value=curS.terms||'';
   const elI=document.getElementById('_lv-set-iban');if(elI)elI.value=curS.iban||'';
+  
+  // Logo preview and controls
+  const logoImg = document.getElementById('_lv-set-logo-img');
+  const logoInput = document.getElementById('_lv-set-logo-input');
+  const logoChangeBtn = document.getElementById('_lv-set-logo-change');
+  const logoResetBtn = document.getElementById('_lv-set-logo-reset');
+  
+  if (logoChangeBtn && logoInput) {
+    logoChangeBtn.onclick = () => logoInput.click();
+    logoInput.onchange = async () => {
+      if (logoInput.files && logoInput.files[0]) {
+        try {
+          logoChangeBtn.textContent = 'Yükleniyor…';
+          const file = logoInput.files[0];
+          const compressed = await window._lvCompressImageFile(file, 400, 0.85);
+          if (logoImg) logoImg.src = compressed;
+          const hdrLogo = document.getElementById('lg');
+          if (hdrLogo) hdrLogo.src = compressed;
+          if (window.S) window.S.logo = compressed;
+          if (typeof S !== 'undefined') S.logo = compressed;
+          logoChangeBtn.textContent = '✓ Değiştirildi';
+          if (typeof toast === 'function') toast('Logo seçildi, kaydetmek için "Ayarları Kaydet" butonuna basın');
+          setTimeout(() => { logoChangeBtn.textContent = 'Logo Değiştir'; }, 2500);
+        } catch(e) {
+          logoChangeBtn.textContent = 'Logo Değiştir';
+          if (typeof toast === 'function') toast('Logo yüklenemedi: ' + e.message);
+        }
+      }
+    };
+  }
+  
+  if (logoResetBtn) {
+    logoResetBtn.onclick = () => {
+      const defLogo = (typeof D !== 'undefined' && D.logo) ? D.logo : '';
+      if (logoImg) logoImg.src = defLogo;
+      const hdrLogo = document.getElementById('lg');
+      if (hdrLogo) hdrLogo.src = defLogo;
+      if (window.S) window.S.logo = '';
+      if (typeof S !== 'undefined') S.logo = '';
+      if (typeof toast === 'function') toast('Varsayılan logoya dönüldü, kaydetmek için "Ayarları Kaydet" butonuna basın');
+    };
+  }
  };
  syncSettingsInputs();
 
@@ -4960,26 +5356,48 @@ window._lvAdminHubModal = function(defaultTab){
    if(typeof save==='function')save();
    if(typeof render==='function')render();
    btn.disabled=false;btn.textContent='✓ Kaydedildi';
-   if(typeof toast==='function')toast('✓ Şirket ayarları başarıyla kaydedildi');
-   setTimeout(()=>{btn.textContent='Ayarları Kaydet';},2000);
+   if(typeof toast==='function')toast('✓ Şirket ayarları ve logo başarıyla kaydedildi');
+   setTimeout(()=>{btn.textContent='Ayarları ve Logoyu Kaydet';},2000);
   }catch(e){
-   btn.disabled=false;btn.textContent='Ayarları Kaydet';
+   btn.disabled=false;btn.textContent='Ayarları ve Logoyu Kaydet';
    if(typeof toast==='function')toast('Hata: '+err(e));
   }
  };
  
+ // Data & Backup Action handlers
  document.getElementById('_lv-btn-set-backup').onclick=()=>{
   md.remove();
   if(typeof window.bkAll==='function')window.bkAll();
   else if(typeof bkAll==='function')bkAll();
-  else if(typeof toast==='function')toast('Yedek hazırlanıyor…');
  };
- 
- document.getElementById('_lv-btn-set-ledger').onclick=()=>{
-  md.remove();
-  const navLed=document.querySelector('nav [data-a="led"]')||document.querySelector('[data-a="led"]');
-  if(navLed){navLed.click();}else{window.led=true;window.cur=null;if(typeof close==='function')close();if(typeof render==='function')render();}
- };
+
+ const restoreBtn = document.getElementById('_lv-btn-set-restore');
+ if (restoreBtn) {
+  restoreBtn.onclick = () => {
+    md.remove();
+    if (typeof window.rsAll === 'function') window.rsAll();
+    else if (window.fr) window.fr.click();
+  };
+ }
+
+ const excelImgBtn = document.getElementById('_lv-btn-set-excel-img');
+ if (excelImgBtn) {
+  excelImgBtn.onclick = () => {
+    md.remove();
+    if (typeof window.lvAddExcelImages === 'function') window.lvAddExcelImages();
+  };
+ }
+
+ const ledgerBkBtn = document.getElementById('_lv-btn-set-ledger-bk');
+ if (ledgerBkBtn) {
+  ledgerBkBtn.onclick = () => {
+    md.remove();
+    const sheetHtml = '<h3>Kasa ve Masraf Defteri Yedekleme</h3>' +
+      '<button class="opt" onclick="if(typeof lexp===\'function\')lexp();else if(typeof window.lexp===\'function\')window.lexp();"><b>Defteri Yedekle</b><span>Tüm gelir-gider kayıtlarını ve fiş fotoğraflarını JSON olarak indir</span></button>' +
+      '<button class="opt" onclick="if(typeof lfj!==\'undefined\'&&lfj)lfj.click();"><b>Defter Yedeğini Geri Yükle</b><span>Daha önce indirdiğiniz defter yedeğini geri yükleyin</span></button>';
+    if (typeof sheet === 'function') sheet(sheetHtml);
+  };
+ }
  
  // --- TEAM TAB ACTIONS (RELIABLE ROLE PERSISTENCE) ---
  const invRoleSel=document.getElementById('_lv-hub-inv-role');
