@@ -863,7 +863,7 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
     "Müşteriyle karşılıklı olarak evine veya ofisine özel mobilya tasarlıyorsunuz.\n\n" +
     "İLETİŞİM KURALLARI VE DİLİN:\n" +
     "1. Gerçek, son derece yetkin ve vizyoner bir insan mimar gibi konuş. Samimi, seçkin, kibar ve profesyonel ol.\n" +
-    "2. ASLA 'Seçenek 1', 'Seçenek 2', robotik maddeler veya şablon listeler KULLANMA. Hiçbir köşe parantezli öneri kalıbı yazma.\n" +
+    "2. ASLA 'Seçenek 1', 'Seçenek 2', robotik maddeler, şablon listeler, pipe (|) ile ayrılmış seçenekler KULLANMA. '[Seçenek X]' veya '| Tasarımı 3D Oluştur' gibi köşe parantezli / boru karakterli hiçbir kalıp YAZMA. Bu tokenler KESİNLİKLE YASAKTIR.\n" +
     "3. Müşterinin anlattığı her detayı (ahşap cinsi, ölçüler, renk tonları, kulp/ayak tercihleri, fonksiyonlar) dikkatle dinle. Ona mimari değer katan estetik malzeme önerilerinde bulun (örneğin: masif ceviz ile fırçalanmış pirinç kulpların zarafeti, hazeran kapaklar, gizli LED aydınlatma, füme cam veya mat siyah metal ayaklar).\n" +
     "4. Her cevabında müşterinin mekanını veya kullanım alışkanlığını daha iyi anlamak için sadece 1 adet akıcı ve merak uyandıran mimari soru sor (örneğin: kapakların hazeran mı masif ahşap mı olması, odadaki genişlik sınırı, çekmece/raf ihtiyacı veya duvara asılı/ayaklı tercih).\n" +
     "5. Cevabın çok uzun olmasın (en fazla 2-3 cümle), akıcı, net ve sıcak olsun.\n" +
@@ -945,6 +945,44 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     specs: fullUserText.slice(0, 80) || 'Kişiye özel ölçü ve imalat',
     fluxPrompt: 'award winning commercial studio product photograph of bespoke custom ' + name + ', solid natural wood, warm soft studio lighting, ultra detailed grain, 3/4 perspective, clean background, 8k resolution, photorealistic'
   };
+};
+
+
+window.lvEstimateFurniturePrice = function(specs) {
+  const name = (specs && specs.itemName || '').toLowerCase();
+  const mat  = (specs && specs.material  || '').toLowerCase();
+
+  // Base price by furniture type (TRY)
+  let base = 18000;
+  if (/tv.*\u00fcnitesi|unite/i.test(name))         base = 22000;
+  else if (/yemek.*masa|masa.*yemek/i.test(name))    base = 28000;
+  else if (/gardrop|dolap/i.test(name))               base = 35000;
+  else if (/k\u00fct\u00fcphane|kitapl\u0131k/i.test(name)) base = 25000;
+  else if (/\u00e7al\u0131\u015fma/i.test(name))  base = 15000;
+  else if (/konsol/i.test(name))                      base = 16000;
+  else if (/komi/i.test(name))                        base = 9000;
+  else if (/sehpa/i.test(name))                       base = 12000;
+  else if (/ayakkab\u0131l\u0131k/i.test(name))     base = 11000;
+
+  // Material multiplier
+  let mul = 1.0;
+  if (/ceviz|walnut/i.test(mat))               mul = 1.45;
+  else if (/me\u015fe|oak/i.test(mat))         mul = 1.25;
+  else if (/lake/i.test(mat))                   mul = 1.20;
+  else if (/metal|end\u00fcstriyel/i.test(mat)) mul = 1.15;
+  else if (/hazeran|rattan/i.test(mat))         mul = 1.10;
+
+  const min = Math.round(base * mul / 1000) * 1000;
+  const max = Math.round(min * 1.35 / 1000) * 1000;
+
+  // Production days
+  let days = 15;
+  if (/gardrop|dolap/i.test(name))             days = 25;
+  else if (/yemek.*masa/i.test(name))          days = 20;
+  else if (/k\u00fct\u00fcphane/i.test(name)) days = 22;
+
+  const fmt = n => n.toLocaleString('tr-TR') + ' \u20ba';
+  return { min, max, days, minStr: fmt(min), maxStr: fmt(max) };
 };
 
 window.lvOpenCustomerRequest = function(target) {
@@ -1146,8 +1184,17 @@ window.lvOpenCustomerRequest = function(target) {
       'max-width:85%;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.08);border-left:3px solid #14b8a6;color:#f1f5f9;padding:14px 18px;border-radius:4px 18px 18px 18px;font-size:13.5px;line-height:1.6;box-shadow:0 4px 14px rgba(0,0,0,0.2);word-break:break-word';
 
     let rawText = msg.content || '';
-    // Strip any lingering placeholder brackets
-    rawText = rawText.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
+    // Strip any lingering placeholder brackets, pipe-option lists, and 3D action tokens
+    rawText = rawText
+      .replace(/\[(Seçenek|Se\u00e7enek|Option|Öneri|Öneriler)[^\]]*\]/gi, '')
+      .replace(/\[[0-9]+\]/g, '')
+      .replace(/\|\s*(Tasar\u0131m\u0131 3D|3D Tasarla|Olu\u015ftur)[^\n]*/gi, '')
+      .replace(/\[(Tasar\u0131m\u0131|3D)[^\]]*\]/gi, '')
+      .replace(/\u2728/g, '')
+      .replace(/([\u{1F300}-\u{1FFFF}])/gu, '')
+      .replace(/^(\s*\|[^\n]*)+/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
 
     let textHtml = esc(rawText).replace(/\n/g, '<br>');
     if (msg.photo) {
