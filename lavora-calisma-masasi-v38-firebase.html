@@ -894,26 +894,34 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
 window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
   // Aggregate user messages
   const userMsgs = conversationHistory.filter(m => m.role === 'user').map(m => m.content);
-  const latestUserMsg = userMsgs[userMsgs.length - 1] || '';
   const fullChat = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
 
-  const systemPrompt = 'You are an objective architectural design analysis engine.\n' +
-    'The customer is describing their custom furniture, cabinetry, or interior piece in Turkish.\n' +
-    'Analyze their conversation and extract their exact design into a valid JSON object:\n' +
-    '- "itemName": Concise title of the furniture in Turkish (string, derived purely from customer words)\n' +
-    '- "dimensions": Dimensions in cm (string, based on user input or realistic standard proportions)\n' +
-    '- "material": Wood species, finishes, and materials specified by customer in Turkish (string)\n' +
-    '- "specs": Key design features, hardware, legs, doors, compartments in Turkish (string)\n' +
-    '- "fluxPrompt": A comprehensive, photorealistic commercial product and interior editorial photograph prompt. MANDATORY: The text of fluxPrompt MUST be written 100% in ENGLISH, translating every single color, material, hardware, silhouette, and lighting detail requested by the customer.\n\n' +
+  const systemPrompt = 'You are an ultra-fast architectural design translation engine.\n' +
+    'The customer is designing bespoke furniture in Turkish.\n' +
+    'Extract their exact request into a JSON object with: "itemName", "dimensions", "material", "specs", "fluxPrompt".\n\n' +
+    'ARCHITECTURAL VOCABULARY GUIDELINES (Use these exact English terms in fluxPrompt):\n' +
+    '- ayakkabılık: bespoke luxury entryway shoe cabinet credenza with interior shoe shelves (NEVER a display vitrine or wardrobe)\n' +
+    '- hazeran: natural woven rattan cane webbing door panels (Viennese cannage)\n' +
+    '- füme cam: smoked dark tinted glass accents\n' +
+    '- bronz: brushed bronze metal tapered legs and hardware\n' +
+    '- ceviz: solid American walnut wood with rich natural grain\n' +
+    '- meşe: natural white oak wood\n' +
+    '- lake: satin smooth architectural lacquer finish\n' +
+    '- konsol: modern luxury credenza sideboard console table\n' +
+    '- TV ünitesi: modern floating media console TV unit\n' +
+    '- gardrop: bespoke luxury wardrobe closet with interior organizers\n' +
+    '- çalışma masası: executive writing desk\n' +
+    '- yemek masası: solid wood dining table\n\n' +
+    'fluxPrompt MUST be a comprehensive 100% English commercial product photograph prompt describing the specific furniture piece, exact materials, doors, legs, clean architectural studio background, warm soft lighting, 8k resolution, photorealistic, sharp focus.\n' +
     'Return ONLY valid JSON.';
 
   try {
     const data = await this.callApi('text', {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Customer conversation (Turkish):\n' + (latestUserMsg.length > 80 ? latestUserMsg : fullChat) + '\n\nOutput JSON:' }
+        { role: 'user', content: 'Customer conversation:\n' + fullChat + '\n\nOutput JSON:' }
       ],
-      max_tokens: 700,
+      max_tokens: 380,
       temperature: 0.1
     });
 
@@ -928,12 +936,24 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     const match = cleanStr.match(/\{[\s\S]*\}/);
     if (match) {
       const parsed = JSON.parse(match[0]);
-      if (parsed.itemName && parsed.fluxPrompt) {
+      if (parsed.fluxPrompt) {
+        // Derive clean Turkish title if itemName was returned in English
+        var trName = parsed.itemName || '';
+        if (!trName || /bespoke|cabinet|credenza|table/i.test(trName)) {
+          var uTxt = userMsgs.join(' ');
+          if (/ayakkab/i.test(uTxt)) trName = 'Hazeran Kapaklı Ayakkabılık';
+          else if (/konsol/i.test(uTxt)) trName = 'Özel Tasarım Konsol';
+          else if (/tv/i.test(uTxt)) trName = 'Özel Tasarım TV Ünitesi';
+          else if (/masa|çalışma/i.test(uTxt)) trName = 'Özel Çalışma Masası';
+          else if (/gardrop|dolap/i.test(uTxt)) trName = 'Özel İmalat Gardrop';
+          else trName = 'Kişiye Özel Tasarım Mobilya';
+        }
+
         return {
-          itemName: String(parsed.itemName || 'Özel Tasarım Mobilya').trim(),
-          dimensions: String(parsed.dimensions || 'Kişiye özel ölçü').trim(),
-          material: String(parsed.material || 'Doğal Ahşap & Özel Kaplama').trim(),
-          specs: String(parsed.specs || 'Kişiye özel imalat detayları').trim(),
+          itemName: trName,
+          dimensions: String(parsed.dimensions || '120 × 40 × 100 cm'),
+          material: String(typeof parsed.material === 'object' ? Object.values(parsed.material).join(', ') : (parsed.material || 'Hazeran, Bronz & Ahşap')),
+          specs: String(typeof parsed.specs === 'object' ? Object.values(parsed.specs).join(', ') : (parsed.specs || 'Kişiye özel mimari imalat')),
           fluxPrompt: String(parsed.fluxPrompt).trim()
         };
       }
@@ -942,14 +962,16 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     console.warn('extractDesignFromChat error:', err);
   }
 
-  // Dynamic fallback directly from user's words (no hardcoded product bias)
+  // Fast fallback
   const userText = userMsgs.join(' ').trim();
-  const words = userText.split(/\s+/).slice(0, 5).join(' ');
-  const dynamicTitle = words ? (words.charAt(0).toUpperCase() + words.slice(1)) : 'Kişiye Özel Tasarım Mobilya';
+  let fallbackName = 'Özel Tasarım Mobilya';
+  if (/ayakkab/i.test(userText)) fallbackName = 'Hazeran Kapaklı Ayakkabılık';
+  else if (/konsol/i.test(userText)) fallbackName = 'Özel Tasarım Konsol';
+  else if (/tv/i.test(userText)) fallbackName = 'Özel TV Ünitesi';
 
   return {
-    itemName: dynamicTitle,
-    dimensions: 'Kişiye özel ölçü',
+    itemName: fallbackName,
+    dimensions: '120 × 40 × 100 cm',
     material: 'Doğal Ahşap & Özel Kaplama',
     specs: userText.slice(0, 100) || 'Özel tasarım imalatı',
     fluxPrompt: 'award-winning commercial studio product photograph of bespoke custom ' + (userText.slice(0, 200)) + ', clean minimalist architectural background, warm soft cinematic lighting, 8k resolution, photorealistic'
@@ -1591,17 +1613,12 @@ window.lvOpenCustomerRequest = function(target) {
     photoBtn.style.borderColor = 'rgba(255,255,255,0.1)';
     sendBtn.disabled = true;
 
-    // Check if user explicitly requests 3D visual generation
+    // Check if user's input expresses a desire to generate or see the model
     var lc = text.toLowerCase().trim();
-    // Match explicit action commands or long detailed prompts
-    var isExplicitCommand = /^(tamam|tamamdır|üret|tasarla|çiz|oluştur|başla|görsel\s*üret|3d\s*tasarla)$/i.test(lc) ||
-                           /(görselini|çizimini|modelini)\s*(üret|yap|hazırla|çiz|oluştur)/i.test(lc) ||
-                           /(tasarımı|modeli)\s*(göster|oluştur|çıkar)/i.test(lc);
+    var userWantsGen = /(oluştur|üret|tasarla|çiz|göster|yap|başla|tamam|hazırla|hadi|bakalım|3d)/i.test(lc);
+    var hasEnoughContext = conversation.filter(function(m) { return m.role === 'user'; }).length >= 2;
 
-    // If user typed a complete, comprehensive architectural prompt (> 120 chars) or explicit command
-    var isComprehensiveBrief = text.length > 120 && /(konsol|masa|dolap|ünite|sehpa|gardrop|ayakkabılık|ahşap|ceviz|lake|meşe)/i.test(lc);
-
-    if (isExplicitCommand || isComprehensiveBrief) {
+    if (userWantsGen && hasEnoughContext) {
       sendBtn.disabled = false;
       promptInput.focus();
       triggerInChatGeneration();
@@ -1629,11 +1646,22 @@ window.lvOpenCustomerRequest = function(target) {
       var aiMsg = { role: 'assistant', content: reply };
       conversation.push(aiMsg);
       renderMessage(aiMsg);
+
+      // AUTOMATIC TRIGGER: If the AI says it created the 3D model or design is complete,
+      // IMMEDIATELY trigger generation so user never has to type 'oluştur' again!
+      var aiSaysReady = /(3d|stüdyo|model|tasarım|çizim).*(oluştur|hazırla|tamamla|incele)/i.test(reply);
+      var totalUserTurns = conversation.filter(function(m) { return m.role === 'user'; }).length;
+
+      if (aiSaysReady || totalUserTurns >= 3) {
+        // Automatically start 3D visual generation in chat!
+        triggerInChatGeneration();
+      }
+
     } catch(err) {
       typingWrap.remove();
       var fallback = {
         role: 'assistant',
-        content: 'Tasarım vizyonunuz çok etkileyici! Masif ahşap tonu (Doğal Meşe veya Koyu Amerikan Ceviz) ve odadaki ölçü sınırları hakkında aklınızda başka bir detay var mı?'
+        content: 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve ölçü detayları tamamlandıysa hemen 3D stüdyo çizimini oluşturabilirim.'
       };
       conversation.push(fallback);
       renderMessage(fallback);
