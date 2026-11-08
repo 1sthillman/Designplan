@@ -893,771 +893,127 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
 };
 
 /* =====================================================================
-   LAVORA AI v2  —  BLOK 1  (extractDesignFromChat + generateProductVisual)
+   LAVORA AI — MİMARİ TALEP VE SOHBET MOTORU (Görsel Üretimi Kaldırıldı)
+   Cloudflare Workers AI destekli akıllı iç mimari danışmanı.
+   Müşteri talebini mimari olarak netleştirir, tam sohbet geçmişini
+   ve detayları atölye/yönetici paneline iletir.
    ===================================================================== */
 (function () {
   'use strict';
   var LA = window.LavoraAI = window.LavoraAI || {};
 
-  /* ----------------------------- AYARLAR ----------------------------- */
-  LA.useLLMExtras = (LA.useLLMExtras === undefined) ? true : LA.useLLMExtras; // false = LLM'siz tamamen deterministik
-  LA.imageSteps   = LA.imageSteps || 8;      // flux-1-schnell: en fazla 8
-  var MAX_PROMPT_CHARS = 880;                // schnell ~256 token okur; kritik bilgi başta, fazlası kesilir
-
-  /* --------------------------- YARDIMCILAR --------------------------- */
   function fold(s) {
     s = String(s == null ? '' : s).toLocaleLowerCase('tr-TR');
-    s = s.replace(/çam(?!aş)/g, 'pinewood');            // "çam" ile "cam" (glass) karışmasın
+    s = s.replace(/çam(?!aş)/g, 'pinewood');
     return s.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u')
             .replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[âä]/g, 'a').replace(/[îï]/g, 'i')
-            .replace(/û/g, 'u').replace(/[’'`´]/g, '');
-  }
-  function cap(s) { return s ? s.charAt(0).toLocaleUpperCase('tr-TR') + s.slice(1) : s; }
-  function uniq(a) { var o = [], i; for (i = 0; i < a.length; i++) if (o.indexOf(a[i]) < 0) o.push(a[i]); return o; }
-
-  // Çakışmasız tarama: önce gelen (daha özgül) kayıt metni "tüketir"
-  function scan(text, list) {
-    var work = text, out = [];
-    list.forEach(function (e) {
-      var re = new RegExp(e.re.source, 'g'), m;
-      while ((m = re.exec(work))) {
-        if (!m[0].length) { re.lastIndex++; continue; }
-        out.push({ idx: m.index, end: m.index + m[0].length, e: e, str: m[0] });
-        work = work.slice(0, m.index) + new Array(m[0].length + 1).join(' ') + work.slice(m.index + m[0].length);
-        re.lastIndex = m.index + m[0].length;
-      }
-    });
-    return out.sort(function (a, b) { return a.idx - b.idx; });
+            .replace(/û/g, 'u').replace(/[’'\x60´]/g, '');
   }
 
-  var NUMW = { bir: 1, tek: 1, iki: 2, cift: 2, uc: 3, dort: 4, bes: 5, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, on: 10 };
-  function qtyBefore(text, nounSrc) {
-    var m = new RegExp('(?<![a-z0-9])(\\d{1,2}|bir|iki|uc|dort|bes|alti|yedi|sekiz|dokuz|on|tek|cift)\\s*(?:adet\\s*)?(?:' + nounSrc + ')').exec(text);
-    if (!m) return 0;
-    return /^\d/.test(m[1]) ? parseInt(m[1], 10) : (NUMW[m[1]] || 0);
-  }
-
-  /* ----------------------------- SÖZLÜKLER ----------------------------- */
-  // Renkler (özgül olan önce)
-  var COLORS = [
-    { id: 'olive',   re: /(?<![a-z])zeytin\s*yesil/, en: 'olive green', tr: 'Zeytin Yeşili', kw: /olive/ },
-    { id: 'emerald', re: /(?<![a-z])zumrut/, en: 'deep emerald green', tr: 'Zümrüt Yeşili', kw: /emerald/ },
-    { id: 'green',   re: /(?<![a-z])(?:yesil|mint)/, en: 'rich green', tr: 'Yeşil', kw: /green/ },
-    { id: 'navy',    re: /(?<![a-z])lacivert/, en: 'deep navy blue', tr: 'Lacivert', kw: /navy/ },
-    { id: 'petrol',  re: /(?<![a-z])petrol/, en: 'deep petrol teal blue', tr: 'Petrol Mavisi', kw: /petrol|teal/ },
-    { id: 'turq',    re: /(?<![a-z])turkuaz/, en: 'turquoise', tr: 'Turkuaz', kw: /turquoise/ },
-    { id: 'blue',    re: /(?<![a-z])mavi/, en: 'blue', tr: 'Mavi', kw: /(?<![a-z])blue/ },
-    { id: 'purple',  re: /(?<![a-z])(?:mor|lila)(?:lu|u|a)?(?![a-z])/, en: 'deep purple', tr: 'Mor', kw: /purple|lilac/ },
-    { id: 'pink',    re: /(?<![a-z])(?:pembe|pudra)/, en: 'soft powder pink', tr: 'Pudra Pembe', kw: /pink/ },
-    { id: 'burgundy',re: /(?<![a-z])bordo/, en: 'deep burgundy wine red', tr: 'Bordo', kw: /burgundy|wine/ },
-    { id: 'red',     re: /(?<![a-z])kirmizi/, en: 'rich red', tr: 'Kırmızı', kw: /(?<![a-z])red(?![a-z])/ },
-    { id: 'orange',  re: /(?<![a-z])turuncu/, en: 'vibrant terracotta burnt orange', tr: 'Turuncu', kw: /orange|terracotta/ },
-    { id: 'mustard', re: /(?<![a-z])hardal/, en: 'mustard yellow', tr: 'Hardal', kw: /mustard/ },
-    { id: 'yellow',  re: /(?<![a-z])sari(?![a-z])/, en: 'warm yellow', tr: 'Sarı', kw: /yellow/ },
-    { id: 'brown',   re: /(?<![a-z])(?:kahverengi|kahve\s*rengi|kahve\s*ton)/, en: 'rich chocolate brown', tr: 'Kahverengi', kw: /(?<![a-z])brown/ },
-    { id: 'anthra',  re: /(?<![a-z])antrasit/, en: 'dark charcoal anthracite grey', tr: 'Antrasit', kw: /anthracite|charcoal/ },
-    { id: 'smoke',   re: /(?<![a-z])fume/, en: 'smoked dark grey', tr: 'Füme', kw: /smoked/ },
-    { id: 'black',   re: /(?<![a-z])siyah/, en: 'deep black', tr: 'Siyah', kw: /black/ },
-    { id: 'grey',    re: /(?<![a-z])gri(?:ye|nin|yi|li|ler)?(?![a-z])/, en: 'soft grey', tr: 'Gri', kw: /(?<![a-z])gr[ae]y/ },
-    { id: 'white',   re: /(?<![a-z])(?:bembeyaz|beyaz)/, en: 'clean pure white', tr: 'Beyaz', kw: /white/ },
-    { id: 'cream',   re: /(?<![a-z])(?:krem|ekru)/, en: 'soft warm cream ivory', tr: 'Krem', kw: /cream|ivory/ },
-    { id: 'beige',   re: /(?<![a-z])(?:bej|kum\s*rengi)/, en: 'warm sand beige', tr: 'Bej', kw: /beige|sand/ },
-    { id: 'clear',   re: /(?<![a-z])(?:seffaf|transparan)/, en: 'clear', tr: 'Şeffaf', kw: /(?<![a-z])clear/ },
-    { id: 'frosted', re: /(?<![a-z])buzlu/, en: 'frosted', tr: 'Buzlu', kw: /frosted/ }
-  ];
-  var COLOR_MOD = { acik: ['light', 'Açık'], koyu: ['dark', 'Koyu'], pastel: ['pastel', 'Pastel'], canli: ['vivid', 'Canlı'], soluk: ['muted', 'Soluk'] };
-
-  // Malzemeler  (wood:true = ahşap, pri: 2 özgül / 1 genel)
-  var MATERIALS = [
-    { id: 'oak',     re: /(?<![a-z])mese(?!l)/, en: 'natural oak wood', tr: 'Doğal Meşe', wood: true, pri: 2, kw: /(?<![a-z])oak/ },
-    { id: 'walnut',  re: /(?<![a-z])ceviz/, en: 'rich American walnut wood', tr: 'Ceviz', wood: true, pri: 2, kw: /walnut/ },
-    { id: 'acacia',  re: /(?<![a-z])akasya/, en: 'warm honey-toned acacia wood', tr: 'Akasya', wood: true, pri: 2, kw: /acacia/ },
-    { id: 'beech',   re: /(?<![a-z])kayin/, en: 'pale beech wood', tr: 'Kayın', wood: true, pri: 2, kw: /beech/ },
-    { id: 'pine',    re: /pinewood/, en: 'light pine wood', tr: 'Çam', wood: true, pri: 2, kw: /(?<![a-z])pine/ },
-    { id: 'wood',    re: /(?<![a-z])(?:ahsap|agac)/, en: 'natural wood', tr: 'Ahşap', wood: true, pri: 1, kw: null },
-    { id: 'lacquer', re: /(?<![a-z])(?:lake|boya)/, en: 'lacquer', tr: 'Lake', kw: /lacquer/ },
-    { id: 'lam',     re: /(?<![a-z])(?:mdf\s*lam|mdflam|melamin|lamine|mdf)/, en: 'matte laminate', tr: 'MDF Lam', kw: /laminate/ },
-    { id: 'brass',   re: /(?<![a-z])pirinc/, en: 'brushed brass', tr: 'Pirinç', kw: /brass/ },
-    { id: 'bronze',  re: /(?<![a-z])bronz/, en: 'aged bronze', tr: 'Bronz', kw: /bronze/ },
-    { id: 'chrome',  re: /(?<![a-z])krom/, en: 'polished chrome', tr: 'Krom', kw: /chrome/ },
-    { id: 'gold',    re: /(?<![a-z])(?:altin|gold)/, en: 'brushed gold', tr: 'Altın', kw: /gold/ },
-    { id: 'silver',  re: /(?<![a-z])gumus/, en: 'brushed silver', tr: 'Gümüş', kw: /silver/ },
-    { id: 'copper',  re: /(?<![a-z])bakir/, en: 'warm copper', tr: 'Bakır', kw: /copper/ },
-    { id: 'metal',   re: /(?<![a-z])(?:celik|metal|demir)/, en: 'powder-coated steel metal', tr: 'Metal', kw: /steel|metal/ },
-    { id: 'rattan',  re: /(?<![a-z])(?:hazeran|hasir|rattan)/, en: 'woven natural rattan cane webbing', tr: 'Hazeran', kw: /rattan|cane|wicker/ },
-    { id: 'leather', re: /(?<![a-z])deri(?:li|den|si|yi)?(?![a-z])/, en: 'leather', tr: 'Deri', kw: /leather/ },
-    { id: 'velvet',  re: /(?<![a-z])kadife/, en: 'velvet', tr: 'Kadife', kw: /velvet/ },
-    { id: 'boucle',  re: /(?<![a-z])(?:bukle|boucle)/, en: 'bouclé fabric', tr: 'Bukle', kw: /boucl/ },
-    { id: 'fabric',  re: /(?<![a-z])kumas/, en: 'fabric', tr: 'Kumaş', kw: /fabric/ },
-    { id: 'marble',  re: /(?<![a-z])mermer/, en: 'marble', tr: 'Mermer', kw: /marble/ },
-    { id: 'trav',    re: /(?<![a-z])traverten/, en: 'travertine stone', tr: 'Traverten', kw: /travertine/ },
-    { id: 'granite', re: /(?<![a-z])granit/, en: 'granite', tr: 'Granit', kw: /granite/ },
-    { id: 'ceramic', re: /(?<![a-z])(?:seramik|porselen)/, en: 'ceramic', tr: 'Seramik', kw: /ceramic|porcelain/ },
-    { id: 'stone',   re: /(?<![a-z])tas(?:i|tan)?(?![a-z])/, en: 'natural stone', tr: 'Doğal Taş', kw: /stone/ },
-    { id: 'concrete',re: /(?<![a-z])beton/, en: 'concrete', tr: 'Beton', kw: /concrete/ },
-    { id: 'mirror',  re: /(?<![a-z])ayna/, en: 'mirrored glass', tr: 'Aynalı', kw: /mirror/ }
-  ];
-
-  // Mobilya parçaları (renk/malzeme hangi parçaya ait?)
-  var PARTS = [
-    { k: 'legs',     re: /(?<![a-z])(?:ayak(?!kab)|bacak)[a-z]*/ },
-    { k: 'handles',  re: /(?<![a-z])(?:kulp|tutamac|tutacak)[a-z]*/ },
-    { k: 'drawers',  re: /(?<![a-z])cekmece[a-z]*/ },
-    { k: 'shelves',  re: /(?<![a-z])raf(?:li|lar|lari|i|ta|a)?(?![a-z])/ },
-    { k: 'doors',    re: /(?<![a-z])(?:kapak|kapi|kanat)[a-z]*/ },
-    { k: 'glass',    re: /(?<![a-z])cam(?:li|lar|lari|i|in|la|dan|a|da)?(?![a-z])/ },
-    { k: 'top',      re: /(?<![a-z])(?:tabla|ust\s*yuzey|tezgah|ust\s*kisim)[a-z]*|(?<![a-z])ustu(?![a-z])/ },
-    { k: 'interior', re: /(?<![a-z])ic\s*(?:kisim|mekan|taraf|bolum|yuzey)[a-z]*|(?<![a-z])ici(?![a-z])|(?<![a-z])icerisi/ },
-    { k: 'back',     re: /(?<![a-z])arka\s*(?:panel|duvar|yuz|kisim)[a-z]*/ },
-    { k: 'body',     re: /(?<![a-z])(?:govde|ana\s*renk|korpus|iskelet|tamami|tumu|hepsi|genel|renk(?:te|i|te)?)[a-z]*/ }
-  ];
-  var PART_TR   = { body: 'Gövde', doors: 'Kapaklar', glass: 'Cam', drawers: 'Çekmeceler', shelves: 'Raflar', handles: 'Kulplar', legs: 'Ayaklar', top: 'Tabla', interior: 'İç Kısım', back: 'Arka Panel' };
-  var PART_NOUN = { doors: 'doors', drawers: 'drawer fronts', shelves: 'shelves', handles: 'handles', legs: 'legs', top: 'top surface', interior: 'interior', back: 'back panel' };
-  var PART_ORDER = ['body', 'doors', 'glass', 'drawers', 'shelves', 'handles', 'legs', 'top', 'interior', 'back'];
-
-  // Özellikler (var/yok)
-  var FEATURES = [
-    { k: 'openshelves', re: /(?<![a-z])acik\s*raf[a-z]*/, en: 'open display shelves', tr: 'Açık raflar' },
-    { k: 'handleless',  re: /(?<![a-z])(?:kulpsuz|tutamaksiz|bas\s*-?\s*ac|gizli\s*kulp|push)[a-z]*/, en: 'handleless push-to-open fronts with no visible handles', tr: 'Kulpsuz (bas-aç)' },
-    { k: 'sliding',     re: /(?<![a-z])(?:surgulu|surme)[a-z]*/, en: 'sliding doors', tr: 'Sürgülü kapak' },
-    { k: 'plinth',      re: /(?<![a-z])ayaksiz/, en: 'standing on a solid plinth base without legs', tr: 'Ayaksız (baza)' },
-    { k: 'doorless',    re: /(?<![a-z])kapaksiz/, en: 'open front without doors', tr: 'Kapaksız (açık)' },
-    { k: 'fluted',      re: /(?<![a-z])(?:fileli|oluklu|nervurlu|kanalli|flut)[a-z]*/, en: 'vertical fluted ribbed surface detailing', tr: 'Fileli (oluklu) yüzey' },
-    { k: 'led',         re: /(?<![a-z])(?:led(?![a-z])|aydinlatma|isikli)/, en: 'concealed warm LED accent lighting', tr: 'Gizli LED aydınlatma' },
-    { k: 'cable',       re: /(?<![a-z])(?:kablo|priz|usb|sarj)[a-z]*/, en: 'a discreet cable-management grommet', tr: 'Kablo geçişi' },
-    { k: 'drawers',     re: /(?<![a-z])cekmece[a-z]*/, en: 'drawers integrated inside the body', tr: 'Çekmece', qty: 'cekmece' },
-    { k: 'doors',       re: /(?<![a-z])(?:kapak|kapi|kanat)[a-z]*/, en: 'hinged doors', tr: 'Kapak', qty: '(?:kapak|kapi|kanat)' },
-    { k: 'shelves',     re: /(?<![a-z])raf(?:li|lar|lari|i|ta|a)?(?![a-z])/, en: 'interior shelves', tr: 'Raf', qty: 'raf' }
-  ];
-  var SHAPES = [
-    { k: 'oval',   re: /(?<![a-z])oval/, en: 'an elegant oval rounded silhouette', tr: 'Oval' },
-    { k: 'curved', re: /(?<![a-z])(?:bombe|kavis)[a-z]*/, en: 'a curved convex bowed front', tr: 'Bombeli' },
-    { k: 'round',  re: /(?<![a-z])(?:yuvarlak|round)/, en: 'a round form', tr: 'Yuvarlak' },
-    { k: 'corner', re: /(?<![a-z])(?:kose(?![a-z]*\s*sehpa)|l\s*seklinde|l\s*tipi)/, en: 'an L-shaped corner layout', tr: 'Köşe' }
-  ];
-  var STYLES = [
-    { id: 'neoclassic', re: /neo\s*klasik/, en: 'neoclassical', tr: 'Neoklasik' },
-    { id: 'classic',    re: /klasik/, en: 'classic traditional', tr: 'Klasik' },
-    { id: 'minimal',    re: /minimal/, en: 'minimalist clean-lined', tr: 'Minimalist' },
-    { id: 'modern',     re: /(?<![a-z])(?:modern|cagdas)/, en: 'contemporary modern', tr: 'Modern' },
-    { id: 'rustic',     re: /(?:rustik|rustic|koy\s*evi)/, en: 'rustic', tr: 'Rustik' },
-    { id: 'scandi',     re: /skandinav/, en: 'Scandinavian', tr: 'Skandinav' },
-    { id: 'japandi',    re: /japandi/, en: 'Japandi', tr: 'Japandi' },
-    { id: 'industrial', re: /(?:endustriyel|(?<![a-z])loft)/, en: 'industrial loft', tr: 'Endüstriyel' },
-    { id: 'midcent',    re: /(?:retro|vintage|mid\s*century|nostalji)/, en: 'mid-century modern', tr: 'Retro' },
-    { id: 'artdeco',    re: /art\s*deco/, en: 'Art Deco', tr: 'Art Deco' },
-    { id: 'boho',       re: /bohem/, en: 'bohemian', tr: 'Bohem' },
-    { id: 'luxury',     re: /(?<![a-z])(?:luks|lux)/, en: 'luxury high-end', tr: 'Lüks' }
-  ];
-  var ROOMS = [
-    { re: /yemek\s*odasi/, en: 'dining room' },
-    { re: /(?:cocuk|genc)\s*odasi/, en: "children's bedroom" },
-    { re: /yatak\s*odasi/, en: 'master bedroom' },
-    { re: /(?:salon|oturma\s*odasi)/, en: 'living room' },
-    { re: /(?<![a-z])(?:antre|hol|koridor|giris(?!\s*mas))/, en: 'entryway foyer' },
-    { re: /(?:ofis|calisma\s*odasi|is\s*yeri)/, en: 'bright home office' },
-    { re: /(?<![a-z])mutfak(?!\s*(?:dolab|mas))/, en: 'kitchen' },
-    { re: /(?<![a-z])banyo(?!\s*dolab)/, en: 'bathroom' }
-  ];
-  var MODS = [
-    { k: 'h', v: 'up', re: /(?:yukseklik[a-z]*|boy[a-z]*)\s*(?:artir|arttir|uzat|yukselt)|daha\s*yuksek|yukselt|tavana\s*kadar/, en: 'noticeably taller vertical proportions' },
-    { k: 'h', v: 'down', re: /(?:yukseklik[a-z]*|boy[a-z]*)\s*(?:azalt|kisalt|dusur)|daha\s*alcak|kisalt|alcak\s*olsun/, en: 'noticeably lower, more compact height' },
-    { k: 'w', v: 'up', re: /genislik[a-z]*\s*(?:artir|arttir)|daha\s*genis|genislet|buyut/, en: 'noticeably wider horizontal proportions' },
-    { k: 'w', v: 'down', re: /daha\s*dar|daralt|kucult/, en: 'noticeably narrower, more compact width' },
-    { k: 'd', v: 'up', re: /derinlik[a-z]*\s*(?:artir|arttir)|daha\s*derin/, en: 'deeper body' },
-    { k: 'd', v: 'down', re: /daha\s*ince|daha\s*sig|ince\s*olsun|slim/, en: 'slim shallow depth' }
-  ];
-  var FINISHES = [
-    { re: /ipek\s*mat|saten/, en: 'satin matte', tr: 'Saten Mat' },
-    { re: /yuksek\s*parlak|piyano|(?<![a-z])parlak/, en: 'high-gloss', tr: 'Parlak' },
-    { re: /fircalanmis/, en: 'brushed', tr: 'Fırçalanmış' },
-    { re: /eskitme|antik/, en: 'distressed aged', tr: 'Eskitme' },
-    { re: /(?<![a-z])mat(?![a-z])/, en: 'matte', tr: 'Mat' }
-  ];
-  var NEG = /(?:olmasin|olmasa|olmadan|olmayacak|istemiyor|istemem|gerek\s*yok|kaldir|cikar(?!t)|iptal|vazgec|kullanma|koyma|ekleme|(?<![a-z])yok(?![a-z]))/;
-  var YES = /^(?:evet|olur|olabilir|tamam|uygun|harika|guzel|super|mukemmel|aynen|kabul|isterim|olsun|begendim|bence\s*de|tabii|tabi)(?![a-z])/;
-  var NOP = /^(?:hayir|yok|istemem|istemiyorum|olmasin|gerek\s*yok|olmasa\s*da)(?![a-z])/;
-  var PROPOSAL = /(?:oner|tavsiye|yakisir|uyar|kullanalim|tercih\s*edelim)/;
-  var ALT = /(?<![a-z])(?:veya|yada|ya\s*da|mi|mu)(?![a-z])/;
-
-  // Mobilya tipleri
   var TYPES = [
-    { k: 'shoe', re: /ayakkabi/, tr: 'Ayakkabılık', noun: 'cabinet', cohesive: true, room: 'entryway foyer', dims: '130 × 42 × 105 cm',
-      en: 'freestanding shoe storage cabinet with enclosed front doors and interior shoe shelves', specs: 'Kapaklı kapalı gövde ve modüler iç ayakkabı rafları' },
-    { k: 'kitchen', re: /mutfak\s*(?:dolab|tezgah|tasarim)/, tr: 'Mutfak Dolabı', noun: 'cabinetry', cohesive: true, room: 'kitchen', dims: '240 × 60 × 90 cm',
-      en: 'run of kitchen base cabinets with a worktop and enclosed doors', specs: 'Alt dolap grubu ve tezgah' },
-    { k: 'bathroom', re: /(?:banyo|lavabo)\s*(?:dolab|mobilya)/, tr: 'Banyo Dolabı', noun: 'vanity cabinet', cohesive: true, room: 'bathroom', dims: '80 × 46 × 85 cm',
-      en: 'bathroom vanity cabinet with enclosed doors and drawers', specs: 'Nem dirençli banyo dolabı' },
-    { k: 'tv', re: /(?<![a-z])tv(?![a-z])|televizyon|medya\s*unite|(?<![a-z])unite/, tr: 'TV Ünitesi', noun: 'media console', cohesive: true, room: 'living room', dims: '200 × 40 × 50 cm',
-      en: 'low wide TV media console with enclosed storage compartments', specs: 'Alçak ve geniş TV ünitesi, kapalı depolama bölmeleri' },
-    { k: 'wardrobe', re: /gard?irop|giysi\s*dolab|elbise\s*dolab|(?<![a-z])dolap|(?<![a-z])dolab/, tr: 'Gardrop', noun: 'wardrobe', cohesive: true, room: 'master bedroom', dims: '200 × 100 × 60 cm',
-      en: 'tall freestanding bedroom wardrobe armoire with full-height doors, about two meters high', specs: 'Tam boy kapaklı gardrop' },
-    { k: 'nightstand', re: /komodin/, tr: 'Komodin', noun: 'nightstand', cohesive: true, room: 'master bedroom', dims: '50 × 40 × 55 cm',
-      en: 'bedside nightstand with a drawer', specs: 'Çekmeceli komodin' },
-    { k: 'dresser', re: /komod(?!in)|sifonyer/, tr: 'Şifonyer', noun: 'dresser', cohesive: true, room: 'master bedroom', dims: '120 × 45 × 90 cm',
-      en: 'chest of drawers dresser', specs: 'Çekmeceli şifonyer' },
-    { k: 'makeup', re: /makyaj|tuvalet\s*mas|dresuar|vanity/, tr: 'Makyaj Masası', noun: 'vanity table', room: 'master bedroom', dims: '100 × 45 × 75 cm',
-      en: 'dressing vanity table with a drawer and a framed mirror', specs: 'Aynalı makyaj masası' },
-    { k: 'desk', re: /(?:calisma|ofis|bilgisayar|yazi)\s*mas|sekreter/, tr: 'Çalışma Masası', noun: 'desk', room: 'bright home office', dims: '160 × 75 × 75 cm',
-      en: 'writing desk with a flat rectangular work surface', specs: 'Ofis kullanımına uygun geniş çalışma yüzeyi' },
-    { k: 'meeting', re: /toplanti\s*mas/, tr: 'Toplantı Masası', noun: 'meeting table', room: 'bright home office', dims: '280 × 110 × 75 cm',
-      en: 'long conference meeting table', specs: 'Çok kişilik toplantı masası' },
-    { k: 'dining', re: /(?:yemek|mutfak)\s*mas/, tr: 'Yemek Masası', noun: 'dining table', room: 'dining room', dims: '180 × 90 × 75 cm',
-      en: 'dining table with a solid tabletop', specs: '6 kişilik yemek masası' },
-    { k: 'side', re: /yan\s*sehpa|lambader/, tr: 'Yan Sehpa', noun: 'side table', room: 'living room', dims: '45 × 45 × 55 cm',
-      en: 'small side table', specs: 'Yan sehpa' },
-    { k: 'coffee', re: /orta\s*sehpa|kahve\s*mas|sehpa/, tr: 'Orta Sehpa', noun: 'coffee table', room: 'living room', dims: '100 × 60 × 40 cm',
-      en: 'low coffee table', specs: 'Alçak orta sehpa' },
-    { k: 'console', re: /konsol|giris\s*mas/, tr: 'Konsol', noun: 'console', room: 'entryway foyer', dims: '120 × 35 × 80 cm',
-      en: 'slim console table with narrow depth', specs: 'Dar derinlikli konsol' },
-    { k: 'bookcase', re: /kitaplik|kutuphane|kitap\s*raf/, tr: 'Kitaplık', noun: 'bookcase', cohesive: true, room: 'living room', dims: '100 × 35 × 200 cm',
-      en: 'tall bookcase with shelves', specs: 'Çok raflı kitaplık' },
-    { k: 'display', re: /vitrin/, tr: 'Vitrin', noun: 'display cabinet', cohesive: true, room: 'living room', dims: '100 × 40 × 180 cm',
-      en: 'tall glass-door display cabinet', specs: 'Camlı vitrin' },
-    { k: 'sideboard', re: /bufe|buffe|sideboard|servis\s*unite/, tr: 'Büfe', noun: 'sideboard', cohesive: true, room: 'dining room', dims: '160 × 45 × 85 cm',
-      en: 'sideboard buffet credenza with enclosed storage', specs: 'Kapalı depolamalı büfe' },
-    { k: 'headboard', re: /yatak\s*basl/, tr: 'Yatak Başlığı', noun: 'headboard', room: 'master bedroom', dims: '180 × 8 × 120 cm',
-      en: 'bed headboard panel', specs: 'Yatak başlığı' },
-    { k: 'bed', re: /(?<![a-z])baza|karyola|(?<![a-z])yatak(?!\s*(?:odasi|basl))/, tr: 'Yatak / Baza', noun: 'bed frame', room: 'master bedroom', dims: '160 × 200 × 40 cm',
-      en: 'bed frame with a headboard', specs: 'Yatak karyolası' },
-    { k: 'coatrack', re: /portmanto|askilik/, tr: 'Portmanto', noun: 'hall tree', room: 'entryway foyer', dims: '90 × 35 × 190 cm',
-      en: 'entryway hall tree coat rack with hooks and a bench', specs: 'Askılı portmanto' },
-    { k: 'chair', re: /sandalye|tabure/, tr: 'Sandalye', noun: 'chair', room: 'dining room', dims: '45 × 50 × 85 cm',
-      en: 'dining chair', specs: 'Ahşap sandalye' },
-    { k: 'wallshelf', re: /(?:duvar|asma)\s*raf/, tr: 'Duvar Rafı', noun: 'wall shelf', room: 'living room', dims: '100 × 25 × 4 cm',
-      en: 'wall-mounted floating shelf', specs: 'Duvara monte raf' },
-    { k: 'table', generic: true, re: /(?<![a-z])masa(?:si|yi|nin|lar|ya|da)?(?![a-z])/, tr: 'Masa', noun: 'table', room: 'living room', dims: '140 × 80 × 75 cm',
-      en: 'table with a solid top', specs: 'Özel ölçü masa' }
+    { re: /(?<![a-z])ayakkabilik/, tr: 'Ayakkabılık' },
+    { re: /(?<![a-z])(?:gardrop|gardırop|yatak\s*odasi.*?dolap|elbise\s*dolabi)/, tr: 'Yatak Odası Dolabı / Gardrop' },
+    { re: /(?<![a-z])(?:calisma\s*masasi|yazi\s*masasi|ofis\s*masasi)/, tr: 'Çalışma Masası' },
+    { re: /(?<![a-z])(?:yemek\s*masasi|masa)/, tr: 'Masa' },
+    { re: /(?<![a-z])konsol/, tr: 'Konsol' },
+    { re: /(?<![a-z])(?:tv\s*unitesi|televizyon\s*unitesi)/, tr: 'TV Ünitesi' },
+    { re: /(?<![a-z])(?:kitaplik|kutuphane)/, tr: 'Kitaplık / Kütüphane' },
+    { re: /(?<![a-z])bufet?/, tr: 'Büfe' },
+    { re: /(?<![a-z])komodin/, tr: 'Komodin' },
+    { re: /(?<![a-z])sifonyer/, tr: 'Şifonyer' },
+    { re: /(?<![a-z])dolap/, tr: 'Özel Dolap' }
   ];
-  var TYPE_GENERIC = { k: 'generic', tr: 'Özel Tasarım Mobilya', noun: 'furniture piece', room: 'living room', dims: '120 × 50 × 90 cm',
-    en: 'piece of fine furniture', specs: 'Özel ölçü ve tasarım' };
-  var TALL = { wardrobe: 1, bookcase: 1, display: 1, coatrack: 1, headboard: 1 };
 
-  /* ------------------------- DURUM (STATE) ------------------------- */
-  function newState() {
-    var parts = {};
-    PART_ORDER.forEach(function (k) { parts[k] = { color: null, material: null, finish: null, present: false }; });
-    return { type: null, parts: parts, feats: {}, shapes: {}, style: null, room: null, studio: false,
-             dims: {}, mods: {}, solid: false };
-  }
+  var MATERIALS = [
+    { re: /(?<![a-z])mese/, tr: 'Doğal Meşe' },
+    { re: /(?<![a-z])ceviz/, tr: 'Amerikan Ceviz' },
+    { re: /(?<![a-z])akasya/, tr: 'Akasya' },
+    { re: /(?<![a-z])lake/, tr: 'İpek Mat Lake' },
+    { re: /(?<![a-z])fume\s*cam/, tr: 'Füme Cam' },
+    { re: /(?<![a-z])cam/, tr: 'Cam Kapak' },
+    { re: /(?<![a-z])hazeran/, tr: 'Hazeran Örgü' },
+    { re: /(?<![a-z])pirinc/, tr: 'Pirinç Donanım' },
+    { re: /(?<![a-z])bronz/, tr: 'Bronz Aksam' },
+    { re: /(?<![a-z])demir|metal/, tr: 'Metal / Demir Aksam' }
+  ];
 
-  function pickPart(tok, partToks, firstIsPart, inherit) {
-    if (!partToks.length) return inherit || 'body';
-    var prev = null, next = null;
-    partToks.forEach(function (p) { if (p.end <= tok.idx) prev = p; else if (p.idx >= tok.end && !next) next = p; });
-    var chosen = firstIsPart ? (prev || next) : (next || prev);
-    return chosen.e.k;
-  }
+  LA.parseRequestBrief = function (conversation) {
+    var userTexts = (conversation || [])
+      .filter(function (m) { return m.role === 'user'; })
+      .map(function (m) { return m.content || ''; })
+      .join(' ');
 
-  function setPart(S, partKey, kind, entry, mod, seg) {
-    var p = S.parts[partKey];
-    p.present = true;
-    if (kind === 'color') {
-      var en = entry.en, tr = entry.tr;
-      if (mod) { en = COLOR_MOD[mod][0] + ' ' + en; tr = COLOR_MOD[mod][1] + ' ' + tr; }
-      p.color = { id: entry.id, en: en, tr: tr };
-    } else {
-      var men = entry.en, mtr = entry.tr;
-      if (entry.wood && /(?<![a-z])masif/.test(seg) && !/^solid/.test(men)) { men = 'solid ' + men; mtr = 'Masif ' + mtr; }
-      p.material = { id: entry.id, en: men, tr: mtr };
-    }
-    if (partKey === 'handles') delete S.feats.handleless;
-    if (partKey === 'legs') delete S.feats.plinth;
-  }
+    var fText = fold(userTexts);
 
-  function clearToken(p, kind, id) {
-    if (kind === 'color' && p.color && p.color.id === id) p.color = null;
-    if (kind === 'material' && p.material && p.material.id === id) p.material = null;
-  }
-
-  /* Bir cümle parçasını duruma işler */
-  function applyTokens(S, text, o) {
-    o = o || {};
-    var neg = !!o.negate;
-    var partToks = o.featuresOnly ? [] : scan(text, PARTS);
-    var cols = o.featuresOnly ? [] : scan(text, COLORS);
-    var mats = o.featuresOnly ? [] : scan(text, MATERIALS);
-    var feats = scan(text, FEATURES);
-
-    // genel "ahşap" kelimesi, özgül bir ahşap varsa düşer
-    if (mats.some(function (t) { return t.e.wood && t.e.pri === 2; })) {
-      mats = mats.filter(function (t) { return !(t.e.wood && t.e.pri === 1); });
-    }
-    var colorTokens = cols.map(function (t) { t.kind = 'color'; return t; })
-                          .concat(mats.map(function (t) { t.kind = 'material'; return t; }))
-                          .sort(function (a, b) { return a.idx - b.idx; });
-    var firstIsPart = partToks.length && (!colorTokens.length || partToks[0].idx < colorTokens[0].idx);
-    var inherit = o.inheritPart || null;
-
-    // --- parça atamaları
-    var assigned = {};              // partKey -> true (token almış parçalar)
-    colorTokens.forEach(function (t) {
-      var pk = pickPart(t, partToks, firstIsPart, inherit);
-      t.part = pk;
-      if (t.kind === 'color') {
-        var pre = text.slice(Math.max(0, t.idx - 9), t.idx), mm = /(acik|koyu|pastel|canli|soluk)\s*$/.exec(pre);
-        t.mod = mm ? mm[1] : null;
-      }
-    });
-    // "kulp ve ayaklar pirinç" / "beyaz kulp ve ayaklar"  → bitişik parçalara paylaştır
-    for (var i = 0; i < partToks.length - 1; i++) {
-      var A = partToks[i], B = partToks[i + 1];
-      if (!/^\s*(?:ve|ile|&|ya\s*da)?\s*$/.test(text.slice(A.end, B.idx))) continue;
-      var aHas = colorTokens.some(function (t) { return t.part === A.e.k; });
-      var bHas = colorTokens.some(function (t) { return t.part === B.e.k; });
-      if (A.e.k !== B.e.k && aHas !== bHas) {
-        var src = aHas ? A.e.k : B.e.k, dst = aHas ? B.e.k : A.e.k;
-        colorTokens.filter(function (t) { return t.part === src; }).forEach(function (t) {
-          colorTokens.push({ idx: t.idx, end: t.end, e: t.e, kind: t.kind, part: dst, mod: t.mod, shared: true });
-        });
+    var item = 'Özel Tasarım Mobilya';
+    for (var i = 0; i < TYPES.length; i++) {
+      if (TYPES[i].re.test(fText)) {
+        item = TYPES[i].tr;
+        break;
       }
     }
 
-    var segFinish = null;
-    FINISHES.some(function (f) { if (f.re.test(text)) { segFinish = f; return true; } return false; });
-
-    if (neg) {
-      colorTokens.forEach(function (t) {
-        var targets = partToks.length || inherit ? [t.part] : PART_ORDER;
-        targets.forEach(function (pk) { clearToken(S.parts[pk], t.kind, t.e.id); });
-        assigned[t.part] = true;
-      });
-      partToks.forEach(function (pt) {
-        var k = pt.e.k;
-        if (assigned[k]) return;                       // renk/malzeme silindi, parça kalsın
-        if (k === 'handles') { S.parts.handles = { color: null, material: null, finish: null, present: false }; S.feats.handleless = FEATURES[1]; }
-        else if (k === 'glass') { S.parts.glass = { color: null, material: null, finish: null, present: false }; }
-        else if (k === 'legs') { S.parts.legs = { color: null, material: null, finish: null, present: false }; S.feats.plinth = FEATURES[3]; }
-        else if (k === 'drawers') delete S.feats.drawers;
-        else if (k === 'shelves') delete S.feats.shelves;
-        else if (k === 'doors') { delete S.feats.doors; S.feats.doorless = FEATURES[4]; }
-      });
-      feats.forEach(function (t) {
-        // "çekmece olmasın" gibi durumlarda parça zaten işlendi; saf özellikleri sil
-        if (t.e.k === 'handleless' || t.e.k === 'plinth' || t.e.k === 'doorless' || t.e.k === 'sliding' || t.e.k === 'fluted' || t.e.k === 'led' || t.e.k === 'cable' || t.e.k === 'openshelves') delete S.feats[t.e.k];
-      });
-      scan(text, SHAPES).forEach(function (t) { delete S.shapes[t.e.k]; });
-      scan(text, STYLES).forEach(function (t) { if (S.style && S.style.id === t.e.id) S.style = null; });
-      return;
-    }
-
-    // --- pozitif işleme
-    colorTokens.forEach(function (t) {
-      setPart(S, t.part, t.kind, t.e, t.mod, text);
-      assigned[t.part] = true;
-    });
-    if (segFinish) {
-      var fTargets = Object.keys(assigned);
-      if (!fTargets.length) fTargets = partToks.length ? partToks.map(function (p) { return p.e.k; }) : (o.featuresOnly ? [] : ['body']);
-      fTargets.forEach(function (pk) { S.parts[pk].finish = { en: segFinish.en, tr: segFinish.tr }; S.parts[pk].present = true; });
-    }
-    partToks.forEach(function (pt) { S.parts[pt.e.k].present = true; });
-
-    feats.forEach(function (t) {
-      var k = t.e.k, f = { k: k, en: t.e.en, tr: t.e.tr, qty: 0 };
-      if (t.e.qty) f.qty = qtyBefore(text, t.e.qty);
-      S.feats[k] = f;
-      if (k === 'handleless') S.parts.handles = { color: null, material: null, finish: null, present: false };
-      if (k === 'plinth') S.parts.legs = { color: null, material: null, finish: null, present: false };
-      if (k === 'doorless') delete S.feats.doors;
-      if (k === 'doors') delete S.feats.doorless;
-    });
-    if (feats.some(function (t) { return t.e.k === 'sliding'; })) { delete S.feats.doors; }
-
-    if (!o.featuresOnly) {
-      scan(text, SHAPES).forEach(function (t) {
-        if (t.e.k === 'round') delete S.shapes.oval; if (t.e.k === 'oval') delete S.shapes.round;
-        S.shapes[t.e.k] = t.e;
-      });
-      var st = scan(text, STYLES); if (st.length) S.style = st[st.length - 1].e;
-      ROOMS.forEach(function (r) { if (r.re.test(text)) S.room = r.en; });
-      if (/studyo|beyaz\s*fon|sade\s*fon|duz\s*fon|arka\s*plan/.test(text)) S.studio = true;
-      if (/(?:gercek\s*ortam|oda\s*icinde|odada)/.test(text)) S.studio = false;
-      MODS.forEach(function (m) { if (m.re.test(text)) S.mods[m.k] = m; });
-      parseDims(S, text);
-    }
-  }
-
-  function parseDims(S, raw) {
-    var t = raw.replace(/(\d),(\d)/g, '$1.$2'), got = false, m;
-    function num(v, unit) {
-      var n = parseFloat(v); if (isNaN(n)) return 0;
-      if (unit && /^(?:m|metre|mt)$/.test(unit)) n *= 100;
-      return Math.round(n);
-    }
-    function put(ax, n) {
-      var lim = { w: [30, 450], d: [8, 160], h: [3, 320] }[ax];
-      if (n >= lim[0] && n <= lim[1]) { S.dims[ax] = n; got = true; }
-    }
-    m = t.match(/(\d{2,3}(?:\.\d+)?)\s*(?:cm|santim)?\s*[x×*]\s*(\d{2,3}(?:\.\d+)?)\s*(?:cm|santim)?(?:\s*[x×*]\s*(\d{2,3}(?:\.\d+)?))?/);
-    if (m) { put('w', num(m[1])); put('d', num(m[2])); if (m[3]) put('h', num(m[3])); }
-    var AX = { genislik: 'w', en: 'w', derinlik: 'd', yukseklik: 'h', boy: 'h' };
-    var re1 = /(?<![a-z])(genislik|derinlik|yukseklik|en|boy)[a-z]{0,6}\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(cm|metre|mt|m|santim)?(?![a-z])/g;
-    while ((m = re1.exec(t))) put(AX[m[1]], num(m[2], m[3]));
-    var re2 = /(\d+(?:\.\d+)?)\s*(cm|metre|mt|m|santim)\s*(genislik|derinlik|yukseklik|boy)/g;
-    while ((m = re2.exec(t))) put(AX[m[3]], num(m[1], m[2]));
-    if (!got) {
-      var re3 = /(?<![a-z0-9.])(\d+(?:\.\d+)?)\s*(cm|metre|mt|m|santim)(?![a-z])/g;
-      while ((m = re3.exec(t))) {
-        var v = num(m[1], m[2]), tall = S.type && TALL[S.type.k];
-        put(tall && v >= 150 ? 'h' : 'w', v);
-      }
-    }
-  }
-
-  /* Konuşmayı topla: SADECE müşteri mesajları + son asistan sorusunun bağlamı */
-  function contextFromAssistant(a) {
-    var sents = String(a || '').split(/(?<=[.!?\n])\s+/).map(fold).map(function (s) { return s.trim(); }).filter(Boolean);
-    if (!sents.length) return null;
-    var last = sents[sents.length - 1];
-    var pk = uniq(scan(last, PARTS).map(function (t) { return t.e.k; }));
-    var proposals = sents.filter(function (s) { return !/\?/.test(s) && !ALT.test(s) && PROPOSAL.test(s); });
-    var yn = /\?/.test(last) && /(?:ister\s*misiniz|olsun\s*mu|ekleyelim\s*mi|eklensin\s*mi|kullanalim\s*mi|uygun\s*mu|olur\s*mu)/.test(last) && !/(?<![a-z])(?:veya|ya\s*da)(?![a-z])/.test(last);
-    return { part: pk.length === 1 ? pk[0] : null, question: yn ? last : null, proposals: proposals };
-  }
-
-  function findType(msgs) {
-    var generic = null, i, j;
-    for (i = msgs.length - 1; i >= 0; i--) {
-      var best = null;
-      for (j = 0; j < TYPES.length; j++) {
-        var m = TYPES[j].re.exec(msgs[i].text);
-        if (m && (!best || m.index < best.idx)) best = { idx: m.index, t: TYPES[j] };
-      }
-      if (best) { if (!best.t.generic) return best.t; if (!generic) generic = best.t; }
-    }
-    return generic;
-  }
-
-  LA.parseDesign = function (conversation) {
-    var conv = (conversation || []).filter(function (m) { return m && typeof m.content === 'string' && !m.ui; });
-    var msgs = [], lastAssist = null;
-    conv.forEach(function (m) {
-      if (m.role === 'assistant') { lastAssist = m.content; return; }
-      if (m.role !== 'user') return;
-      msgs.push({ text: fold(m.content), raw: m.content, ctx: lastAssist ? contextFromAssistant(lastAssist) : null });
-      lastAssist = null;
-    });
-    var S = newState();
-    S.type = findType(msgs);
-    S.userTexts = msgs.map(function (x) { return x.raw; });
-    S.userFolded = msgs.map(function (x) { return x.text; }).join(' | ');
-
-    msgs.forEach(function (m) {
-      var ctx = m.ctx, t = m.text.trim();
-      var pureYes = t.length <= 40 && YES.test(t), pureNo = t.length <= 40 && NOP.test(t);
-      if (ctx) {
-        if (pureYes && ctx.question) applyTokens(S, ctx.question, { featuresOnly: true });
-        if (pureNo && ctx.question) applyTokens(S, ctx.question, { negate: true, featuresOnly: true });
-        if (pureYes && !ctx.question) ctx.proposals.forEach(function (p) { p.split(/[.;,\n]+|\s+ama\s+/).forEach(function (c) { if (c.trim()) applyTokens(S, c, {}); }); });
-      }
-      var protectedText = t.replace(/(\d),(\d)/g, '$1.$2');
-      protectedText.split(/[.!?;\n]+|,|\s+(?:ama|fakat|ancak|ayrica|birde)\s+/).forEach(function (seg) {
-        seg = seg.trim(); if (!seg) return;
-        var inherit = ctx && ctx.part ? ctx.part : null;
-        var sp = seg.match(/^(.*?)\s*(?:(?<![a-z])(degil\s*de|degil|yerine))(?![a-z])\s*(.*)$/);
-        if (sp) {
-          var leftParts = uniq(scan(sp[1], PARTS).map(function (x) { return x.e.k; }));
-          var inh = leftParts.length ? leftParts[leftParts.length - 1] : inherit;
-          if (sp[1].trim()) applyTokens(S, sp[1], { negate: true, inheritPart: inh });
-          if (sp[3].trim()) applyTokens(S, sp[3], { inheritPart: inh });
-        } else if (NEG.test(seg)) {
-          applyTokens(S, seg, { negate: true, inheritPart: inherit });
-        } else {
-          applyTokens(S, seg, { inheritPart: inherit });
-        }
-      });
-    });
-    S.typeDef = S.type || TYPE_GENERIC;
-    return S;
-  };
-
-  /* --------------------- TÜRKÇE ÖZET (kart/ fiyat) --------------------- */
-  function partTR(p) {
-    var a = [];
-    if (p.finish) a.push(p.finish.tr);
-    if (p.color) a.push(p.color.tr);
-    if (p.material) a.push(p.material.tr);
-    return a.join(' ');
-  }
-  function describe(S) {
-    var T = S.typeDef, b = S.parts.body, g = S.parts.glass, i;
-    var main = [b.color && b.color.tr, b.material && b.material.tr].filter(Boolean).join(' ');
-    var shapeTR = ['oval', 'curved', 'round', 'corner'].filter(function (k) { return S.shapes[k]; }).map(function (k) { return S.shapes[k].tr; }).join(' ');
-    var glassTint = g.present ? (g.color ? g.color.tr + ' Camlı' : 'Camlı') : '';
-    var name;
-    if (main && glassTint) name = main + ' ve ' + glassTint;
-    else name = main || glassTint;
-    name = [name, shapeTR, T.tr].filter(Boolean).join(' ');
-    if (!main && !glassTint && !shapeTR) name = 'Özel Tasarım ' + T.tr;
+    var dims = '';
+    var m = userTexts.match(/(\d+(?:[.,]\d+)?\s*(?:x|\*|boyunda|metre|m|cm|derinlik|genislik|yukseklik)\s*\d*(?:[.,]\d+)?\s*(?:metre|m|cm|boyunda)?)/i);
+    if (m) dims = m[0].trim();
 
     var mats = [];
-    PART_ORDER.forEach(function (k) {
-      var p = S.parts[k], v = partTR(p);
-      if (k === 'glass' && p.present) mats.push('Cam: ' + (p.color ? p.color.tr : 'Şeffaf'));
-      else if (v) mats.push(PART_TR[k] + ': ' + v);
-    });
-    var material = mats.length ? mats.join(' · ') : 'Doğal Meşe (varsayılan)';
-
-    var sp = [];
-    ['oval', 'curved', 'round', 'corner'].forEach(function (k) { if (S.shapes[k]) sp.push(S.shapes[k].tr + ' form'); });
-    Object.keys(S.feats).forEach(function (k) {
-      var f = S.feats[k];
-      sp.push((f.qty ? f.qty + ' ' : '') + f.tr + (f.qty && (k === 'drawers' || k === 'doors') ? '' : ''));
-    });
-    var specs = sp.length ? sp.join(', ') : T.specs;
-    var d = S.dims, dimStr = T.dims;
-    var dd = T.dims.split(/\s*×\s*|\s*cm/).filter(Boolean).map(Number);
-    var w = d.w || dd[0] || 120, depth = d.d || dd[1] || 45, h = d.h || dd[2] || 85;
-    if (S.mods) {
-      if (S.mods.comp && S.mods.comp.v === 'down') {
-        w = Math.round(w * 0.8); depth = Math.round(depth * 0.85); h = Math.round(h * 0.85);
+    for (var j = 0; j < MATERIALS.length; j++) {
+      if (MATERIALS[j].re.test(fText) && mats.indexOf(MATERIALS[j].tr) === -1) {
+        mats.push(MATERIALS[j].tr);
       }
-      if (S.mods.w) { w = S.mods.w.v === 'up' ? Math.round(w * 1.25) : Math.round(w * 0.75); }
-      if (S.mods.h) { h = S.mods.h.v === 'up' ? Math.round(h * 1.25) : Math.round(h * 0.75); }
-      if (S.mods.d) { depth = S.mods.d.v === 'up' ? Math.round(depth * 1.25) : Math.round(depth * 0.75); }
     }
-    dimStr = [w, depth, h].join(' × ') + ' cm';
-    return { itemName: name, material: material, specs: specs, dimensions: dimStr };
-  }
-  LA.describeDesignTR = function (conversation) {
-    var S = LA.parseDesign(conversation), D = describe(S), miss = [];
-    if (!S.type) miss.push('mobilya türü');
-    if (!S.parts.body.color && !S.parts.body.material) miss.push('ana renk / ahşap tonu');
-    if (!(S.dims.w || S.dims.d || S.dims.h)) miss.push('ölçü');
-    if (!S.parts.handles.color && !S.parts.handles.material && !S.feats.handleless) miss.push('kulp tarzı');
-    if (!S.parts.legs.color && !S.parts.legs.material && !S.feats.plinth && S.typeDef.noun && /desk|table|console|chair|vanity/.test(S.typeDef.noun)) miss.push('ayak tarzı');
-    return { state: S, summary: D, missing: miss,
-             recap: 'Tür: ' + (S.type ? S.type.tr : 'belirtilmedi') + '\nMalzeme/Renk: ' + (D.material.indexOf('varsayılan') > -1 ? 'belirtilmedi' : D.material) +
-                    '\nÖzellikler: ' + (Object.keys(S.feats).length ? D.specs : 'belirtilmedi') + '\nÖlçü: ' + ((S.dims.w || S.dims.d || S.dims.h) ? D.dimensions : 'belirtilmedi') };
+
+    return {
+      itemName: item,
+      dimensions: dims || 'Kişiye özel ölçüler',
+      material: mats.length ? mats.join(', ') : 'Masif Ahşap & Özel Kaplama',
+      summary: userTexts.slice(-300).trim()
+    };
   };
 
-  /* ------------------ FLUX İNGİLİZCE PROMPT ÜRETİMİ ------------------ */
-  var VIEWS = [
-    'front three-quarter view at eye level, the whole piece fully visible and centered in frame',
-    'straight-on symmetrical front elevation view, the whole piece fully visible',
-    'three-quarter view from a slightly higher angle, the whole piece fully visible',
-    'close three-quarter view that highlights the materials, hardware and joinery'
-  ];
-  function adj(p) { return [p.finish && p.finish.en, p.color && p.color.en, p.material && p.material.en].filter(Boolean).join(' '); }
-  function isLight(c) { return c && /^(white|cream|beige|clear|pink|yellow)$/.test(c.id); }
-  function isDark(c) { return c && /^(black|anthra|navy|burgundy|brown|petrol|emerald|smoke)$/.test(c.id); }
+  // Akıllı, yetkin Mimar Sistem İstemi
+  LA.chatReply = async function (conversationHistory) {
+    var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş Mimarısın.\n" +
+      "Adın: Lavora Tasarım Mimarı.\n" +
+      "Müşteriyle karşılıklı konuşarak evine veya ofisine özel mobilya projesini (gardrop, çalışma masası, ayakkabılık, konsol, TV ünitesi, kitaplık vb.) mimari ve imalat detaylarıyla netleştirmektesin.\n\n" +
+      "MİMARİ YAKLAŞIM VE DİLİN:\n" +
+      "1. Gerçek, son derece deneyimli, vizyoner ve saygın bir iç mimar gibi konuş. Kibar, samimi, güven veren ve çözüm odaklı ol.\n" +
+      "2. Kesinlikle hiçbir emoji KULLANMA.\n" +
+      "3. Asla '[Seçenek 1]', '1. ...', robotik şablonlar veya boru ('|') karakteri KULLANMA.\n" +
+      "4. Müşterinin mekanını, ihtiyaçlarını ve hayalini analiz et:\n" +
+      "   - Ölçüler: Ergonomik ölçü tavsiyeleri ver (örneğin ayakkabılık için derinlik 35-40 cm, gardrop için 60 cm, çalışma masası için yükseklik 75 cm).\n" +
+      "   - Malzemeler: Masif ceviz, doğal meşe, ipek mat lake, füme ayna/cam, hazeran örgü, fırçalanmış pirinç kulp ve blum/hafele donanım gibi estetik ve sağlam malzeme tavsiyelerinde bulun.\n" +
+      "   - Fonksiyon: Bölmeler, çekmeceler, gizli kablo kanalları, havalandırma veya LED kanalları gibi mimari çözümler öner.\n" +
+      "5. Her yanıtında müşterinin projesini zenginleştirecek 1 adet net ve akıcı mimari soru sorarak tasarımı netleştir.\n" +
+      "6. Müşteri ölçüleri veya istekleri paylaştığında, projenin şekillendiğini belirt ve sağ üstteki 'Talebi Atölyeye İlet' butonuna basarak doğrudan atölye imalat ekibine iletebileceğini hatırlat.";
 
-  LA.buildFluxPrompt = function (S, opts) {
-    opts = opts || {};
-    var T = S.typeDef, segs = [], P = S.parts, b = P.body, g = P.glass, F = S.feats;
-    function add(t, pr) { if (t) segs.push({ t: t, p: pr }); }
-
-    var style = S.style ? S.style.en : 'refined contemporary';
-    var shapes = ['oval', 'curved', 'round', 'corner'].filter(function (k) { return S.shapes[k]; }).map(function (k) { return S.shapes[k].en; });
-    var view = VIEWS[(opts.viewIndex || 0) % VIEWS.length];
-    add('Professional interior design photograph, ' + view + ', of a single bespoke ' + style + ' ' + T.en +
-        (shapes.length ? ', with ' + shapes.join(' and ') : '') + '.', 0);
-
-    // gövde
-    var bodyAdj = adj(b);
-    if (b.color && !b.material) bodyAdj += ' lacquer finish';
-    if (!bodyAdj) bodyAdj = 'natural light oak wood with a refined grain';
-    add('The ' + T.noun + ' body is finished in ' + bodyAdj + '.', 0);
-    if (b.color) add('Its main color is unmistakably ' + b.color.en + '.', 1);
-
-    // kapak + cam
-    var doorBits = [];
-    var doorsAdj = adj(P.doors);
-    var glassEn = g.present ? ((g.color ? g.color.en : (g.material && g.material.id === 'bronze' ? 'bronze' : 'clear')) + ' tinted') : '';
-    if (g.present && g.color && /^(clear|frosted)$/.test(g.color.id)) glassEn = g.color.en;
-    if (g.present && (P.doors.present || F.doors || T.cohesive)) {
-      doorBits.push((doorsAdj ? doorsAdj + ' ' : '') + 'doors with ' + glassEn + ' glass panels');
-    } else if (g.present) {
-      doorBits.push(glassEn + ' glass panels on the front');
-    } else if (doorsAdj) {
-      doorBits.push(doorsAdj + ' doors');
-    }
-    if (F.sliding) doorBits.push(F.sliding.en);
-    if (F.doors && F.doors.qty) doorBits.push(F.doors.qty + ' doors');
-    if (F.doorless) doorBits.push(F.doorless.en);
-    if (doorBits.length) add('Fronts: ' + doorBits.join(', ') + '.', 1);
-
-    // ayak + kulp
-    var hw = [];
-    if (F.plinth) hw.push(F.plinth.en);
-    else if (adj(P.legs)) hw.push(adj(P.legs) + ' legs');
-    if (F.handleless) hw.push(F.handleless.en);
-    else if (adj(P.handles)) hw.push(adj(P.handles) + ' handles');
-    if (hw.length) add('Hardware: ' + hw.join(', ') + '.', 1);
-
-    // özellikler
-    var fe = [];
-    if (F.drawers) fe.push((F.drawers.qty ? numWord(F.drawers.qty) + ' ' : '') + 'flush drawers integrated inside the body' + (adj(P.drawers) ? ' in ' + adj(P.drawers) : ''));
-    if (F.shelves && !F.openshelves) fe.push((F.shelves.qty ? numWord(F.shelves.qty) + ' ' : '') + 'shelves' + (adj(P.shelves) ? ' in ' + adj(P.shelves) : ''));
-    if (F.openshelves) fe.push(F.openshelves.en);
-    if (F.fluted) fe.push(F.fluted.en);
-    if (F.led) fe.push(F.led.en);
-    if (F.cable) fe.push(F.cable.en);
-    if (adj(P.top)) fe.push('a top surface in ' + adj(P.top));
-    if (adj(P.interior)) fe.push('interior in ' + adj(P.interior));
-    if (adj(P.back)) fe.push('back panel in ' + adj(P.back));
-    if (fe.length) add('Details: ' + fe.join('; ') + '.', 2);
-    if (T.cohesive) add('One cohesive unit, all drawers and shelves are fully integrated inside the body.', 3);
-
-    // ölçü / oran
-    var d = S.dims, pr = [];
-    if (d.w) pr.push(d.w + ' cm wide'); if (d.d) pr.push(d.d + ' cm deep'); if (d.h) pr.push(d.h + ' cm tall');
-    if (pr.length) add('Proportions: about ' + pr.join(', ') + '.', 2);
-    Object.keys(S.mods).forEach(function (k) { add(cap(S.mods[k].en) + '.', 2); });
-
-    // serbest notlar (LLM çevirisi, filtrelenmiş)
-    if (opts.extras) add(opts.extras.replace(/\.*$/, '') + '.', 3);
-
-    // ortam
-    var room = S.room || T.room;
-    var wall = isLight(b.color) ? 'muted warm grey-taupe' : (isDark(b.color) ? 'soft light-grey' : 'soft warm off-white');
-    if (S.studio) {
-      add('On a clean seamless neutral light-grey studio backdrop, soft diffused studio lighting, professional product photography, photorealistic, sharp focus.', 4);
-      add('Studio product photograph, photorealistic, sharp focus.', 0);
-    } else {
-      add('Placed in a warm luxury ' + room + ' with light herringbone oak parquet floor, ' + wall + ' plaster walls and soft natural window daylight, high-end architectural magazine photography, photorealistic, sharp focus, natural shadows.', 4);
-      add('Photorealistic, sharp focus, soft natural daylight.', 0);
-    }
-    // 'short' (p:0) ortam cümlesi sona taşınsın
-    var shortIdx = segs.length - 1, shortSeg = segs.splice(shortIdx, 1)[0];
-    segs.push(shortSeg);
-    return assemble(segs, MAX_PROMPT_CHARS);
-  };
-  function numWord(n) { return ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] || String(n); }
-  function assemble(segs, max) {
-    var cur = segs.slice();
-    function len(a) { return a.map(function (s) { return s.t; }).join(' ').length; }
-    while (len(cur) > max) {
-      var mp = Math.max.apply(null, cur.map(function (s) { return s.p; }));
-      if (mp === 0) break;
-      for (var i = cur.length - 1; i >= 0; i--) if (cur[i].p === mp) { cur.splice(i, 1); break; }
-    }
-    return cur.map(function (s) { return s.t; }).join(' ').slice(0, 1900);
-  }
-
-  /* ---------- LLM: sadece sözlükte olmayan serbest notları çevir ---------- */
-  function textFromResp(data) {
-    if (!data) return '';
-    if (typeof data.result === 'string') return data.result;
-    if (data.result && typeof data.result.response === 'string') return data.result.response;
-    if (data.result && data.result.choices && data.result.choices[0]) {
-      var c = data.result.choices[0]; return (c.message && c.message.content) || c.text || '';
-    }
-    if (typeof data.response === 'string') return data.response;
-    return '';
-  }
-  function guardExtras(text, userFolded) {
-    text = String(text || '').replace(/[\r\n]+/g, ' ').replace(/^["'\s-]+|["'\s]+$/g, '').trim();
-    if (!text || /^none\.?$/i.test(text) || text.length > 220 || /[çğışöüÇĞİŞÖÜ]/.test(text)) return '';
-    var low = text.toLowerCase(), bad = false;
-    COLORS.concat(MATERIALS).forEach(function (e) {           // halüsinasyon filtresi
-      if (e.kw && e.kw.test(low) && !e.re.test(userFolded)) bad = true;
-    });
-    if (/(?:coffee table|dining table|bed |sofa|wardrobe|desk|cabinet)/.test(low)) bad = true; // tür değiştirmesin
-    return bad ? '' : text;
-  }
-  LA._extrasCache = LA._extrasCache || {};
-  async function llmExtras(S, coveredEN) {
-    var key = S.userFolded + '||' + coveredEN;
-    if (key in LA._extrasCache) return LA._extrasCache[key];
-    var out = '';
     try {
-      var sys = 'You convert Turkish furniture customer notes into ONE short English visual phrase for an image generator. ' +
-                'Output ONLY details about the furniture\'s visible design that are NOT already in COVERED. ' +
-                'Never invent colors, materials or objects. Max 25 words. If nothing new, output exactly: NONE';
-      var usr = 'COVERED: ' + coveredEN + '\nCUSTOMER NOTES (Turkish):\n- ' + S.userTexts.join('\n- ');
-      var call = LA.callApi('text', { messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }], max_tokens: 80, temperature: 0.1 });
-      var data = await Promise.race([call, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, 9000); })]);
-      out = guardExtras(textFromResp(data), S.userFolded);
-    } catch (e) { out = ''; }
-    LA._extrasCache[key] = out;
-    return out;
-  }
-
-  /* ------------------------ ANA GİRİŞ NOKTASI ------------------------ */
-  LA.extractDesignFromChat = async function (conversation, opts) {
-    opts = opts || {};
-    var S = LA.parseDesign(conversation), D = describe(S);
-    var base = LA.buildFluxPrompt(S, { viewIndex: opts.viewIndex || 0 });
-    var extras = '';
-    if (LA.useLLMExtras && S.userTexts.length) {
-      extras = await llmExtras(S, base);
-    }
-    var prompt = extras ? LA.buildFluxPrompt(S, { viewIndex: opts.viewIndex || 0, extras: extras }) : base;
-    return { itemName: D.itemName, dimensions: D.dimensions, material: D.material, specs: D.specs,
-             fluxPrompt: prompt, state: S, extras: extras };
-  };
-
-  /* ---------------------- GÖRSEL ÜRETİMİ (Flux) ---------------------- */
-  LA.generateProductVisual = async function (prompt, opts) {
-    opts = opts || {};
-    var clean = String(prompt || '').replace(/\s+/g, ' ').trim().slice(0, 1900);
-    var steps = Math.min(LA.imageSteps || 4, 4); // CF Flux-1-schnell: steps parametresi (seed kabul etmiyor)
-    var lastErr = null, nsfwRetried = false;
-    var attempts = [
-      { prompt: clean, steps: steps },
-      { prompt: clean }
-    ];
-    for (var i = 0; i < attempts.length; i++) {
-      try {
-        var data = await LA.callApi('image', attempts[i]);
-        var b64 = (data && data.result && data.result.image) || (data && data.image) || '';
-        if (typeof data === 'string' && data.indexOf('data:') === 0) return data;
-        if (b64) return 'data:image/' + (/^iVBOR/.test(b64) ? 'png' : 'jpeg') + ';base64,' + b64;
-        throw new Error('Görsel servisi boş yanıt döndürdü');
-      } catch (err) {
-        lastErr = err;
-        var msg = String(err && err.message || err);
-        if (/3030|nsfw/i.test(msg) && !nsfwRetried) {
-          nsfwRetried = true;
-          clean = 'Family-friendly furniture catalog photograph. ' + clean;
-          attempts = [{ prompt: clean, steps: steps }, { prompt: clean }]; i = -1; continue;
+      var messages = [
+        { role: 'system', content: systemPrompt }
+      ];
+      (conversationHistory || []).forEach(function (m) {
+        if (m && m.role && m.content) {
+          messages.push({ role: m.role, content: m.content });
         }
-        if (/HTTP (?:401|403|429|5\d\d)/.test(msg) && !/HTTP 400/.test(msg)) break;
-      }
+      });
+
+      var data = await this.callApi('text', { messages: messages, max_tokens: 450, temperature: 0.65 });
+      var text = '';
+      if (typeof data?.result?.response === 'string') text = data.result.response;
+      else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
+      else if (typeof data?.response === 'string') text = data.response;
+      else if (typeof data === 'string') text = data;
+      else text = JSON.stringify(data || '');
+
+      var clean = text.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
+      return clean || 'Tasarım vizyonunuz çok etkileyici. Mekanınızın boyutları ve tercih edeceğiniz ahşap tonu hakkında biraz daha detay paylaşabilir misiniz?';
+    } catch (err) {
+      console.warn('chatReply error:', err);
+      return 'Harika bir tasarım vizyonu! Masif ahşap dokusu olarak açık doğal meşe mi yoksa Amerikan ceviz tonları mı mekanınıza daha uygun olur?';
     }
-    throw lastErr || new Error('Görsel üretilemedi');
   };
 })();
-
-window.lvEstimateFurniturePrice = function(specs) {
-  const name = (specs && specs.itemName || '').toLowerCase();
-  const mat  = (specs && specs.material  || '').toLowerCase();
-
-  // Base price by furniture type (TRY)
-  let base = 18000;
-  if (/tv.*\u00fcnitesi|unite/i.test(name))         base = 22000;
-  else if (/yemek.*masa|masa.*yemek/i.test(name))    base = 28000;
-  else if (/gardrop|dolap/i.test(name))               base = 35000;
-  else if (/k\u00fct\u00fcphane|kitapl\u0131k/i.test(name)) base = 25000;
-  else if (/\u00e7al\u0131\u015fma/i.test(name))  base = 15000;
-  else if (/konsol/i.test(name))                      base = 16000;
-  else if (/komi/i.test(name))                        base = 9000;
-  else if (/sehpa/i.test(name))                       base = 12000;
-  else if (/ayakkab\u0131l\u0131k/i.test(name))     base = 11000;
-
-  // Material multiplier
-  let mul = 1.0;
-  if (/ceviz|walnut/i.test(mat))               mul = 1.45;
-  else if (/me\u015fe|oak/i.test(mat))         mul = 1.25;
-  else if (/lake/i.test(mat))                   mul = 1.20;
-  else if (/metal|end\u00fcstriyel/i.test(mat)) mul = 1.15;
-  else if (/hazeran|rattan/i.test(mat))         mul = 1.10;
-
-  const min = Math.round(base * mul / 1000) * 1000;
-  const max = Math.round(min * 1.35 / 1000) * 1000;
-
-  // Production days
-  let days = 15;
-  if (/gardrop|dolap/i.test(name))             days = 25;
-  else if (/yemek.*masa/i.test(name))          days = 20;
-  else if (/k\u00fct\u00fcphane/i.test(name)) days = 22;
-
-  const fmt = n => n.toLocaleString('tr-TR') + ' \u20ba';
-  return { min, max, days, minStr: fmt(min), maxStr: fmt(max) };
-};
-
 
 window.lvSendCustomerRequest = async function(data) {
   try {
@@ -1671,14 +1027,16 @@ window.lvSendCustomerRequest = async function(data) {
       return false;
     }
     const reqData = {
-      subject: (data.specs && data.specs.itemName) || 'Özel Tasarım Mobilya Talebi',
-      itemName: (data.specs && data.specs.itemName) || '',
+      subject: data.subject || (data.specs && data.specs.itemName) || 'Özel Tasarım Mobilya Talebi',
+      itemName: (data.specs && data.specs.itemName) || data.itemName || '',
+      dimensions: (data.specs && data.specs.dimensions) || data.dimensions || '',
+      material: (data.specs && data.specs.material) || data.material || '',
       projectName: data.projectName || '',
       projectId: data.projectId || '',
-      aiConceptImage: data.visual || '',
+      customerPhoto: data.customerPhoto || '',
+      chatHistory: data.chatHistory || [],
+      text: data.text || (data.specs && data.specs.summary) || '',
       specs: data.specs || {},
-      estimate: data.estimate || {},
-      budget: (data.estimate && (data.estimate.minStr + ' – ' + data.estimate.maxStr)) || '',
       status: 'open',
       createdAt: Date.now(),
       userEmail: user.email || '',
@@ -1688,7 +1046,7 @@ window.lvSendCustomerRequest = async function(data) {
     if (typeof path === 'function') {
       await path('customer_requests').child(user.uid).push(reqData);
     }
-    if (typeof toast === 'function') toast('Tasarım talebiniz atölyeye başarıyla iletildi!');
+    if (typeof toast === 'function') toast('Tasarım talebiniz ve sohbet detayları atölyeye iletildi!');
     return true;
   } catch(err) {
     console.error('lvSendCustomerRequest error:', err);
@@ -1713,112 +1071,86 @@ window.lvOpenCustomerRequest = function(target) {
   // Conversation history
   var conversation = [{
     role: 'assistant',
-    content: 'Merhaba! Ben Lavora Mimari Tasarım Danışmanınız.\n\nMekanınız için hayal ettiğiniz mobilyayı bana tüm detaylarıyla anlatın (oda, ölçüler, ahşap tonu, renkler, kulplar, ayaklar veya özel bölmeler). Dilerseniz örnek bir fotoğraf da ekleyebilirsiniz. Siz detayları paylaştıkça tasarımı doğrudan bu sohbette 3D olarak görselleştireceğim.'
+    content: 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\nMekanınız için hayal ettiğiniz mobilyayı (ölçüler, ahşap türü, renkler, bölmeler veya özel ihtiyaçlar) bana anlatın. Dilerseniz mekanın bir fotoğrafını da ekleyebilirsiniz. Talebinizi birlikte netleştirdikten sonra doğrudan atölye imalat ekibimize ileteceğiz.'
   }];
   if (itName) {
-    conversation.push({ role: 'user', content: itName + ' tasarlamak istiyorum.' });
-    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Bu tasarım için aklınızda nasıl bir ahşap tonu (masif ceviz, doğal meşe, ipek lake) ve hangi ölçüler var?' });
+    conversation.push({ role: 'user', content: itName + ' tasarlamak ve yaptırmak istiyorum.' });
+    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Bu tasarım için aklınızda nasıl bir ahşap tonu (masif ceviz, doğal meşe, ipek lake) ve hangi mekan ölçüleri var?' });
   }
 
   var userAttachedPhoto = '';
-  var latestGeneratedVisualUrl = '';
-  var latestSpecs = null;
-  var latestEstimate = null;
-  var isGenerating = false;
 
-  // Inject Gemini Studio Styles once
+  // Inject styles once
   if (!document.getElementById('lv-gemini-styles')) {
     var st = document.createElement('style');
     st.id = 'lv-gemini-styles';
     st.textContent = [
       '#lv-gemini-modal * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }',
       '#lv-gemini-modal { font-family: -apple-system, BlinkMacSystemFont, "Google Sans", "Inter", "Segoe UI", Roboto, sans-serif; }',
-      '@keyframes lvGlowPulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }',
-      '@keyframes lvSpinSlow { to { transform:rotate(360deg); } }',
       '@keyframes lvFadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }',
-      '@keyframes lvShimmerGradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }',
       '@keyframes lvTypingDot { 0%,80%,100%{transform:scale(0.3);opacity:.3} 40%{transform:scale(1);opacity:1} }',
       '.lv-gemini-scroll::-webkit-scrollbar { width: 5px; height: 5px; }',
       '.lv-gemini-scroll::-webkit-scrollbar-track { background: transparent; }',
       '.lv-gemini-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }',
       '.lv-gemini-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:50px; font-size:12px; font-weight:500; color:#e2e8f0; cursor:pointer; white-space:nowrap; transition:all .2s; user-select:none; }',
       '.lv-gemini-chip:hover { background:rgba(66,133,244,0.15); border-color:rgba(66,133,244,0.4); color:#93c5fd; transform:translateY(-1px); }',
-      '.lv-gemini-chip:active { transform:scale(.96); }',
       '.lv-gemini-input-shell:focus-within { border-color: #60a5fa !important; box-shadow: 0 0 0 3px rgba(96,165,250,0.2), 0 8px 30px rgba(0,0,0,0.5) !important; }',
-      '.lv-cta-primary { background: linear-gradient(135deg, #4285F4 0%, #8b5cf6 50%, #ec4899 100%); background-size: 200% 200%; animation: lvShimmerGradient 4s ease infinite; color: #fff; border: none; font-weight: 700; cursor: pointer; transition: all .2s; }',
-      '.lv-cta-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(66,133,244,0.4); }',
-      '.lv-cta-primary:active { transform: scale(.98); }',
+      '.lv-cta-primary { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff; border: none; font-weight: 700; cursor: pointer; transition: all .2s; }',
+      '.lv-cta-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,0.4); }',
       '.lv-cta-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; cursor: pointer; transition: all .2s; }',
-      '.lv-cta-secondary:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); color: #fff; }',
-      '.lv-chat-card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 14px; display:flex; flex-direction:column; gap:12px; transition: border-color .2s; }',
-      '.lv-chat-card:hover { border-color: rgba(66,133,244,0.3); }',
-      '.lv-render-thumb { position:relative; width:100%; height:260px; border-radius:14px; overflow:hidden; background:#040711; cursor:pointer; display:flex; align-items:center; justify-content:center; }',
-      '.lv-render-thumb img { width:100%; height:100%; object-fit:contain; transition: transform .3s ease; }',
-      '.lv-render-thumb:hover img { transform: scale(1.02); }',
-      '.lv-render-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.3); opacity:0; transition:opacity .2s; display:grid; place-items:center; color:#fff; font-size:13px; font-weight:600; gap:6px; }',
-      '.lv-render-thumb:hover .lv-render-overlay { opacity:1; }',
+      '.lv-cta-secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }',
       '@media (max-width: 640px) {',
       '  #lv-gemini-container { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; max-width: 100vw !important; border-radius: 0 !important; border: none !important; }',
       '  #lv-gemini-modal { padding: 0 !important; }',
-      '  .lv-render-thumb { height: 210px !important; }',
       '  .lv-chat-stream-pad { padding: 14px 14px 18px !important; }',
       '}'
     ].join('\n');
     document.head.appendChild(st);
   }
 
-  // Backdrop overlay
   var modal = document.createElement('div');
   modal.id = 'lv-gemini-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(8,12,20,0.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden';
 
-  // Main container
   var container = document.createElement('div');
   container.id = 'lv-gemini-container';
-  container.style.cssText = 'position:relative;width:min(94vw,840px);height:min(94vh,860px);background:radial-gradient(circle at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 60%), radial-gradient(circle at 100% 100%, rgba(139,92,246,0.08) 0%, transparent 50%), #0d121d;border:1px solid rgba(255,255,255,0.1);border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,0.8),0 0 60px rgba(66,133,244,0.15);display:flex;flex-direction:column;overflow:hidden;animation:lvFadeInUp .25s cubic-bezier(0.16,1,0.3,1)';
+  container.style.cssText = 'position:relative;width:min(94vw,840px);height:min(94vh,860px);background:radial-gradient(circle at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 60%), #0d121d;border:1px solid rgba(255,255,255,0.1);border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,0.8);display:flex;flex-direction:column;overflow:hidden;animation:lvFadeInUp .25s ease';
   modal.appendChild(container);
 
-  var subText = pName ? ('Proje: ' + esc(pName)) : 'Canlı Mimar Danışmanı • 8K 3D Stüdyo';
+  var subText = pName ? ('Proje: ' + esc(pName)) : 'Özel Mobilya & Mimari Talep Asistanı';
 
-  // Modal Inner HTML (Pure chat-first architecture)
   container.innerHTML = [
     // Top Bar
     '<div style="height:56px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;background:rgba(13,18,29,0.95);backdrop-filter:blur(16px);flex-shrink:0;z-index:10;gap:8px">',
-      // Left: Avatar + Title
       '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">',
-        '<div style="position:relative;width:34px;height:34px;min-width:34px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center;box-shadow:0 0 16px rgba(66,133,244,0.35);flex-shrink:0">',
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none">',
-            '<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/>',
-            '<defs><linearGradient id="lv-g-grad" x1="2" y1="2" x2="22" y2="22"><stop offset="0%" stop-color="#60a5fa"/><stop offset="50%" stop-color="#c084fc"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>',
-          '</svg>',
+        '<div style="position:relative;width:34px;height:34px;min-width:34px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,0.12);display:grid;place-items:center;flex-shrink:0">',
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>',
           '<span style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:#10b981;border:1.5px solid #0d121d"></span>',
         '</div>',
         '<div style="min-width:0;overflow:hidden">',
-          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar</div>',
+          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar &amp; Talep</div>',
           '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + subText + '</div>',
         '</div>',
       '</div>',
-      // Right Actions: Quick 3D button + Close
       '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">',
-        '<button id="lv-btn-instant-3d" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(66,133,244,0.35);white-space:nowrap">',
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-          '<span>✦ 3D Tasarla</span>',
+        '<button id="lv-btn-submit-req" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(37,99,235,0.35);white-space:nowrap">',
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+          '<span>✦ Talebi Atölyeye İlet</span>',
         '</button>',
-        '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1;transition:all .2s">&#x2715;</button>',
+        '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1">&#x2715;</button>',
       '</div>',
     '</div>',
 
-    // Main Chat Stream (Everything happens here!)
+    // Main Chat Stream
     '<div id="lv-chat-pane" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">',
       '<div id="lv-chat-stream" class="lv-gemini-scroll lv-chat-stream-pad" style="flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:18px;-webkit-overflow-scrolling:touch"></div>',
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
-        '<button class="lv-gemini-chip" data-hint="Hayalimdeki mobilyanın tarzı ve detayları şunlar: ">✦ Hayalimi Anlatmak İstiyorum</button>',
-        '<button class="lv-gemini-chip" data-hint="Mekanım için modern ve minimalist bir tasarım istiyorum.">✦ Minimalist &amp; Modern</button>',
-        '<button class="lv-gemini-chip" data-hint="Doğal masif ahşap dokulu ve sıcak tonlarda olsun.">✦ Doğal Masif Ahşap</button>',
-        '<button class="lv-gemini-chip" data-hint="Gizli çekmeceli ve çok fonksiyonlu depolama alanı olsun.">✦ Fonksiyonel Depolama</button>',
-        '<button class="lv-gemini-chip" data-hint="Ölçü ve malzeme konusunda bana öneride bulunur musun?">✦ Mimar Önerisi Al</button>',
+        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">✦ Ölçü &amp; Mekan Detayı</button>',
+        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">✦ Malzeme &amp; Ahşap Tonu</button>',
+        '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">✦ Bölme &amp; Fonksiyon</button>',
+        '<button class="lv-gemini-chip" data-hint="Bu tasarım için mimari önerinizi ve imalat süresini öğrenebilir miyim?">✦ İmalat &amp; Süreç Danış</button>',
       '</div>',
 
       // Attached photo preview banner
@@ -1826,17 +1158,17 @@ window.lvOpenCustomerRequest = function(target) {
         '<div style="position:relative;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1.5px solid #38bdf8;flex-shrink:0">',
           '<img id="lv-attached-img-thumb" src="" style="width:100%;height:100%;object-fit:cover;display:block">',
         '</div>',
-        '<div style="flex:1;font-size:12px;color:#cbd5e1">Fotoğraf eklendi &bull; Tasarıma aktarılacak</div>',
+        '<div style="flex:1;font-size:12px;color:#cbd5e1">Fotoğraf eklendi &bull; Talebe eklenecek</div>',
         '<button id="lv-remove-photo-btn" type="button" style="background:none;border:none;color:#ef4444;font-size:18px;cursor:pointer;padding:4px">&#x2715;</button>',
       '</div>',
 
       // Bottom input bar
       '<div style="padding:10px 14px max(12px, env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,0.06);background:rgba(10,15,24,0.98);flex-shrink:0">',
         '<div id="lv-input-shell" class="lv-gemini-input-shell" style="min-height:48px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:26px;padding:4px 6px 4px 12px;display:flex;align-items:center;gap:8px;transition:all .2s">',
-          '<button id="lv-btn-photo-pick" type="button" title="Örnek Fotoğraf Ekle" style="width:36px;height:36px;min-width:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;transition:all .2s;flex-shrink:0">',
+          '<button id="lv-btn-photo-pick" type="button" title="Mekan / Referans Fotoğrafı Ekle" style="width:36px;height:36px;min-width:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;transition:all .2s;flex-shrink:0">',
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
           '</button>',
-          '<textarea id="lv-prompt-input" rows="1" placeholder="Mobilyanızı anlatın… (örn: 190 cm ceviz konsol)" style="flex:1;height:24px;min-height:24px;max-height:96px;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14px;line-height:20px;font-family:inherit;padding:2px 0;resize:none;box-sizing:border-box"></textarea>',
+          '<textarea id="lv-prompt-input" rows="1" placeholder="Mobilyanızı anlatın… (örn: 2 metre meşe dolap, füme cam kapak)" style="flex:1;height:24px;min-height:24px;max-height:96px;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14px;line-height:20px;font-family:inherit;padding:2px 0;resize:none;box-sizing:border-box"></textarea>',
           '<button id="lv-btn-send-prompt" type="button" class="lv-cta-primary" style="width:38px;height:38px;min-width:38px;border-radius:50%;display:grid;place-items:center;flex-shrink:0">',
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
           '</button>',
@@ -1858,7 +1190,7 @@ window.lvOpenCustomerRequest = function(target) {
   var photoPreviewBar = container.querySelector('#lv-photo-preview-bar');
   var attachedImgThumb = container.querySelector('#lv-attached-img-thumb');
   var removePhotoBtn = container.querySelector('#lv-remove-photo-btn');
-  var instant3dBtn = container.querySelector('#lv-btn-instant-3d');
+  var submitReqBtn = container.querySelector('#lv-btn-submit-req');
   var closeModalBtn = container.querySelector('#lv-btn-close-modal');
 
   // Auto-resize textarea
@@ -1868,45 +1200,27 @@ window.lvOpenCustomerRequest = function(target) {
     promptInput.style.height = Math.max(newH, 24) + 'px';
   });
 
-  // Markdown Formatter for Assistant Messages
+  // Markdown Formatter
   function formatAssistantMessage(raw) {
     if (!raw) return '';
-    var text = String(raw);
-    text = text.replace(/\[(?:Se[c\u00e7]enek|Option|\d+)[^\]]*\]/gi, '');
-    text = text.replace(/\|?\s*Tasar[i\u0131]m[i\u0131] 3D [^\n]*/gi, '');
-    text = text.replace(/\|?\s*3D (?:Tasarla|Olu[s\u015f]tur)[^\n]*/gi, '');
-    text = text.replace(/^(\s*\|[^\n]+\n?)+/gm, '');
-    text = text.trim();
-
+    var text = String(raw).trim();
     var escHtml = esc(text);
     escHtml = escHtml.replace(/\*\*([^\*]+)\*\*/g, '<strong style="color:#f8fafc;font-weight:700">$1</strong>');
     escHtml = escHtml.replace(/^[\-*\u2022]\s+(.+)$/gm, '<li style="margin-left:16px;margin-bottom:3px;color:#cbd5e1">$1</li>');
     escHtml = escHtml.replace(/^(\d+)\.\s+(.+)$/gm, '<li style="margin-left:16px;margin-bottom:3px;list-style-type:decimal;color:#cbd5e1">$2</li>');
     escHtml = escHtml.replace(/\n\n+/g, '</p><p style="margin:8px 0 0">');
     escHtml = escHtml.replace(/\n/g, '<br>');
-
     return '<p style="margin:0;line-height:1.6;font-size:14px;color:#e2e8f0">' + escHtml + '</p>';
   }
 
-  // Render Single Message in Chat Stream
+  // Render Single Message
   function renderMessage(msg) {
     var isUser = msg.role === 'user';
+    var isAdmin = msg.role === 'admin';
     var wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;flex-direction:column;width:100%;' + (isUser ? 'align-items:flex-end;' : 'align-items:flex-start;') + 'animation:lvFadeInUp .2s ease both';
 
-    if (!isUser) {
-      // AI Message
-      var headerRow = document.createElement('div');
-      headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
-      headerRow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg><span style="font-size:11.5px;font-weight:700;color:#94a3b8">Lavora AI Mimar</span>';
-      wrap.appendChild(headerRow);
-
-      var body = document.createElement('div');
-      body.style.cssText = 'width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
-      body.innerHTML = formatAssistantMessage(msg.content);
-      wrap.appendChild(body);
-    } else {
-      // User Message
+    if (isUser) {
       var userBubble = document.createElement('div');
       userBubble.style.cssText = 'max-width:85%;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid rgba(255,255,255,0.12);border-radius:18px 18px 4px 18px;padding:11px 16px;color:#f8fafc;font-size:14px;line-height:1.55;box-shadow:0 4px 14px rgba(0,0,0,0.3)';
       var uHtml = esc(msg.content || '').replace(/\n/g, '<br>');
@@ -1915,6 +1229,28 @@ window.lvOpenCustomerRequest = function(target) {
       }
       userBubble.innerHTML = uHtml;
       wrap.appendChild(userBubble);
+    } else if (isAdmin) {
+      // Admin Response Highlight
+      var headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
+      headerRow.innerHTML = '<span style="font-size:11.5px;font-weight:800;color:#10b981">✦ Lavora Yönetici / Atölye Yanıtı</span>';
+      wrap.appendChild(headerRow);
+
+      var body = document.createElement('div');
+      body.style.cssText = 'width:100%;background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.3);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
+      body.innerHTML = formatAssistantMessage(msg.content);
+      wrap.appendChild(body);
+    } else {
+      // AI Architect Message
+      var headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
+      headerRow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg><span style="font-size:11.5px;font-weight:700;color:#94a3b8">Lavora AI Mimar</span>';
+      wrap.appendChild(headerRow);
+
+      var body = document.createElement('div');
+      body.style.cssText = 'width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
+      body.innerHTML = formatAssistantMessage(msg.content);
+      wrap.appendChild(body);
     }
 
     chatStream.appendChild(wrap);
@@ -1926,234 +1262,95 @@ window.lvOpenCustomerRequest = function(target) {
   // Render initial messages
   conversation.forEach(renderMessage);
 
-  // Full-Screen Lightbox for Inspecting Image ("tıklayalım inceleyelim düzgünce")
-  function openImageLightbox(imgSrc, title, specsText) {
-    var lb = document.createElement('div');
-    lb.id = 'lv-image-lightbox';
-    lb.style.cssText = 'position:fixed;inset:0;z-index:9999999;background:rgba(4,6,12,0.94);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;animation:lvFadeInUp .2s ease';
+  // Render Request Brief Card
+  function renderRequestSummaryCard() {
+    var existing = container.querySelector('#lv-request-summary-card');
+    if (existing) existing.remove();
 
-    lb.innerHTML = [
-      // Top Controls
-      '<div style="width:100%;max-width:960px;display:flex;align-items:center;justify-content:space-between;padding:8px 0;margin-bottom:12px">',
-        '<div>',
-          '<div style="font-size:16px;font-weight:800;color:#f8fafc">' + esc(title || '3D Mimari Çizim') + '</div>',
-          '<div style="font-size:11.5px;color:#94a3b8">8K Fotogerçekçi Stüdyo Renderı</div>',
-        '</div>',
-        '<div style="display:flex;align-items:center;gap:10px">',
-          '<a href="' + imgSrc + '" download="lavora-tasarim.png" class="lv-cta-secondary" style="height:36px;padding:0 14px;border-radius:50px;font-size:12.5px;display:flex;align-items:center;gap:6px;text-decoration:none">',
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-            '<span>İndir</span>',
-          '</a>',
-          '<button id="lv-lb-close" type="button" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#f1f5f9;cursor:pointer;display:grid;place-items:center;font-size:18px">&#x2715;</button>',
-        '</div>',
-      '</div>',
-      // High-Res Image View
-      '<div style="position:relative;width:100%;max-width:960px;max-height:76vh;display:flex;align-items:center;justify-content:center;background:#03060d;border-radius:20px;border:1px solid rgba(255,255,255,0.12);overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,0.9)">',
-        '<img src="' + imgSrc + '" style="max-width:100%;max-height:76vh;object-fit:contain;display:block">',
-      '</div>',
-      // Bottom Specs Bar
-      specsText ? ('<div style="margin-top:12px;font-size:13px;color:#cbd5e1;max-width:960px;text-align:center;line-height:1.4">' + esc(specsText) + '</div>') : ''
-    ].join('');
+    var brief = window.LavoraAI.parseRequestBrief(conversation);
 
-    document.body.appendChild(lb);
-    lb.querySelector('#lv-lb-close').onclick = function() { lb.remove(); };
-    lb.onclick = function(e) { if (e.target === lb) lb.remove(); };
-  }
+    var cardWrap = document.createElement('div');
+    cardWrap.id = 'lv-request-summary-card';
+    cardWrap.style.cssText = 'display:flex;flex-direction:column;width:100%;align-items:flex-start;animation:lvFadeInUp .3s ease both;margin-top:6px';
 
-  // Render 3D Visual Result Card DIRECTLY in the chat stream!
-  function renderVisualResultCard(imgUrl, specs, estimate) {
-    latestGeneratedVisualUrl = imgUrl;
-    latestSpecs = specs;
-    latestEstimate = estimate;
-
-    var wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-direction:column;width:100%;align-items:flex-start;animation:lvFadeInUp .3s ease both;margin-top:6px';
-
-    // Header
-    var headerRow = document.createElement('div');
-    headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
-    headerRow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg><span style="font-size:11.5px;font-weight:700;color:#38bdf8">3D Tasarım Hazırlandı • Tıklayıp Büyütebilirsiniz</span>';
-    wrap.appendChild(headerRow);
-
-    // Interactive Card Body
-    var card = document.createElement('div');
-    card.className = 'lv-chat-card';
-    card.style.cssText = 'width:100%;background:rgba(15,23,42,0.7);border:1px solid rgba(66,133,244,0.3);border-radius:18px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.35)';
-
-    card.innerHTML = [
-      // Clickable Image Canvas
-      '<div class="lv-render-thumb" title="Tam ekran incelemek için tıklayın">',
-        '<img src="' + imgUrl + '" alt="3D Mobilya Tasarımı">',
-        '<div class="lv-render-overlay">',
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
-          '<span>Büyüt &amp; Detaylı İncele</span>',
+    cardWrap.innerHTML = [
+      '<div style="width:100%;background:rgba(15,23,42,0.85);border:1.5px solid rgba(37,99,235,0.4);border-radius:18px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.4)">',
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">',
+          '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:6px">',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+            '<span>Proje &amp; Tasarım Talebi Özeti</span>',
+          '</div>',
+          '<span style="background:rgba(37,99,235,0.2);color:#93c5fd;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">Atölyeye Hazır</span>',
         '</div>',
-        '<div style="position:absolute;top:10px;left:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);padding:4px 10px;border-radius:50px;font-size:10.5px;font-weight:700;color:#38bdf8">✦ 8K STÜDYO ÇİZİMİ</div>',
-      '</div>',
-
-      // Bento Specs Grid
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px">',
-        '<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Tasarım Konsepti</div>',
-          '<div style="font-size:15px;font-weight:800;color:#f8fafc">' + esc(specs.itemName || 'Özel Tasarım Mobilya') + '</div>',
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">',
+          '<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
+            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">İmalat Ürünü</div>',
+            '<div style="font-size:14px;font-weight:800;color:#f8fafc">' + esc(brief.itemName) + '</div>',
+          '</div>',
+          '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
+            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Ölçü</div>',
+            '<div style="font-size:13px;font-weight:700;color:#cbd5e1">' + esc(brief.dimensions) + '</div>',
+          '</div>',
+          '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
+            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Malzeme &amp; Aksam</div>',
+            '<div style="font-size:13px;font-weight:700;color:#38bdf8">' + esc(brief.material) + '</div>',
+          '</div>',
         '</div>',
-        '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Ölçüler</div>',
-          '<div style="font-size:13px;font-weight:700;color:#cbd5e1">' + esc(specs.dimensions || 'Kişiye özel') + '</div>',
-        '</div>',
-        '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Malzeme</div>',
-          '<div style="font-size:13px;font-weight:700;color:#38bdf8">' + esc(specs.material || 'Doğal Ahşap') + '</div>',
-        '</div>',
-        '<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Detaylar &amp; Donanım</div>',
-          '<div style="font-size:12.5px;color:#94a3b8">' + esc(specs.specs || 'Özel mimari detaylar') + '</div>',
-        '</div>',
-        '<div style="padding:10px 12px;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(6,182,212,0.08));border:1px solid rgba(16,185,129,0.3);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#34d399;text-transform:uppercase">Tahmini Bütçe</div>',
-          '<div style="font-size:16px;font-weight:800;color:#10b981">' + esc(estimate.minStr + ' – ' + estimate.maxStr) + '</div>',
-        '</div>',
-        '<div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-          '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">İmalat Süresi</div>',
-          '<div style="font-size:15px;font-weight:800;color:#e2e8f0">' + esc(estimate.days + ' İş Günü') + '</div>',
-        '</div>',
-      '</div>',
-
-      // Actions
-      '<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">',
-        '<button class="lv-btn-card-zoom lv-cta-secondary" type="button" style="flex:1;height:38px;border-radius:10px;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px">',
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-          '<span>Büyüt &amp; İncele</span>',
-        '</button>',
-        '<button class="lv-btn-card-regen lv-cta-secondary" type="button" style="flex:1;height:38px;border-radius:10px;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px">',
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
-          '<span>Farklı Açıdan Üret</span>',
-        '</button>',
-        '<button class="lv-btn-card-approve lv-cta-primary" type="button" style="width:100%;height:42px;border-radius:10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px">',
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
-          '<span>Talebi Onayla &amp; Atölyeye Gönder</span>',
+        '<button id="lv-btn-confirm-send-req" type="button" class="lv-cta-primary" style="width:100%;height:42px;border-radius:10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px">',
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+          '<span>Talebi ve Sohbet Geçmişini Atölyeye İlet</span>',
         '</button>',
       '</div>'
     ].join('');
 
-    // Attach Click Events
-    var thumb = card.querySelector('.lv-render-thumb');
-    var zoomBtn = card.querySelector('.lv-btn-card-zoom');
-    var regenBtn = card.querySelector('.lv-btn-card-regen');
-    var approveBtn = card.querySelector('.lv-btn-card-approve');
-
-    var openZoom = function() {
-      openImageLightbox(imgUrl, specs.itemName, (specs.dimensions + ' • ' + specs.material + ' • ' + estimate.minStr + ' – ' + estimate.maxStr));
-    };
-    thumb.onclick = openZoom;
-    zoomBtn.onclick = openZoom;
-
-    regenBtn.onclick = function() {
-      triggerInChatGeneration('alternative 3/4 cinematic angle with warm dynamic studio lighting');
-    };
-
-    approveBtn.onclick = async function() {
-      approveBtn.disabled = true;
-      approveBtn.innerHTML = '<span style="display:inline-block;animation:lvSpinSlow 1s linear infinite">✦</span> Atölyeye İletiliyor…';
-      try {
-        if (window.lvSendCustomerRequest) {
-          await window.lvSendCustomerRequest({
-            specs: specs,
-            estimate: estimate,
-            visual: imgUrl,
-            projectId: pId,
-            projectName: pName
-          });
-        }
-        approveBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Atölyeye Başarıyla Gönderildi!';
-        approveBtn.style.background = '#10b981';
-      } catch(err) {
-        approveBtn.disabled = false;
-        approveBtn.innerHTML = '<span>Talebi Onayla &amp; Atölyeye Gönder</span>';
-      }
-    };
-
-    wrap.appendChild(card);
-    chatStream.appendChild(wrap);
+    chatStream.appendChild(cardWrap);
+    cardWrap.querySelector('#lv-btn-confirm-send-req').onclick = submitFullRequest;
     requestAnimationFrame(function() {
       chatStream.scrollTop = chatStream.scrollHeight;
     });
   }
 
-  // Generate 3D Visual IN THE CHAT STREAM!
-  async function triggerInChatGeneration(anglePrompt) {
-    if (isGenerating) return;
-    isGenerating = true;
-
-    // Append In-Chat Progress Card
-    var progressWrap = document.createElement('div');
-    progressWrap.id = 'lv-inchat-progress';
-    progressWrap.style.cssText = 'display:flex;flex-direction:column;width:100%;align-items:flex-start;animation:lvFadeInUp .2s ease both';
-    progressWrap.innerHTML = [
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px">',
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
-        '<span style="font-size:11.5px;font-weight:700;color:#94a3b8">Lavora AI Mimar</span>',
-      '</div>',
-      '<div style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(66,133,244,0.3);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px">',
-        '<div style="position:relative;width:40px;height:40px;flex-shrink:0">',
-          '<div style="position:absolute;inset:0;border-radius:50%;border:2.5px solid rgba(66,133,244,0.15)"></div>',
-          '<div style="position:absolute;inset:0;border-radius:50%;border:2.5px solid transparent;border-top-color:#60a5fa;border-right-color:#c084fc;animation:lvSpinSlow 1s linear infinite"></div>',
-          '<div style="position:absolute;inset:0;display:grid;place-items:center">',
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
-          '</div>',
-        '</div>',
-        '<div style="flex:1">',
-          '<div id="lv-inchat-step-title" style="font-size:13.5px;font-weight:700;color:#f8fafc">1/2 Hayal ettiğiniz mobilyanın mimari detayları analiz ediliyor…</div>',
-          '<div style="font-size:11.5px;color:#94a3b8;margin-top:2px">Ölçüler, ahşap dokusu ve aksesuarlar Flux motoruna aktarılıyor</div>',
-        '</div>',
-      '</div>'
-    ].join('');
-    chatStream.appendChild(progressWrap);
-    chatStream.scrollTop = chatStream.scrollHeight;
+  // Submit Request Handler
+  async function submitFullRequest() {
+    var brief = window.LavoraAI.parseRequestBrief(conversation);
+    submitReqBtn.disabled = true;
+    submitReqBtn.innerHTML = '<span>İletiliyor…</span>';
 
     try {
-      // Step 1: Extract design with deep English prompt
-      var specs = await window.LavoraAI.extractDesignFromChat(conversation);
-      var estimate = window.lvEstimateFurniturePrice(specs);
+      if (window.lvSendCustomerRequest) {
+        await window.lvSendCustomerRequest({
+          subject: brief.itemName,
+          itemName: brief.itemName,
+          dimensions: brief.dimensions,
+          material: brief.material,
+          text: brief.summary,
+          specs: brief,
+          chatHistory: conversation,
+          customerPhoto: userAttachedPhoto,
+          projectId: pId,
+          projectName: pName
+        });
+      }
 
-      var stepTitle = progressWrap.querySelector('#lv-inchat-step-title');
-      if (stepTitle) stepTitle.textContent = '2/2 Flux 8K fotogerçekçi stüdyo çizimi üretiliyor…';
+      submitReqBtn.innerHTML = '<span>İletildi!</span>';
+      submitReqBtn.style.background = '#10b981';
 
-      // Step 2: Generate visual
-      var prompt = specs.fluxPrompt || ('commercial studio product photograph of bespoke custom ' + (specs.itemName || 'furniture') + ', solid natural wood, clean architectural background, soft warm lighting, 8k resolution, photorealistic');
-      if (anglePrompt) prompt += ', ' + anglePrompt;
-
-      var imgUrl = await window.LavoraAI.generateProductVisual(prompt);
-
-      // Remove progress card and render final visual card
-      progressWrap.remove();
-      renderVisualResultCard(imgUrl, specs, estimate);
-
-      // Follow-up AI message
-      var followUp = {
+      var successMsg = {
         role: 'assistant',
-        content: 'Tasarımınızı hayal ettiğiniz tüm detaylarla 3D olarak görselleştirdim! Görsele tıklayarak tam ekranda yakından inceleyebilirsiniz.\n\nBeğenmediğiniz bir detay varsa (örneğin "kulpları pirinç yerine mat siyah yap", "yüksekliği artır" vb.) bana yazabilirsiniz; hemen revize edebiliriz.'
+        content: 'Tasarım talebiniz ve sohbet geçmişiniz Lavora Yönetici Paneline başarıyla iletildi! Mimarlarımız ve atölye ekibimiz projenizi inceleyip bu sistem üzerinden size yanıt iletecektir.'
       };
-      conversation.push(followUp);
-      renderMessage(followUp);
+      conversation.push(successMsg);
+      renderMessage(successMsg);
 
+      if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla kaydedildi!');
     } catch(err) {
-      console.error('In-chat generation error:', err);
-      progressWrap.remove();
-      var errorMsg = {
-        role: 'assistant',
-        content: 'Görsel üretimi sırasında bir aksaklık oluştu: ' + (err.message || 'Lütfen tekrar deneyin.')
-      };
-      conversation.push(errorMsg);
-      renderMessage(errorMsg);
-    } finally {
-      isGenerating = false;
+      submitReqBtn.disabled = false;
+      submitReqBtn.innerHTML = '<span>✦ Talebi Atölyeye İlet</span>';
+      if (typeof toast === 'function') toast('Hata: ' + err.message);
     }
   }
 
-  instant3dBtn.onclick = function() {
-    triggerInChatGeneration();
-  };
+  submitReqBtn.onclick = submitFullRequest;
 
   // Chips click handler
   chipsBar.querySelectorAll('.lv-gemini-chip').forEach(function(chip) {
@@ -2221,26 +1418,14 @@ window.lvOpenCustomerRequest = function(target) {
     photoBtn.style.borderColor = 'rgba(255,255,255,0.1)';
     sendBtn.disabled = true;
 
-    // Check if user's input expresses a desire to generate or see the model
-    var lc = text.toLowerCase().trim();
-    var userWantsGen = /(oluştur|üret|tasarla|çiz|göster|yap|başla|tamam|hazırla|hadi|bakalım|3d|görsel|resim|fotoğraf)/i.test(lc);
-    var userTurnsCount = conversation.filter(function(m) { return m.role === 'user'; }).length;
-
-    if (userWantsGen && (userTurnsCount >= 1 || text.length > 25)) {
-      sendBtn.disabled = false;
-      promptInput.focus();
-      triggerInChatGeneration();
-      return;
-    }
-
     // Typing indicator
     var typingWrap = document.createElement('div');
     typingWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding-left:2px;animation:lvFadeInUp .2s ease both';
     typingWrap.innerHTML = [
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#lv-g-grad)"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>',
       '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:6px">',
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;animation:lvTypingDot 1.2s infinite ease-in-out"></span>',
-        '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#c084fc;animation:lvTypingDot 1.2s infinite ease-in-out .2s"></span>',
+        '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#a78bfa;animation:lvTypingDot 1.2s infinite ease-in-out .2s"></span>',
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f472b6;animation:lvTypingDot 1.2s infinite ease-in-out .4s"></span>',
         '<span style="font-size:12px;color:#94a3b8;margin-left:4px">Mimar düşünüyor…</span>',
       '</div>'
@@ -2255,21 +1440,16 @@ window.lvOpenCustomerRequest = function(target) {
       conversation.push(aiMsg);
       renderMessage(aiMsg);
 
-      // AUTOMATIC TRIGGER: If the AI says it created the 3D model or design is complete,
-      // IMMEDIATELY trigger generation so user never has to type 'oluştur' again!
-      var designState = window.LavoraAI.parseDesign ? window.LavoraAI.parseDesign(conversation) : null;
-      var hasFurniture = designState && designState.type;
-      var userWantsGen = /(oluştur|üret|tasarla|çiz|göster|yap|başla|tamam|hazırla|hadi|bakalım|3d|görsel|resim|fotoğraf)/i.test(text);
-
-      if (hasFurniture || userWantsGen) {
-        triggerInChatGeneration();
+      // Check if user specified key info and show summary card
+      var userTurns = conversation.filter(function(m) { return m.role === 'user'; }).length;
+      if (userTurns >= 1) {
+        renderRequestSummaryCard();
       }
-
     } catch(err) {
       typingWrap.remove();
       var fallback = {
         role: 'assistant',
-        content: 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve ölçü detayları tamamlandıysa hemen 3D stüdyo çizimini oluşturabilirim.'
+        content: 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve mekan ölçülerinizi ilettiğinizde projenizi doğrudan atölye ekibimize aktarabiliriz.'
       };
       conversation.push(fallback);
       renderMessage(fallback);
@@ -2284,6 +1464,11 @@ window.lvOpenCustomerRequest = function(target) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendUserMessage();
+    }
+  };
+};
+
+;
     }
   };
 };;;;;
@@ -6778,6 +5963,48 @@ window.lvReloadAdminReqList=function(filterStatus){
    body.style.cssText='font-size:13px;color:var(--ink);white-space:pre-wrap;line-height:1.5;background:var(--s);padding:10px 14px;border-radius:10px;margin-bottom:10px';
    body.textContent=r.text||'';
    card.append(body);
+   // Chat history accordion
+   if (r.chatHistory && Array.isArray(r.chatHistory) && r.chatHistory.length > 0) {
+    const chatToggleBtn = document.createElement('button');
+    chatToggleBtn.style.cssText = 'padding:6px 12px;background:rgba(37,99,235,0.12);color:#60a5fa;border:1px solid rgba(37,99,235,0.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:10px';
+    chatToggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Sohbet Geçmişini Gör (' + r.chatHistory.length + ' Mesaj)';
+    
+    const chatBox = document.createElement('div');
+    chatBox.style.cssText = 'display:none;background:var(--s);border:1px solid var(--ln);border-radius:12px;padding:12px;margin-bottom:12px;max-height:280px;overflow-y:auto;flex-direction:column;gap:8px';
+    
+    r.chatHistory.forEach(function(m) {
+     const isUser = m.role === 'user';
+     const isAdmin = m.role === 'admin';
+     const mDiv = document.createElement('div');
+     mDiv.style.cssText = 'display:flex;flex-direction:column;align-items:' + (isUser ? 'flex-end' : 'flex-start') + ';margin-bottom:6px';
+     const bubble = document.createElement('div');
+     bubble.style.cssText = isUser
+       ? 'background:rgba(30,41,59,0.9);border:1px solid rgba(255,255,255,0.12);border-radius:12px 12px 2px 12px;padding:8px 12px;color:#f8fafc;font-size:12px;max-width:85%'
+       : (isAdmin
+           ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:12px 12px 12px 2px;padding:8px 12px;color:#34d399;font-size:12px;max-width:85%'
+           : 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:12px 12px 12px 2px;padding:8px 12px;color:#cbd5e1;font-size:12px;max-width:85%');
+     
+     const sender = isUser ? 'Müşteri' : (isAdmin ? 'Yönetici (Siz)' : 'Lavora AI Mimar');
+     bubble.innerHTML = '<div style="font-size:10px;font-weight:700;color:var(--mu);margin-bottom:2px">' + sender + '</div>' + esc(m.content || '').replace(/\n/g, '<br>');
+     if (m.photo) {
+       bubble.innerHTML += '<div style="margin-top:6px"><img src="' + m.photo + '" style="max-width:140px;max-height:100px;border-radius:6px;display:block"></div>';
+     }
+     mDiv.appendChild(bubble);
+     chatBox.appendChild(mDiv);
+    });
+
+    chatToggleBtn.onclick = function() {
+     const isHidden = chatBox.style.display === 'none';
+     chatBox.style.display = isHidden ? 'flex' : 'none';
+     chatToggleBtn.innerHTML = isHidden
+       ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>Sohbet Geçmişini Gizle'
+       : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Sohbet Geçmişini Gör (' + r.chatHistory.length + ' Mesaj)';
+    };
+
+    card.append(chatToggleBtn);
+    card.append(chatBox);
+   }
+
    
    // Reply if exists
    if(r.reply){
@@ -6922,7 +6149,15 @@ window.lvAdminReply=function(reqId,ownerUid,reqData){
   btn.disabled=true;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Gönderiliyor…';
   try{
    const p2=ownerUid?path('customer_requests').child(ownerUid).child(reqId):path('customer_requests').child(reqId);
-   await p2.update({reply:val,status:'answered',repliedAt:Date.now()});
+   try {
+    const snap = await p2.once('value');
+    const curVal = snap.val() || {};
+    const curHistory = Array.isArray(curVal.chatHistory) ? curVal.chatHistory.slice() : [];
+    curHistory.push({ role: 'admin', content: val, timestamp: Date.now() });
+    await p2.update({ reply: val, status: 'answered', repliedAt: Date.now(), chatHistory: curHistory });
+  } catch(_) {
+    await p2.update({ reply: val, status: 'answered', repliedAt: Date.now() });
+  }
    ov.remove();
    if(typeof lvReloadAdminReqList==='function') lvReloadAdminReqList();
    if(typeof toast==='function') toast('Yanıt müşteriye başarıyla iletildi');
