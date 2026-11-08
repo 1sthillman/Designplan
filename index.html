@@ -899,36 +899,35 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
   const uTxt = userMsgs.join(" ");
 
   const systemPrompt = "You are a world-class architectural furniture designer and senior diffusion prompt engineer for Flux-1.\n" +
-    "A customer has described their bespoke furniture vision in Turkish.\n" +
+    "A customer is designing bespoke luxury furniture in Turkish.\n" +
+    "Read the conversation carefully. Accurately identify their latest choices (furniture type, colors, finishes, materials, legs, dimensions).\n\n" +
     "Extract their request into a clean, valid JSON object:\n" +
     "{\n" +
-    "  \"itemName\": \"Bordo Gradyanlı Oval Ayakkabılık\",\n" +
-    "  \"dimensions\": \"130 × 42 × 105 cm\",\n" +
-    "  \"material\": \"Masif Ceviz, Bordo Lake, Fırçalanmış Pirinç\",\n" +
-    "  \"specs\": \"Bombeli kavisli gövde, 5 çift ayakkabı kapasiteli raflar, bas-aç kapaklar\",\n" +
+    "  \"itemName\": \"Descriptive Turkish title reflecting the customer's exact furniture and color choices (e.g. Turuncu ve Füme Camlı Oval Ayakkabılık)\",\n" +
+    "  \"dimensions\": \"Realistic dimensions in cm (e.g. 110 × 38 × 95 cm)\",\n" +
+    "  \"material\": \"Exact materials and colors specified by customer in Turkish (e.g. Turuncu Lake, Füme Cam, Beyaz Ayaklar)\",\n" +
+    "  \"specs\": \"Key functional features in Turkish\",\n" +
     "  \"fluxPrompt\": \"A single cohesive 100% ENGLISH prompt for Flux-1\"\n" +
     "}\n\n" +
-    "STRICT ARCHITECTURAL DESIGN RULES FOR FLUX PROMPT:\n" +
-    "1. ONLY CUSTOMER CONFIRMED SPECS:\n" +
-    "   - Discard unconfirmed architect suggestions (e.g. if the assistant asked about placing a drawer on top, do NOT include drawers on top).\n" +
-    "   - NEVER put a drawer on top of a wardrobe or cabinet roof! Wardrobe doors must be full-length vertical doors.\n" +
-    "2. FURNITURE TYPOLOGY INTEGRITY (NEVER CONFUSE TYPOLOGIES):\n" +
-    "   - ayakkabılık (shoe cabinet) -> \"A bespoke freestanding luxury shoe storage credenza cabinet with interior shoe shelving and enclosed front doors\" (NEVER a coffee table, NEVER a dining table, NOT a vitrine)\n" +
-    "   - dolap / gardrop (wardrobe) -> \"A luxurious tall freestanding 2-door bedroom wardrobe armoire, 2 meters high and 1 meter wide, with full-height doors\" (NEVER detached boxes, NEVER drawers on top)\n" +
-    "   - konsol / büfe (console/sideboard) -> \"A luxury modern credenza sideboard console credenza\"\n" +
-    "   - masa / çalışma masası (desk/dining table) -> \"A luxury bespoke solid wood table\"\n" +
-    "3. COHESIVE UNIFIED SILHOUETTE:\n" +
-    "   - Single unified architectural piece. All drawers, shelves, and compartments must be FULLY INTEGRATED INSIDE the main body.\n" +
-    "   - If customer mentions \"oval\" or \"bombeli\", translate to \"curved rounded convex silhouette with rounded fluted sides\".\n" +
-    "4. COLOR & MATERIAL TRANSLATION (100% PURE ENGLISH IN fluxPrompt):\n" +
-    "   - Translate all Turkish terms: bordo -> deep burgundy wine red ombre gradient finish; akasya -> warm solid acacia wood; ceviz -> solid American walnut wood; meşe -> natural white oak; füme cam -> dark smoked tinted glass; pirinç -> brushed brass; bronz -> architectural brushed bronze; lake -> smooth matte lacquer; hazeran -> natural woven rattan cane webbing.\n" +
-    "   - Strictly NO untranslated Turkish words inside fluxPrompt.\n" +
-    "5. PHOTO SETTING & LIGHTING (STRICTLY BAN WAREHOUSES & NEON):\n" +
-    "   - Authentic luxury residential interior room: wardrobe/vanity in master bedroom; shoe cabinet/console in entryway foyer or living room; dining table in dining room.\n" +
-    "   - Warm herringbone oak parquet floor, soft neutral plaster walls, warm natural morning window daylight.\n" +
-    "   - STRICTLY BAN empty warehouses, neon arches, industrial concrete floors, dark hangars.\n" +
-    "6. PHOTOGRAPHY:\n" +
-    "   - \"Architectural Digest interior photography, Hasselblad 8k, photorealistic, elegant composition, crisp micro-details, natural shadows, warm ambient luxury lighting.\"\n\n" +
+    "STRICT DESIGN RULES FOR FLUX PROMPT:\n" +
+    "1. DYNAMIC COLOR & FINISH FAITHFULNESS:\n" +
+    "   - If customer asks for \"turuncu\", the body MUST be vibrant warm terracotta burnt orange lacquer finish (NOT burgundy, NOT brown).\n" +
+    "   - If customer asks for \"beyaz ayaklar\", the legs MUST be clean modern architectural matte white legs.\n" +
+    "   - If customer asks for \"füme cam\", describe dark smoked tinted glass front doors.\n" +
+    "   - If customer asks for \"bordo\", describe deep burgundy wine red ombre gradient lacquer.\n" +
+    "   - If customer asks for \"ceviz\", describe solid American walnut wood.\n" +
+    "   - If customer asks for \"akasya\", describe warm solid acacia wood.\n" +
+    "   - If customer asks for \"meşe\", describe natural white oak.\n" +
+    "   - If customer asks for \"hazeran\", describe natural woven rattan cane webbing panels.\n" +
+    "2. TYPOLOGY & MORPHOLOGY INTEGRITY:\n" +
+    "   - ayakkabılık (shoe cabinet) -> \"A single bespoke freestanding luxury shoe storage credenza cabinet with interior shoe shelving and enclosed front doors\" (NEVER a coffee table or dining table, NOT a vitrine).\n" +
+    "   - If customer says \"oval\" or \"bombeli\", describe \"an elegant curved rounded convex fluted silhouette\".\n" +
+    "   - dolap / gardrop (wardrobe) -> \"A luxurious tall freestanding 2-door bedroom wardrobe armoire, 2 meters high and 1 meter wide, with full-height doors\" (NEVER detached boxes, NEVER drawers on top).\n" +
+    "3. SILHOUETTE & COHESION:\n" +
+    "   - Always a single unified architectural piece in center foreground. All drawers and shoe shelves are fully enclosed inside the cabinet.\n" +
+    "4. SETTING & LIGHTING (STRICTLY BAN WAREHOUSES & NEON):\n" +
+    "   - Place in a warm luxury residential interior room (entryway foyer, master bedroom, living room) with warm herringbone oak parquet floor, soft neutral walls, and morning natural window daylight.\n" +
+    "   - Architectural Digest interior photography, Hasselblad 8k, photorealistic, elegant composition, crisp micro-details, natural shadows.\n\n" +
     "Return ONLY valid JSON.";
 
   try {
@@ -937,7 +936,7 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
         { role: "system", content: systemPrompt },
         { role: "user", content: "Customer conversation:\n" + fullChat + "\n\nOutput ONLY valid JSON:" }
       ],
-      max_tokens: 600,
+      max_tokens: 800,
       temperature: 0.1
     });
 
@@ -948,20 +947,58 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     else if (typeof data === "string") text = data;
     else text = JSON.stringify(data || "");
 
-    let cleanStr = text.replace(new RegExp("```json", "gi"), "").replace(new RegExp("```", "g"), "").trim();
-    let match = cleanStr.match(/\{[\s\S]*\}/);
-    if (!match && cleanStr.includes("{")) {
-      cleanStr = cleanStr.slice(cleanStr.indexOf("{")) + '\n"}';
-      match = cleanStr.match(/\{[\s\S]*\}/);
+    // BULLETPROOF ROBUST JSON PARSER
+    function cleanAndParse(rawStr) {
+      if (!rawStr || typeof rawStr !== "string") return null;
+      let s = rawStr.replace(new RegExp("```json", "gi"), "").replace(new RegExp("```", "g"), "").trim();
+      const firstBrace = s.indexOf("{");
+      if (firstBrace === -1) return null;
+      s = s.slice(firstBrace);
+
+      try { return JSON.parse(s); } catch(e) {}
+
+      const lastBrace = s.lastIndexOf("}");
+      if (lastBrace > firstBrace) {
+        try { return JSON.parse(s.slice(0, lastBrace + 1)); } catch(e) {}
+      }
+
+      let candidate = s.trim();
+      const quoteCount = (candidate.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) candidate += '"';
+      const openBraces = (candidate.match(/\{/g) || []).length;
+      const closeBraces = (candidate.match(/\}/g) || []).length;
+      if (openBraces > closeBraces) candidate += "}".repeat(openBraces - closeBraces);
+
+      try { return JSON.parse(candidate); } catch(e) {}
+
+      const extractField = (key) => {
+        const rx = new RegExp('"' + key + '"\\s*:\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"?', "i");
+        const m = s.match(rx);
+        return m ? m[1].replace(/\\"/g, '"').replace(/\\n/g, " ") : "";
+      };
+
+      const itemName = extractField("itemName");
+      const dimensions = extractField("dimensions");
+      const material = extractField("material");
+      const specs = extractField("specs");
+      const fluxPrompt = extractField("fluxPrompt");
+
+      if (itemName || fluxPrompt) {
+        return { itemName, dimensions, material, specs, fluxPrompt };
+      }
+      return null;
     }
 
-    if (match) {
-      const parsed = JSON.parse(match[0]);
+    const parsed = cleanAndParse(text);
 
+    if (parsed) {
       var trName = parsed.itemName || "";
       if (!trName || /bespoke|cabinet|credenza|wardrobe|table|luxurious/i.test(trName)) {
         if (/yatak.*dolap|gardrop|dolap/i.test(uTxt)) trName = "Özel Yatak Odası Dolabı";
-        else if (/ayakkab/i.test(uTxt)) trName = "Özel Tasarım Ayakkabılık";
+        else if (/ayakkab/i.test(uTxt)) {
+          if (/turuncu/i.test(uTxt)) trName = "Turuncu Oval Bombeli Ayakkabılık";
+          else trName = "Özel Tasarım Ayakkabılık";
+        }
         else if (/yemek.*masa|yemek/i.test(uTxt)) trName = "Özel Tasarım Yemek Masası";
         else if (/makyaj/i.test(uTxt)) trName = "Özel Makyaj Masası";
         else if (/konsol/i.test(uTxt)) trName = "Özel Tasarım Konsol";
@@ -972,23 +1009,34 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
       }
 
       var dims = String(parsed.dimensions || "");
-      if (!dims || /e\.g\.|örn|örneğin|belirleyelim|genişlik|dimensions|realistic/i.test(dims)) {
+      if (!dims || /e\.g\.|örn|örneğin|belirleyelim|genişlik|dimensions|realistic|specified/i.test(dims)) {
         if (/dolap|gardrop/i.test(uTxt)) dims = "200 × 100 × 60 cm";
-        else if (/ayakkab/i.test(uTxt)) dims = "130 × 42 × 105 cm";
+        else if (/ayakkab/i.test(uTxt)) dims = /küçük|kompakt/i.test(uTxt) ? "100 × 38 × 90 cm" : "130 × 42 × 105 cm";
         else if (/konsol/i.test(uTxt)) dims = "180 × 45 × 85 cm";
         else dims = "200 × 90 × 75 cm";
       }
 
-      var mat = String(typeof parsed.material === "object" ? Object.values(parsed.material).join(", ") : (parsed.material || "Doğal Masif Ahşap & Metal Detaylar"));
-      mat = mat.replace(/warm solid acacia wood/gi, "Masif Akasya Ahşap")
-               .replace(/solid american walnut wood/gi, "Doğal Masif Ceviz")
-               .replace(/brushed brass/gi, "Fırçalanmış Pirinç")
-               .replace(/architectural brushed bronze/gi, "Bronz Metal")
-               .replace(/dark smoked tinted glass/gi, "Füme Cam");
+      var mat = String(typeof parsed.material === "object" ? Object.values(parsed.material).join(", ") : (parsed.material || ""));
+      if (!mat || /exact materials/i.test(mat)) {
+        var matParts = [];
+        if (/turuncu/i.test(uTxt)) matParts.push("Turuncu Lake");
+        else if (/bordo/i.test(uTxt)) matParts.push("Bordo Lake");
+        else if (/ceviz/i.test(uTxt)) matParts.push("Masif Ceviz");
+        else if (/akasya/i.test(uTxt)) matParts.push("Masif Akasya");
+        else if (/meşe/i.test(uTxt)) matParts.push("Doğal Meşe");
+        else matParts.push("Doğal Ahşap & Lake");
 
-      var specsText = String(typeof parsed.specs === "object" ? Object.values(parsed.specs).join(", ") : (parsed.specs || "Özel mimari imalat"));
-      if (/türkçe|fonksiyon detayları|key functional/i.test(specsText)) {
-        specsText = "Özel bombeli gövde, bas-aç kapaklar ve modüler iç raflar";
+        if (/füme cam/i.test(uTxt)) matParts.push("Füme Cam");
+        if (/beyaz ayak/i.test(uTxt)) matParts.push("Mat Beyaz Ayaklar");
+        else if (/pirinç/i.test(uTxt)) matParts.push("Fırçalanmış Pirinç");
+        else if (/bronz/i.test(uTxt)) matParts.push("Bronz Metal");
+
+        mat = matParts.join(", ");
+      }
+
+      var specsText = String(typeof parsed.specs === "object" ? Object.values(parsed.specs).join(", ") : (parsed.specs || ""));
+      if (!specsText || /key functional|fonksiyon detayları/i.test(specsText)) {
+        specsText = "Özel bombeli kavisli gövde, bas-aç kapaklar ve modüler iç ayakkabı rafları";
       }
 
       var fluxPrompt = "";
@@ -1012,22 +1060,47 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     console.warn("extractDesignFromChat error:", err);
   }
 
-  // Fast fallback with proper room composition
+  // Fast intelligent fallback with exact colors from conversation
   const userText = userMsgs.join(" ").trim();
   let fallbackName = "Özel Tasarım Mobilya";
   let enItem = "bespoke luxury furniture";
-  let room = "master bedroom";
-  if (/dolap|gardrop/i.test(userText)) { fallbackName = "Özel Yatak Odası Dolabı"; enItem = "tall freestanding 2-door bedroom wardrobe armoire with smoked glass doors, 2 meters high"; room = "master bedroom"; }
-  else if (/ayakkab/i.test(userText)) { fallbackName = "Özel Tasarım Ayakkabılık"; enItem = "freestanding luxury shoe storage credenza cabinet with interior shoe shelving and curved fluted sides"; room = "entryway foyer"; }
-  else if (/konsol/i.test(userText)) { fallbackName = "Özel Tasarım Konsol"; enItem = "modern luxury credenza sideboard console table"; room = "living room"; }
-  else if (/tv/i.test(userText)) { fallbackName = "Özel TV Ünitesi"; enItem = "modern media console TV credenza"; room = "living room"; }
+  let room = "entryway foyer";
+  let colorsAndMaterials = "solid natural wood";
+
+  if (/turuncu/i.test(userText)) colorsAndMaterials = "vibrant warm terracotta burnt orange lacquer finish";
+  else if (/bordo/i.test(userText)) colorsAndMaterials = "deep burgundy wine red ombre gradient finish";
+  else if (/ceviz/i.test(userText)) colorsAndMaterials = "solid American walnut wood";
+  else if (/akasya/i.test(userText)) colorsAndMaterials = "warm solid acacia wood";
+
+  let extraDetails = "";
+  if (/füme cam/i.test(userText)) extraDetails += ", dark smoked tinted glass front doors";
+  if (/beyaz ayak/i.test(userText)) extraDetails += ", clean architectural modern white legs at the base";
+  else if (/pirinç/i.test(userText)) extraDetails += ", brushed brass legs and hardware";
+
+  if (/ayakkab/i.test(userText)) {
+    fallbackName = /turuncu/i.test(userText) ? "Turuncu Oval Bombeli Ayakkabılık" : "Özel Tasarım Ayakkabılık";
+    enItem = "single freestanding luxury shoe storage credenza cabinet with curved rounded convex fluted silhouette, interior shoe shelving" + extraDetails;
+    room = "entryway foyer";
+  } else if (/dolap|gardrop/i.test(userText)) {
+    fallbackName = "Özel Yatak Odası Dolabı";
+    enItem = "tall freestanding 2-door bedroom wardrobe armoire, 2 meters high" + extraDetails;
+    room = "master bedroom";
+  } else if (/konsol/i.test(userText)) {
+    fallbackName = "Özel Tasarım Konsol";
+    enItem = "modern luxury credenza sideboard console table" + extraDetails;
+    room = "living room";
+  } else if (/tv/i.test(userText)) {
+    fallbackName = "Özel TV Ünitesi";
+    enItem = "modern media console TV credenza" + extraDetails;
+    room = "living room";
+  }
 
   return {
     itemName: fallbackName,
-    dimensions: "200 × 100 × 60 cm",
-    material: "Doğal Ahşap & Metal Detaylar",
-    specs: userText.slice(0, 100) || "Özel tasarım imalatı",
-    fluxPrompt: "A " + enItem + ", solid natural wood craftsmanship, placed in a luxury " + room + " with herringbone parquet floor, warm neutral plaster wall, soft morning window daylight, high-end Architectural Digest editorial photography, 8k resolution, photorealistic"
+    dimensions: /küçük/i.test(userText) ? "100 × 38 × 90 cm" : "130 × 42 × 105 cm",
+    material: (/turuncu/i.test(userText) ? "Turuncu Lake, " : "") + (/füme/i.test(userText) ? "Füme Cam, " : "") + (/beyaz/i.test(userText) ? "Beyaz Ayaklar" : "Doğal Ahşap & Metal"),
+    specs: "Bombeli kavisli gövde, bas-aç kapaklar ve modüler iç raflar",
+    fluxPrompt: "A " + enItem + ", " + colorsAndMaterials + ", placed in a luxury " + room + " with herringbone parquet floor, warm neutral plaster wall, soft morning window daylight, high-end Architectural Digest editorial photography, 8k resolution, photorealistic"
   };
 };
 

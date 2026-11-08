@@ -41,12 +41,62 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Handle Cloudflare AI Proxy
+  // Handle Cloudflare AI Proxy with Seamless High-Availability Fallback
   if (req.url.startsWith('/api/ai/')) {
     const endpoint = req.url.replace('/api/ai/', '');
     let bodyData = '';
     req.on('data', chunk => { bodyData += chunk; });
     req.on('end', async () => {
+      let parsedBody = {};
+      try { parsedBody = JSON.parse(bodyData || '{}'); } catch(e) {}
+
+      // Helper function for fallback when Cloudflare has errors (e.g. daily neuron limit 4006)
+      const executeFallback = async (reason) => {
+        console.log(`[AI-Proxy] Falling back for endpoint "${endpoint}" due to:`, reason);
+        try {
+          if (endpoint === 'text') {
+            const pollRes = await fetch('https://text.pollinations.ai/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: parsedBody.messages || [],
+                model: 'openai'
+              })
+            });
+            const pollText = await pollRes.text();
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({
+              success: true,
+              result: { response: pollText }
+            }));
+            return true;
+          } else if (endpoint === 'image') {
+            const p = parsedBody.prompt || 'bespoke luxury furniture';
+            const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(p)}?model=flux&width=1024&height=1024&nologo=true`;
+            const imgRes = await fetch(imgUrl);
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              const b64 = buf.toString('base64');
+              res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              });
+              res.end(JSON.stringify({
+                success: true,
+                result: { image: b64 }
+              }));
+              return true;
+            }
+          }
+        } catch(fallbackErr) {
+          console.error('[AI-Proxy] Fallback error:', fallbackErr);
+        }
+        return false;
+      };
+
       try {
         let model = '@cf/meta/llama-3.1-8b-instruct';
         if (endpoint === 'image') {
@@ -69,24 +119,40 @@ const server = http.createServer(async (req, res) => {
         });
 
         const contentType = cfRes.headers.get('content-type') || 'application/json';
-        res.writeHead(cfRes.status, {
-          'Content-Type': contentType,
-          'Access-Control-Allow-Origin': '*'
-        });
 
         if (contentType.includes('json')) {
           const json = await cfRes.json();
+          // Check if Cloudflare returned errors (e.g. 10,000 neurons limit 4006)
+          if (!cfRes.ok || (json.errors && json.errors.length > 0)) {
+            const handled = await executeFallback(json.errors?.[0]?.message || ('CF HTTP ' + cfRes.status));
+            if (handled) return;
+          }
+          res.writeHead(cfRes.status, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
           res.end(JSON.stringify(json));
         } else {
+          if (!cfRes.ok) {
+            const handled = await executeFallback('CF HTTP ' + cfRes.status);
+            if (handled) return;
+          }
           const buf = Buffer.from(await cfRes.arrayBuffer());
+          res.writeHead(cfRes.status, {
+            'Content-Type': contentType,
+            'Access-Control-Allow-Origin': '*'
+          });
           res.end(buf);
         }
       } catch (err) {
-        res.writeHead(500, {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        });
-        res.end(JSON.stringify({ success: false, error: err.message }));
+        const handled = await executeFallback(err.message);
+        if (!handled) {
+          res.writeHead(500, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
       }
     });
     return;
@@ -120,19 +186,18 @@ const server = http.createServer(async (req, res) => {
     
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Content-Length': stats.size,
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache'
+      'Access-Control-Allow-Origin': '*'
     });
     
-    fs.createReadStream(safePath).pipe(res);
+    const stream = fs.createReadStream(safePath);
+    stream.pipe(res);
   });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`====================================================`);
+  console.log('====================================================');
   console.log(`Lavora v38 Local Server running at:`);
   console.log(`  > Local:   http://localhost:${PORT}/`);
   console.log(`  > Network: http://127.0.0.1:${PORT}/`);
-  console.log(`====================================================`);
+  console.log('====================================================');
 });
