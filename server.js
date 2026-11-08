@@ -26,7 +26,78 @@ const MIME_TYPES = {
 };
 
 const CF_ACCOUNT_ID = '5884faaabbba129c726403c97e0511ed';
-const CF_API_TOKEN = process.env.CF_API_TOKEN || Buffer.from('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=', 'base64').toString('utf8');
+
+// ─── SELF-HEALING TOKEN POOL ────────────────────────────────────────────────
+// Birden fazla Cloudflare API token tanımla.
+// Bir token 10.000 nöron limitine ulaşınca sistem otomatik bir sonrakine geçer.
+// Gece yarısı (UTC 00:00) tüm tokenlar sıfırlanır — exhaustedUntil ile takip edilir.
+const CF_TOKENS = [
+  process.env.CF_API_TOKEN || Buffer.from('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=', 'base64').toString('utf8'),
+  Buffer.from('Y2Z1dF93UkFtRUxnR1R2SVJ4NVdXWlBMMm5aa2drbjlTN2g5U0thOW0xVVZNMjg1MDY1ZjA=', 'base64').toString('utf8'),
+  Buffer.from('Y2Z1dF8zOGNnQ1lMQVl2RENocVdBRk9kMmRkZGxUWjlTNE9sYzJCMnIwajE5Nzg4ZTE5YzA=', 'base64').toString('utf8')
+];
+
+// Hangi tokenların ne zamana kadar tükendiğini tutar (timestamp ms)
+const tokenExhaustedUntil = new Array(CF_TOKENS.length).fill(0);
+
+// Aktif, kullanılabilir token döndürür. Hepsi tükenmişse null döner.
+function getActiveToken() {
+  const now = Date.now();
+  for (let i = 0; i < CF_TOKENS.length; i++) {
+    if (tokenExhaustedUntil[i] <= now) return { token: CF_TOKENS[i], idx: i };
+  }
+  return null;
+}
+
+// Bir tokeni tükenmiş olarak işaretle (gece yarısı UTC'ye kadar)
+function markTokenExhausted(idx) {
+  const now = new Date();
+  // UTC gece yarısı + 10 dakika buffer
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 10, 0));
+  tokenExhaustedUntil[idx] = midnight.getTime();
+  console.log(`[TokenPool] Token #${idx + 1} tükendi. Sıfırlanma: ${midnight.toISOString()}. Kalan aktif token: ${CF_TOKENS.length - tokenExhaustedUntil.filter(t => t > Date.now()).length}/${CF_TOKENS.length}`);
+}
+
+// CF API isteği atar — tüm tokenleri sırayla dener
+async function cfFetch(model, cfPayload) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < CF_TOKENS.length; attempt++) {
+    const active = getActiveToken();
+    if (!active) break; // Hepsi tükendi
+    try {
+      const cfRes = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${model}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${active.token}`,
+            'Content-Type': 'application/json'
+          },
+          body: cfPayload
+        }
+      );
+      const contentType = cfRes.headers.get('content-type') || 'application/json';
+      if (contentType.includes('json')) {
+        const json = await cfRes.json();
+        // Nöron limiti (4006) veya auth hatası → bu tokeni tüket, sonrakine geç
+        const isNeuronLimit = json.errors?.some(e => e.code === 4006 || /neurons|daily|limit/i.test(e.message || ''));
+        const isAuthErr = json.errors?.some(e => e.code === 10000 || /auth/i.test(e.message || ''));
+        if (isNeuronLimit || isAuthErr) {
+          markTokenExhausted(active.idx);
+          continue; // Sonraki tokeni dene
+        }
+        return { ok: cfRes.ok, json, binary: null };
+      } else {
+        const binary = Buffer.from(await cfRes.arrayBuffer());
+        return { ok: cfRes.ok, json: null, binary };
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Tüm Cloudflare tokenları tükendi');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
   // Handle CORS Preflight
@@ -122,44 +193,34 @@ const server = http.createServer(async (req, res) => {
         } else if (endpoint === 'text') {
           model = '@cf/meta/llama-3.1-8b-instruct';
         }
-        
-        const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${model}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${CF_API_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: cfPayload
-        });
 
-        const contentType = cfRes.headers.get('content-type') || 'application/json';
+        // Self-healing token pool ile CF isteği
+        const cfResult = await cfFetch(model, cfPayload);
 
-        if (contentType.includes('json')) {
-          const json = await cfRes.json();
-          // Check if Cloudflare returned errors (e.g. 10,000 neurons limit 4006, or bad input)
-          const hasErrors = !cfRes.ok || (json.errors && json.errors.length > 0);
-          const errMsg = json.errors?.[0]?.message || ('CF HTTP ' + cfRes.status);
-          if (hasErrors) {
-            console.log('[AI-Proxy] CF error:', errMsg);
+        if (cfResult.json !== null) {
+          const json = cfResult.json;
+          // Hala hata varsa (bad input vb.) fallback
+          if (!cfResult.ok || (json.errors && json.errors.length > 0)) {
+            const errMsg = json.errors?.[0]?.message || 'CF error';
+            console.log('[AI-Proxy] CF error after token pool:', errMsg);
             const handled = await executeFallback(errMsg);
             if (handled) return;
           }
-          res.writeHead(cfRes.ok ? 200 : cfRes.status, {
+          res.writeHead(cfResult.ok ? 200 : 400, {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           });
           res.end(JSON.stringify(json));
         } else {
-          if (!cfRes.ok) {
-            const handled = await executeFallback('CF HTTP ' + cfRes.status);
+          if (!cfResult.ok) {
+            const handled = await executeFallback('CF binary error');
             if (handled) return;
           }
-          const buf = Buffer.from(await cfRes.arrayBuffer());
-          res.writeHead(cfRes.status, {
-            'Content-Type': contentType,
+          res.writeHead(200, {
+            'Content-Type': 'application/octet-stream',
             'Access-Control-Allow-Origin': '*'
           });
-          res.end(buf);
+          res.end(cfResult.binary);
         }
       } catch (err) {
         const handled = await executeFallback(err.message);
