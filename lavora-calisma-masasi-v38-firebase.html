@@ -1006,7 +1006,16 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
       else if (typeof data === 'string') text = data;
       else text = JSON.stringify(data || '');
 
-      var clean = text.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
+      var clean = text
+        .replace(/\|[^\n]+\|/g, '') // remove markdown tables
+        .replace(/(\|[\-\s:]+\|)+/g, '')
+        .replace(/(Saygılarımla|Baş Mimar|Sen Lavora|Lavora Mobilya|Telefon:|E-posta:|info@)[\s\S]*$/i, '') // remove fake signatures
+        .replace(/\[(İsim|Name|Seçenek|Öneri)[^\]]*\]/gi, '')
+        .replace(/\[[0-9]+\]/g, '')
+        .replace(/^#+\s+[^
+]+/gm, '') // remove markdown headings
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
       return clean || 'Tasarım vizyonunuz çok etkileyici. Mekanınızın boyutları ve tercih edeceğiniz ahşap tonu hakkında biraz daha detay paylaşabilir misiniz?';
     } catch (err) {
       console.warn('chatReply error:', err);

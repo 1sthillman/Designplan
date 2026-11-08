@@ -123,7 +123,13 @@ const server = http.createServer(async (req, res) => {
                 model: 'openai'
               })
             });
-            const pollText = await pollRes.text();
+            let pollText = await pollRes.text();
+            pollText = pollText
+              .replace(/\|[^\r\n]+\|/g, '')
+              .replace(/(Saygılarımla|Baş Mimar|Sen Lavora|Telefon:|E-posta:|info@)[\s\S]*$/i, '')
+              .replace(/\[(İsim|Name)[^\]]*\]/gi, '')
+              .replace(/^#+\s+[^\r\n]+/gm, '')
+              .trim();
             res.writeHead(200, {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*'
