@@ -893,10 +893,11 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
 };
 
 /* =====================================================================
-   LAVORA AI — MİMARİ TALEP VE SOHBET MOTORU (Görsel Üretimi Kaldırıldı)
-   Cloudflare Workers AI destekli akıllı iç mimari danışmanı.
-   Müşteri talebini mimari olarak netleştirir, tam sohbet geçmişini
-   ve detayları atölye/yönetici paneline iletir.
+   LAVORA AI — CANLI PROJE BİLİNÇLİ MİMAR & TALEP ASİSTANI
+   - Mevcut projenin canlı imalat, aşama ve kargo/termin verilerini bilir.
+   - Daktilo (typewriter) efektiyle harf harf akıcı yazar.
+   - Otomatik gereksiz talep kartı açmaz.
+   - Emojisiz, üst düzey profesyonel Türkçe iç mimar üslubu.
    ===================================================================== */
 (function () {
   'use strict';
@@ -972,21 +973,74 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
     };
   };
 
-  // Akıllı, yetkin Mimar Sistem İstemi
-  LA.chatReply = async function (conversationHistory) {
-    var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş Mimarısın.\n" +
-      "Adın: Lavora Tasarım Mimarı.\n" +
-      "Müşteriyle karşılıklı konuşarak evine veya ofisine özel mobilya projesini (gardrop, çalışma masası, ayakkabılık, konsol, TV ünitesi, kitaplık vb.) mimari ve imalat detaylarıyla netleştirmektesin.\n\n" +
-      "MİMARİ YAKLAŞIM VE DİLİN:\n" +
-      "1. Gerçek, son derece deneyimli, vizyoner ve saygın bir iç mimar gibi konuş. Kibar, samimi, güven veren ve çözüm odaklı ol.\n" +
+  // Canlı Proje Bilgisi Çıkarıcı
+  LA.extractProjectLiveContext = function (pId, pName) {
+    var proj = null;
+    try {
+      if (typeof P !== 'undefined' && Array.isArray(P)) {
+        if (pId) proj = P.find(function(p) { return p && (p.id === pId || p.id == pId); });
+        if (!proj && pName) proj = P.find(function(p) { return p && p.name && p.name.indexOf(pName) !== -1; });
+      }
+      if (!proj && typeof wp !== 'undefined' && wp) proj = wp;
+      if (!proj && typeof pcur === 'function') proj = pcur();
+    } catch (_) {}
+
+    if (!proj) return '';
+
+    var info = [];
+    info.push('AKTİF PROJE VE CANLI ATÖLYE VERİLERİ:');
+    info.push('- Proje Adı: ' + (proj.name || pName || 'İsimsiz Proje'));
+    if (proj.cust) info.push('- Müşteri: ' + proj.cust);
+    if (proj.w?.due) info.push('- Planlanan Teslim Tarihi: ' + proj.w.due);
+
+    // Kargo / teslimat / termin durumu
+    if (typeof wdt === 'function') {
+      try { info.push('- Termin / Kargo Durumu: ' + wdt(proj)); } catch(_) {}
+    }
+    if (typeof wpp === 'function') {
+      try { info.push('- Genel İmalat Tamamlanma Oranı: %' + wpp(proj)); } catch(_) {}
+    }
+
+    // İmalat kalemleri ve aşamaları
+    if (proj.w && Array.isArray(proj.w.items) && proj.w.items.length) {
+      info.push('- Projedeki İmalat Kalemleri ve Aşamaları:');
+      proj.w.items.forEach(function(it) {
+        var stgText = 'Hazırlık aşamasında';
+        if (it.st && proj.w.stages && Array.isArray(proj.w.stages)) {
+          var completed = proj.w.stages.filter(function(s) { return it.st[s.id] === 2; }).map(function(s) { return s.n || s.id; });
+          var inProg = proj.w.stages.filter(function(s) { return it.st[s.id] === 1; }).map(function(s) { return s.n || s.id; });
+          if (inProg.length) stgText = 'Şu an ' + inProg.join(', ') + ' işleminde';
+          else if (completed.length) stgText = completed.slice(-1)[0] + ' tamamlandı, bir sonraki aşamaya geçiyor';
+        }
+        var dimStr = (it.w || it.d || it.h) ? (' (' + [it.w, it.d, it.h].filter(Boolean).join('×') + ' cm)') : '';
+        info.push('  * ' + (it.n || 'Mobilya') + dimStr + ' -> ' + stgText);
+      });
+    }
+
+    return info.join('\n');
+  };
+
+  // Akıllı, canlı bağlam bilen Mimar Yanıt Motoru
+  LA.chatReply = async function (conversationHistory, liveProjectContext) {
+    var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş İç Mimarı ve İmalat Danışmanısın.\n" +
+      "Adın: Lavora Tasarım Mimarı.\n\n" +
+      "MİMARİ VE İLETİŞİM PRENSİPLERİN:\n" +
+      "1. Gerçek, son derece deneyimli, saygın ve vizyoner bir insan mimar gibi konuş. Samimi, kibar, net ve çözüm odaklı ol.\n" +
       "2. Kesinlikle hiçbir emoji KULLANMA.\n" +
-      "3. Asla '[Seçenek 1]', '1. ...', robotik şablonlar veya boru ('|') karakteri KULLANMA.\n" +
-      "4. Müşterinin mekanını, ihtiyaçlarını ve hayalini analiz et:\n" +
-      "   - Ölçüler: Ergonomik ölçü tavsiyeleri ver (örneğin ayakkabılık için derinlik 35-40 cm, gardrop için 60 cm, çalışma masası için yükseklik 75 cm).\n" +
-      "   - Malzemeler: Masif ceviz, doğal meşe, ipek mat lake, füme ayna/cam, hazeran örgü, fırçalanmış pirinç kulp ve blum/hafele donanım gibi estetik ve sağlam malzeme tavsiyelerinde bulun.\n" +
-      "   - Fonksiyon: Bölmeler, çekmeceler, gizli kablo kanalları, havalandırma veya LED kanalları gibi mimari çözümler öner.\n" +
-      "5. Her yanıtında müşterinin projesini zenginleştirecek 1 adet net ve akıcı mimari soru sorarak tasarımı netleştir.\n" +
-      "6. Müşteri ölçüleri veya istekleri paylaştığında, projenin şekillendiğini belirt ve sağ üstteki 'Talebi Atölyeye İlet' butonuna basarak doğrudan atölye imalat ekibine iletebileceğini hatırlat.";
+      "3. Asla '[İsim]', '+90 ###', sahte telefon numaraları, sahte e-posta veya 'Saygılarımla' gibi şablon e-posta mektubu yazma. Sen bir chat danışmanısın; doğrudan karşındaki kişiyle konuşur gibi yaz.\n" +
+      "4. Asla markdown tablosu (|---|) veya robotik maddeler yazma.\n";
+
+    if (liveProjectContext) {
+      systemPrompt += "\nÖNEMLİ - SİSTEMDE AÇIK OLAN MEVCUT PROJE BİLGİSİ:\n" +
+        liveProjectContext + "\n\n" +
+        "EĞER MÜŞTERİ 'kargo ne oldu', 'siparişim ne durumda', 'ne zaman gelecek', 'ürünüm bitti mi' gibi sorular sorarsa:\n" +
+        "- ASLA sipariş numarası veya takip kodu İSTEME! Zaten projenin canlı sisteminin içindesin.\n" +
+        "- Yukarıdaki canlı atölye verilerine dayanarak ürünün şu an hangi aşamada olduğunu (kesim, cila, montaj, paketleme vb.) ve teslimat/kargo durumunu net, dürüst ve güven verici şekilde açıkla.\n";
+    }
+
+    systemPrompt += "\nEĞER MÜŞTERİ YENİ BİR MOBİLYA TASARLAMAK / YAPTIRMAK İSTİYORSA:\n" +
+      "- Mekanına uygun ergonomik ölçü (örn. ayakkabılık için 35-40 cm derinlik, gardrop için 60 cm), kaliteli ahşap (masif ceviz, meşe, ipek lake), füme cam veya donanım tavsiyeleri ver.\n" +
+      "- Yanıtını kısa ve akıcı tut (2-3 cümle), 1 adet mimari soruyla sohbeti ilerlet.";
 
     try {
       var messages = [
@@ -998,7 +1052,7 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
         }
       });
 
-      var data = await this.callApi('text', { messages: messages, max_tokens: 450, temperature: 0.65 });
+      var data = await this.callApi('text', { messages: messages, max_tokens: 380, temperature: 0.65 });
       var text = '';
       if (typeof data?.result?.response === 'string') text = data.result.response;
       else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
@@ -1007,18 +1061,19 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
       else text = JSON.stringify(data || '');
 
       var clean = text
-        .replace(/\|[^\n]+\|/g, '') // remove markdown tables
+        .replace(/\|[^\n]+\|/g, '')
         .replace(/(\|[\-\s:]+\|)+/g, '')
-        .replace(/(Saygılarımla|Baş Mimar|Sen Lavora|Lavora Mobilya|Telefon:|E-posta:|info@)[\s\S]*$/i, '') // remove fake signatures
+        .replace(/(Saygılarımla|Baş Mimar|Sen Lavora|Lavora Mobilya|Telefon:|E-posta:|info@)[\s\S]*$/i, '')
         .replace(/\[(İsim|Name|Seçenek|Öneri)[^\]]*\]/gi, '')
         .replace(/\[[0-9]+\]/g, '')
-        .replace(/^#+\s+[^\r\n]+/gm, '') // remove markdown headings
+        .replace(/^#+\s+[^\r\n]+/gm, '')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
-      return clean || 'Tasarım vizyonunuz çok etkileyici. Mekanınızın boyutları ve tercih edeceğiniz ahşap tonu hakkında biraz daha detay paylaşabilir misiniz?';
+
+      return clean || 'Projenizle ilgili detayları memnuniyetle dinliyorum. Nasıl yardımcı olabilirim?';
     } catch (err) {
       console.warn('chatReply error:', err);
-      return 'Harika bir tasarım vizyonu! Masif ahşap dokusu olarak açık doğal meşe mi yoksa Amerikan ceviz tonları mı mekanınıza daha uygun olur?';
+      return 'Projenizi dikkatle takip ediyorum. Aklınızdaki detayları veya sormak istediğiniz konuyu iletebilirsiniz.';
     }
   };
 })();
@@ -1068,22 +1123,32 @@ window.lvOpenCustomerRequest = function(target) {
 
   var pId = '', pName = '', itId = '', itName = '';
   if (target && typeof target === 'object') {
-    pId = target.projectId || ''; pName = target.projectName || '';
+    pId = target.projectId || target.id || ''; pName = target.projectName || target.name || '';
     itId = target.itemId || ''; itName = target.itemName || '';
   } else if (typeof target === 'string') { itName = target; }
   if (!pId && window._lvCustomerProjects && window._lvCustomerProjects.length) {
-    pId = window._lvCustomerProjects[0].projectId || '';
-    pName = window._lvCustomerProjects[0].projectName || '';
+    pId = window._lvCustomerProjects[0].projectId || window._lvCustomerProjects[0].id || '';
+    pName = window._lvCustomerProjects[0].projectName || window._lvCustomerProjects[0].name || '';
   }
 
+  // Canlı Proje Bağlamını Çıkar
+  var liveContext = window.LavoraAI.extractProjectLiveContext(pId, pName);
+
   // Conversation history
+  var initGreeting = 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\n';
+  if (pName) {
+    initGreeting += '**' + esc(pName) + '** projeniz hakkında üretim ve kargo durumunu öğrenebilir veya mekanınıza özel yeni bir mobilya tasarlamamı isteyebilirsiniz. Size nasıl yardımcı olabilirim?';
+  } else {
+    initGreeting += 'Mekanınız için hayal ettiğiniz mobilyayı (ölçüler, ahşap türü, renkler veya özel ihtiyaçlar) bana anlatabilirsiniz. Projenizi birlikte netleştirdikten sonra doğrudan atölye imalat ekibimize ileteceğiz.';
+  }
+
   var conversation = [{
     role: 'assistant',
-    content: 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\nMekanınız için hayal ettiğiniz mobilyayı (ölçüler, ahşap türü, renkler, bölmeler veya özel ihtiyaçlar) bana anlatın. Dilerseniz mekanın bir fotoğrafını da ekleyebilirsiniz. Talebinizi birlikte netleştirdikten sonra doğrudan atölye imalat ekibimize ileteceğiz.'
+    content: initGreeting
   }];
   if (itName) {
-    conversation.push({ role: 'user', content: itName + ' tasarlamak ve yaptırmak istiyorum.' });
-    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Bu tasarım için aklınızda nasıl bir ahşap tonu (masif ceviz, doğal meşe, ipek lake) ve hangi mekan ölçüleri var?' });
+    conversation.push({ role: 'user', content: itName + ' hakkında bilgi almak ve tasarlamak istiyorum.' });
+    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Aklınızdaki ahşap tonu, ölçü veya sormak istediğiniz imalat detayları nelerdir?' });
   }
 
   var userAttachedPhoto = '';
@@ -1097,6 +1162,7 @@ window.lvOpenCustomerRequest = function(target) {
       '#lv-gemini-modal { font-family: -apple-system, BlinkMacSystemFont, "Google Sans", "Inter", "Segoe UI", Roboto, sans-serif; }',
       '@keyframes lvFadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }',
       '@keyframes lvTypingDot { 0%,80%,100%{transform:scale(0.3);opacity:.3} 40%{transform:scale(1);opacity:1} }',
+      '@keyframes lvCursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }',
       '.lv-gemini-scroll::-webkit-scrollbar { width: 5px; height: 5px; }',
       '.lv-gemini-scroll::-webkit-scrollbar-track { background: transparent; }',
       '.lv-gemini-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }',
@@ -1125,7 +1191,7 @@ window.lvOpenCustomerRequest = function(target) {
   container.style.cssText = 'position:relative;width:min(94vw,840px);height:min(94vh,860px);background:radial-gradient(circle at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 60%), #0d121d;border:1px solid rgba(255,255,255,0.1);border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,0.8);display:flex;flex-direction:column;overflow:hidden;animation:lvFadeInUp .25s ease';
   modal.appendChild(container);
 
-  var subText = pName ? ('Proje: ' + esc(pName)) : 'Özel Mobilya & Mimari Talep Asistanı';
+  var subText = pName ? ('Proje: ' + esc(pName)) : 'Özel Mobilya & Canlı İmalat Asistanı';
 
   container.innerHTML = [
     // Top Bar
@@ -1136,7 +1202,7 @@ window.lvOpenCustomerRequest = function(target) {
           '<span style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:#10b981;border:1.5px solid #0d121d"></span>',
         '</div>',
         '<div style="min-width:0;overflow:hidden">',
-          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar &amp; Talep</div>',
+          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar</div>',
           '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + subText + '</div>',
         '</div>',
       '</div>',
@@ -1155,10 +1221,10 @@ window.lvOpenCustomerRequest = function(target) {
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
-        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">✦ Ölçü &amp; Mekan Detayı</button>',
-        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">✦ Malzeme &amp; Ahşap Tonu</button>',
+        '<button class="lv-gemini-chip" data-hint="Siparişim ve kargo durumum nedir?">📦 Kargo &amp; İmalat Durumu</button>',
+        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">✦ Ölçü &amp; Mekan</button>',
+        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">✦ Ahşap &amp; Malzeme</button>',
         '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">✦ Bölme &amp; Fonksiyon</button>',
-        '<button class="lv-gemini-chip" data-hint="Bu tasarım için mimari önerinizi ve imalat süresini öğrenebilir miyim?">✦ İmalat &amp; Süreç Danış</button>',
       '</div>',
 
       // Attached photo preview banner
@@ -1176,7 +1242,7 @@ window.lvOpenCustomerRequest = function(target) {
           '<button id="lv-btn-photo-pick" type="button" title="Mekan / Referans Fotoğrafı Ekle" style="width:36px;height:36px;min-width:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;transition:all .2s;flex-shrink:0">',
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
           '</button>',
-          '<textarea id="lv-prompt-input" rows="1" placeholder="Mobilyanızı anlatın… (örn: 2 metre meşe dolap, füme cam kapak)" style="flex:1;height:24px;min-height:24px;max-height:96px;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14px;line-height:20px;font-family:inherit;padding:2px 0;resize:none;box-sizing:border-box"></textarea>',
+          '<textarea id="lv-prompt-input" rows="1" placeholder="Mobilyanızı anlatın veya durum sorun… (örn: kargo ne zaman çıkar?)" style="flex:1;height:24px;min-height:24px;max-height:96px;background:transparent;border:none;outline:none;color:#f8fafc;font-size:14px;line-height:20px;font-family:inherit;padding:2px 0;resize:none;box-sizing:border-box"></textarea>',
           '<button id="lv-btn-send-prompt" type="button" class="lv-cta-primary" style="width:38px;height:38px;min-width:38px;border-radius:50%;display:grid;place-items:center;flex-shrink:0">',
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
           '</button>',
@@ -1221,8 +1287,36 @@ window.lvOpenCustomerRequest = function(target) {
     return '<p style="margin:0;line-height:1.6;font-size:14px;color:#e2e8f0">' + escHtml + '</p>';
   }
 
+  // Daktilo / Typewriter Effect
+  function typeWriterEffect(bodyElement, fullText, callback) {
+    var str = String(fullText || '').trim();
+    var idx = 0;
+    var len = str.length;
+    var step = len > 220 ? 3 : 2;
+    var interval = 15;
+
+    bodyElement.innerHTML = '<span class="lv-tw-span"></span><span class="lv-tw-cursor" style="display:inline-block;width:2px;height:14px;background:#60a5fa;margin-left:3px;vertical-align:middle;animation:lvCursorBlink 0.7s infinite"></span>';
+    var textSpan = bodyElement.querySelector('.lv-tw-span');
+    var cursor = bodyElement.querySelector('.lv-tw-cursor');
+
+    function stepType() {
+      idx += step;
+      if (idx < len) {
+        textSpan.innerHTML = formatAssistantMessage(str.slice(0, idx));
+        chatStream.scrollTop = chatStream.scrollHeight;
+        setTimeout(stepType, interval);
+      } else {
+        textSpan.innerHTML = formatAssistantMessage(str);
+        if (cursor) cursor.remove();
+        chatStream.scrollTop = chatStream.scrollHeight;
+        if (typeof callback === 'function') callback();
+      }
+    }
+    stepType();
+  }
+
   // Render Single Message
-  function renderMessage(msg) {
+  function renderMessage(msg, animateTypewriter) {
     var isUser = msg.role === 'user';
     var isAdmin = msg.role === 'admin';
     var wrap = document.createElement('div');
@@ -1246,7 +1340,11 @@ window.lvOpenCustomerRequest = function(target) {
 
       var body = document.createElement('div');
       body.style.cssText = 'width:100%;background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.3);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
-      body.innerHTML = formatAssistantMessage(msg.content);
+      if (animateTypewriter) {
+        typeWriterEffect(body, msg.content);
+      } else {
+        body.innerHTML = formatAssistantMessage(msg.content);
+      }
       wrap.appendChild(body);
     } else {
       // AI Architect Message
@@ -1257,7 +1355,11 @@ window.lvOpenCustomerRequest = function(target) {
 
       var body = document.createElement('div');
       body.style.cssText = 'width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.18)';
-      body.innerHTML = formatAssistantMessage(msg.content);
+      if (animateTypewriter) {
+        typeWriterEffect(body, msg.content);
+      } else {
+        body.innerHTML = formatAssistantMessage(msg.content);
+      }
       wrap.appendChild(body);
     }
 
@@ -1267,56 +1369,8 @@ window.lvOpenCustomerRequest = function(target) {
     });
   }
 
-  // Render initial messages
-  conversation.forEach(renderMessage);
-
-  // Render Request Brief Card
-  function renderRequestSummaryCard() {
-    var existing = container.querySelector('#lv-request-summary-card');
-    if (existing) existing.remove();
-
-    var brief = window.LavoraAI.parseRequestBrief(conversation);
-
-    var cardWrap = document.createElement('div');
-    cardWrap.id = 'lv-request-summary-card';
-    cardWrap.style.cssText = 'display:flex;flex-direction:column;width:100%;align-items:flex-start;animation:lvFadeInUp .3s ease both;margin-top:6px';
-
-    cardWrap.innerHTML = [
-      '<div style="width:100%;background:rgba(15,23,42,0.85);border:1.5px solid rgba(37,99,235,0.4);border-radius:18px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.4)">',
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">',
-          '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:6px">',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-            '<span>Proje &amp; Tasarım Talebi Özeti</span>',
-          '</div>',
-          '<span style="background:rgba(37,99,235,0.2);color:#93c5fd;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">Atölyeye Hazır</span>',
-        '</div>',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">',
-          '<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">İmalat Ürünü</div>',
-            '<div style="font-size:14px;font-weight:800;color:#f8fafc">' + esc(brief.itemName) + '</div>',
-          '</div>',
-          '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Ölçü</div>',
-            '<div style="font-size:13px;font-weight:700;color:#cbd5e1">' + esc(brief.dimensions) + '</div>',
-          '</div>',
-          '<div style="padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px">',
-            '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Malzeme &amp; Aksam</div>',
-            '<div style="font-size:13px;font-weight:700;color:#38bdf8">' + esc(brief.material) + '</div>',
-          '</div>',
-        '</div>',
-        '<button id="lv-btn-confirm-send-req" type="button" class="lv-cta-primary" style="width:100%;height:42px;border-radius:10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px">',
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-          '<span>Talebi ve Sohbet Geçmişini Atölyeye İlet</span>',
-        '</button>',
-      '</div>'
-    ].join('');
-
-    chatStream.appendChild(cardWrap);
-    cardWrap.querySelector('#lv-btn-confirm-send-req').onclick = submitFullRequest;
-    requestAnimationFrame(function() {
-      chatStream.scrollTop = chatStream.scrollHeight;
-    });
-  }
+  // Render initial messages without animation
+  conversation.forEach(function(m) { renderMessage(m, false); });
 
   // Submit Request Handler
   async function submitFullRequest() {
@@ -1348,7 +1402,7 @@ window.lvOpenCustomerRequest = function(target) {
         content: 'Tasarım talebiniz ve sohbet geçmişiniz Lavora Yönetici Paneline başarıyla iletildi! Mimarlarımız ve atölye ekibimiz projenizi inceleyip bu sistem üzerinden size yanıt iletecektir.'
       };
       conversation.push(successMsg);
-      renderMessage(successMsg);
+      renderMessage(successMsg, true);
 
       if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla kaydedildi!');
     } catch(err) {
@@ -1415,7 +1469,7 @@ window.lvOpenCustomerRequest = function(target) {
 
     var userMsg = { role: 'user', content: text, photo: userAttachedPhoto };
     conversation.push(userMsg);
-    renderMessage(userMsg);
+    renderMessage(userMsg, false);
 
     // Reset input
     promptInput.value = '';
@@ -1442,17 +1496,12 @@ window.lvOpenCustomerRequest = function(target) {
     chatStream.scrollTop = chatStream.scrollHeight;
 
     try {
-      var reply = await window.LavoraAI.chatReply(conversation);
+      // Pass liveContext to chatReply so AI is fully project-aware
+      var reply = await window.LavoraAI.chatReply(conversation, liveContext);
       typingWrap.remove();
       var aiMsg = { role: 'assistant', content: reply };
       conversation.push(aiMsg);
-      renderMessage(aiMsg);
-
-      // Check if user specified key info and show summary card
-      var userTurns = conversation.filter(function(m) { return m.role === 'user'; }).length;
-      if (userTurns >= 1) {
-        renderRequestSummaryCard();
-      }
+      renderMessage(aiMsg, true); // <--- TYPEWRITER EFFECT!
     } catch(err) {
       typingWrap.remove();
       var fallback = {
@@ -1460,7 +1509,7 @@ window.lvOpenCustomerRequest = function(target) {
         content: 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve mekan ölçülerinizi ilettiğinizde projenizi doğrudan atölye ekibimize aktarabiliriz.'
       };
       conversation.push(fallback);
-      renderMessage(fallback);
+      renderMessage(fallback, true);
     } finally {
       sendBtn.disabled = false;
       promptInput.focus();
@@ -1472,6 +1521,11 @@ window.lvOpenCustomerRequest = function(target) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendUserMessage();
+    }
+  };
+};
+
+;
     }
   };
 };
