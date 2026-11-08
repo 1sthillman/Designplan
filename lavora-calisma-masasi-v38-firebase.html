@@ -401,36 +401,75 @@ window.LavoraAI = {
   async callApi(endpoint, body) {
     const wUrl = this.getWorkerUrl();
     if (wUrl) {
-      const res = await fetch(`${wUrl}/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
-      return await res.json();
+      try {
+        const res = await fetch(`${wUrl}/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Worker URL fetch note:', err && err.message);
+      }
     }
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port === '3000') {
-      const res = await fetch(`/api/ai/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error('Local AI proxy HTTP ' + res.status);
-      return await res.json();
+      try {
+        const res = await fetch(`/api/ai/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Local proxy fetch note:', err && err.message);
+      }
     }
+
+    // Direct Cloudflare Workers AI call
     let model = '@cf/meta/llama-3.1-8b-instruct';
     if (endpoint === 'image') model = '@cf/black-forest-labs/flux-1-schnell';
     else if (endpoint === 'vision') model = '@cf/llava-hf/llava-1.5-7b-hf';
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.CF_ACCOUNT_ID}/ai/run/${model}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.CF_API_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error('Cloudflare AI HTTP ' + res.status);
-    return await res.json();
+
+    try {
+      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.CF_ACCOUNT_ID}/ai/run/${model}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.CF_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.result || data.response)) return data;
+      }
+    } catch (cfErr) {
+      console.warn('Direct Cloudflare AI fetch failed (rate limit or CORS):', cfErr && cfErr.message);
+    }
+
+    // Static Web & GitHub Pages CORS Fallback (Pollinations text)
+    if (endpoint === 'text') {
+      try {
+        const msgs = body.messages || [{ role: 'user', content: body.prompt || '' }];
+        const pRes = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: msgs,
+            model: 'openai',
+            seed: Math.floor(Math.random() * 1000000)
+          })
+        });
+        if (pRes.ok) {
+          const pText = await pRes.text();
+          return { result: { response: pText } };
+        }
+      } catch (pErr) {
+        console.warn('Pollinations text fallback failed:', pErr && pErr.message);
+      }
+    }
+
+    throw new Error('All AI providers exhausted');
   },
 
   dataUrlToByteArray(dataUrl) {
@@ -857,40 +896,7 @@ img.onerror = reject;
   });
 };
 
-window.LavoraAI.chatReply = async function(conversationHistory) {
-  const systemPrompt = "Sen Lavora Design'ın baş iç mimarı ve lüks mobilya tasarım uzmanısın.\n" +
-    "Adın: Lavora Tasarım Mimarı.\n" +
-    "Müşteriyle karşılıklı olarak evine veya ofisine özel mobilya tasarlıyorsunuz.\n\n" +
-    "İLETİŞİM KURALLARI VE DİLİN:\n" +
-    "1. Gerçek, son derece yetkin ve vizyoner bir insan mimar gibi konuş. Samimi, seçkin, kibar ve profesyonel ol.\n" +
-    "2. ASLA 'Seçenek 1', 'Seçenek 2', robotik maddeler, şablon listeler, pipe (|) ile ayrılmış seçenekler KULLANMA. '[Seçenek X]' veya '| Tasarımı 3D Oluştur' gibi köşe parantezli / boru karakterli hiçbir kalıp YAZMA. Bu tokenler KESİNLİKLE YASAKTIR.\n" +
-    "3. Müşterinin anlattığı her detayı (ahşap cinsi, ölçüler, renk tonları, kulp/ayak tercihleri, fonksiyonlar) dikkatle dinle. Ona mimari değer katan estetik malzeme önerilerinde bulun (örneğin: masif ceviz veya akasya ile fırçalanmış pirinç kulpların zarafeti, hazeran dokuma paneller, füme cam kapaklar, gizli LED aydınlatma veya zarif bronz ayaklar).\n" +
-    "4. Mobilyanın tek parça, estetik, sağlam ve mimari açıdan kusursuz bir kütle olmasına odaklan. Dolabın veya mobilyanın çatısına çekmece oturtmak gibi garip yapısal tuhaflıklar ASLA önerme; tüm çekmeceler ve raflar mobilyanın gövdesinin içinde yer alır.\n" +
-    "5. Her cevabında müşterinin mekanını veya kullanım alışkanlığını daha iyi anlamak için sadece 1 adet akıcı ve merak uyandıran mimari soru sor (örneğin kapak mekanizması, kulp stili veya ahşap tonu).\n" +
-    "6. Cevabın kısa, seçkin ve net olsun (en fazla 2-3 cümle).\n" +
-    "7. Müşteri 'tasarla', 'üret', 'çiz', 'görselleştir', 'oluştur' veya 'tamamdır' dediğinde, tüm detayların netleştiğini ve 3D stüdyo modelinin hazırlandığını belirt.";
-  
-  try {
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...conversationHistory.map(m => ({ role: m.role, content: m.content }))
-    ];
-    const data = await this.callApi('text', { messages, max_tokens: 350, temperature: 0.65 });
-    let text = '';
-    if (typeof data?.result?.response === 'string') text = data.result.response;
-    else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
-    else if (typeof data?.response === 'string') text = data.response;
-    else if (typeof data === 'string') text = data;
-    else text = JSON.stringify(data || '');
 
-    // Clean any accidental bracket tokens or robot text
-    let clean = text.replace(/\[(Seçenek|Öneri|Öneriler)[^\]]*\]/gi, '').replace(/\[[0-9]+\]/g, '').trim();
-    return clean || 'Harika bir tasarım vizyonu! Mekanınızın boyutları ve tercih edeceğiniz ahşap tonu hakkında biraz daha detay paylaşabilir misiniz?';
-  } catch(err) {
-    console.warn('chatReply error:', err);
-    return 'Tasarım vizyonunuz çok etkileyici! Masif ahşap dokusu olarak açık doğal meşe mi yoksa asil Amerikan ceviz mi tercih edersiniz?';
-  }
-};
 
 /* =====================================================================
    LAVORA AI — CANLI PROJE BİLİNÇLİ MİMAR & TALEP ASİSTANI
@@ -977,50 +983,64 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
   LA.extractProjectLiveContext = function (pId, pName) {
     var proj = null;
     try {
-      if (typeof P !== 'undefined' && Array.isArray(P)) {
-        if (pId) proj = P.find(function(p) { return p && (p.id === pId || p.id == pId); });
+      // 1. Müşteri portalı projeleri (window._lvCustomerProjects)
+      if (window._lvCustomerProjects && Array.isArray(window._lvCustomerProjects) && window._lvCustomerProjects.length) {
+        if (pId) proj = window._lvCustomerProjects.find(function(p) { return p && (p.projectId === pId || p.id === pId); });
+        if (!proj && pName) proj = window._lvCustomerProjects.find(function(p) { return p && ((p.projectName && p.projectName.indexOf(pName) !== -1) || (p.name && p.name.indexOf(pName) !== -1)); });
+        if (!proj) proj = window._lvCustomerProjects[0];
+      }
+      // 2. Admin atölye projeleri (P listesi)
+      if (!proj && typeof P !== 'undefined' && Array.isArray(P) && P.length) {
+        if (pId) proj = P.find(function(p) { return p && (p.id === pId || p.projectId === pId); });
         if (!proj && pName) proj = P.find(function(p) { return p && p.name && p.name.indexOf(pName) !== -1; });
       }
+      // 3. Aktif çalışma alanı nesnesi (wp veya pcur)
       if (!proj && typeof wp !== 'undefined' && wp) proj = wp;
-      if (!proj && typeof pcur === 'function') proj = pcur();
+      if (!proj && typeof pcur === 'function') {
+        try { proj = pcur(); } catch(_) {}
+      }
     } catch (_) {}
 
-    if (!proj) return '';
-
+    var name = (proj && (proj.projectName || proj.name)) || pName || 'Aktif Proje';
     var info = [];
     info.push('AKTİF PROJE VE CANLI ATÖLYE VERİLERİ:');
-    info.push('- Proje Adı: ' + (proj.name || pName || 'İsimsiz Proje'));
-    if (proj.cust) info.push('- Müşteri: ' + proj.cust);
-    if (proj.w?.due) info.push('- Planlanan Teslim Tarihi: ' + proj.w.due);
+    info.push('- Proje Adı: ' + name);
 
-    // Kargo / teslimat / termin durumu
-    if (typeof wdt === 'function') {
-      try { info.push('- Termin / Kargo Durumu: ' + wdt(proj)); } catch(_) {}
-    }
-    if (typeof wpp === 'function') {
-      try { info.push('- Genel İmalat Tamamlanma Oranı: %' + wpp(proj)); } catch(_) {}
-    }
+    if (proj) {
+      if (proj.cust || proj.customer) info.push('- Müşteri: ' + (proj.cust || proj.customer));
+      
+      var due = proj.dueDate || proj.due || (proj.w && proj.w.due) || '';
+      if (due) info.push('- Planlanan Teslim Tarihi: ' + due);
 
-    // İmalat kalemleri ve aşamaları
-    if (proj.w && Array.isArray(proj.w.items) && proj.w.items.length) {
-      info.push('- Projedeki İmalat Kalemleri ve Aşamaları:');
-      proj.w.items.forEach(function(it) {
-        var stgText = 'Hazırlık aşamasında';
-        if (it.st && proj.w.stages && Array.isArray(proj.w.stages)) {
-          var completed = proj.w.stages.filter(function(s) { return it.st[s.id] === 2; }).map(function(s) { return s.n || s.id; });
-          var inProg = proj.w.stages.filter(function(s) { return it.st[s.id] === 1; }).map(function(s) { return s.n || s.id; });
-          if (inProg.length) stgText = 'Şu an ' + inProg.join(', ') + ' işleminde';
-          else if (completed.length) stgText = completed.slice(-1)[0] + ' tamamlandı, bir sonraki aşamaya geçiyor';
-        }
-        var dimStr = (it.w || it.d || it.h) ? (' (' + [it.w, it.d, it.h].filter(Boolean).join('×') + ' cm)') : '';
-        info.push('  * ' + (it.n || 'Mobilya') + dimStr + ' -> ' + stgText);
-      });
+      var progress = proj.progress != null ? proj.progress : (typeof wpp === 'function' ? wpp(proj) : null);
+      if (progress != null) info.push('- Genel İmalat Tamamlanma Oranı: %' + progress);
+
+      var status = proj.status || (typeof wdt === 'function' ? wdt(proj) : '');
+      if (status) info.push('- Güncel Durum / Termin: ' + status);
+
+      // İmalat kalemleri ve aşamaları (Müşteri formatı vs Admin formatı)
+      var items = proj.items || (proj.w && proj.w.items) || [];
+      var stages = proj.stages || (proj.w && proj.w.stages) || [];
+
+      if (Array.isArray(items) && items.length) {
+        info.push('- Projedeki İmalat Kalemleri ve Aşamaları:');
+        items.forEach(function(it) {
+          var stgText = 'İmalat hazırlık aşamasında';
+          if (it.st && Array.isArray(stages) && stages.length) {
+            var completed = stages.filter(function(s) { return it.st[s.id] === 2; }).map(function(s) { return s.n || s.id; });
+            var inProg = stages.filter(function(s) { return it.st[s.id] === 1; }).map(function(s) { return s.n || s.id; });
+            if (inProg.length) stgText = 'Şu an ' + inProg.join(', ') + ' işleminde';
+            else if (completed.length) stgText = completed[completed.length - 1] + ' tamamlandı, bir sonraki aşamaya geçiyor';
+          }
+          var dimStr = (it.w || it.d || it.h) ? (' (' + [it.w, it.d, it.h].filter(Boolean).join('×') + ' cm)') : (it.dim ? ' (' + it.dim + ')' : '');
+          info.push('  * ' + (it.n || 'Mobilya') + dimStr + ' -> ' + stgText);
+        });
+      }
     }
 
     return info.join('\n');
   };
 
-  // Akıllı, canlı bağlam bilen Mimar Yanıt Motoru
   LA.chatReply = async function (conversationHistory, liveProjectContext) {
     var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş İç Mimarı ve İmalat Danışmanısın.\n" +
       "Adın: Lavora Tasarım Mimarı.\n\n" +
@@ -1033,9 +1053,10 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
     if (liveProjectContext) {
       systemPrompt += "\nÖNEMLİ - SİSTEMDE AÇIK OLAN MEVCUT PROJE BİLGİSİ:\n" +
         liveProjectContext + "\n\n" +
-        "EĞER MÜŞTERİ 'kargo ne oldu', 'siparişim ne durumda', 'ne zaman gelecek', 'ürünüm bitti mi' gibi sorular sorarsa:\n" +
-        "- ASLA sipariş numarası veya takip kodu İSTEME! Zaten projenin canlı sisteminin içindesin.\n" +
-        "- Yukarıdaki canlı atölye verilerine dayanarak ürünün şu an hangi aşamada olduğunu (kesim, cila, montaj, paketleme vb.) ve teslimat/kargo durumunu net, dürüst ve güven verici şekilde açıkla.\n";
+        "EĞER MÜŞTERİ 'kargo ne oldu', 'siparişim ne durumda', 'ne zaman gelecek', 'ürünüm bitti mi', 'durum nedir' gibi sorular sorarsa:\n" +
+        "- KESİNLİKLE sipariş numarası, kargo takip no veya belge İSTEME! Zaten projenin atölye sistemi içerisindesin.\n" +
+        "- Yukarıdaki aktif proje ve canlı atölye verilerini baz alarak ürünlerin hangi aşamada olduğunu (kesim, cila, montaj, sevk vb.) ve teslimat durumunu net, dürüst ve güven verici bir dille anlat.\n" +
+        "- Eğer teslim tarihi veya aşama bilgisi varsa doğrudan belirt. Müşteriyi asla bürokratik sorularla yorma.\n\n";
     }
 
     systemPrompt += "\nEĞER MÜŞTERİ YENİ BİR MOBİLYA TASARLAMAK / YAPTIRMAK İSTİYORSA:\n" +
@@ -1060,14 +1081,12 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
       else if (typeof data === 'string') text = data;
       else text = JSON.stringify(data || '');
 
-      var clean = text
-        .replace(/\|[^\n]+\|/g, '')
-        .replace(/(\|[\-\s:]+\|)+/g, '')
-        .replace(/(Saygılarımla|Baş Mimar|Sen Lavora|Lavora Mobilya|Telefon:|E-posta:|info@)[\s\S]*$/i, '')
-        .replace(/\[(İsim|Name|Seçenek|Öneri)[^\]]*\]/gi, '')
-        .replace(/\[[0-9]+\]/g, '')
-        .replace(/^#+\s+[^\r\n]+/gm, '')
-        .replace(/\n{3,}/g, '\n\n')
+      var clean = String(text || '')
+        .replace(new RegExp('\\|[^|\\r\\n]+\\|', 'g'), '')
+        .replace(new RegExp('(Saygılarımla|Baş Mimar|Sen Lavora|Lavora Mobilya|Telefon:|E-posta:|info@)[\\s\\S]*$', 'i'), '')
+        .replace(new RegExp('\\[(İsim|Name|Seçenek|Öneri)[^\\]]*\\]', 'gi'), '')
+        .replace(/\[\d+\]/g, '')
+        .replace(/^#+.*$/gm, '')
         .trim();
 
       return clean || 'Projenizle ilgili detayları memnuniyetle dinliyorum. Nasıl yardımcı olabilirim?';
@@ -1521,11 +1540,6 @@ window.lvOpenCustomerRequest = function(target) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendUserMessage();
-    }
-  };
-};
-
-;
     }
   };
 };
