@@ -75,9 +75,18 @@ const server = http.createServer(async (req, res) => {
             return true;
           } else if (endpoint === 'image') {
             const p = parsedBody.prompt || 'bespoke luxury furniture';
-            const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(p)}?model=flux&width=1024&height=1024&nologo=true`;
-            const imgRes = await fetch(imgUrl);
-            if (imgRes.ok) {
+            // Pollinations.ai fallback with GET-based URL (no rate-limit per session when using unique seed)
+            const seed = Math.floor(Math.random() * 999999);
+            const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(p)}?nologo=true&width=1024&height=1024&seed=${seed}`;
+            let imgRes;
+            try { imgRes = await fetch(imgUrl); } catch(_) {}
+            // If rate-limited, wait 10 seconds and retry once
+            if (imgRes && imgRes.status === 402) {
+              console.log('[AI-Proxy] Pollinations rate-limit 402, waiting 12s...');
+              await new Promise(r => setTimeout(r, 12000));
+              try { imgRes = await fetch(imgUrl + '&r=' + Date.now()); } catch(_) {}
+            }
+            if (imgRes && imgRes.ok) {
               const buf = Buffer.from(await imgRes.arrayBuffer());
               const b64 = buf.toString('base64');
               res.writeHead(200, {
@@ -99,8 +108,13 @@ const server = http.createServer(async (req, res) => {
 
       try {
         let model = '@cf/meta/llama-3.1-8b-instruct';
+        let cfPayload = bodyData;
         if (endpoint === 'image') {
           model = '@cf/black-forest-labs/flux-1-schnell';
+          cfPayload = JSON.stringify({
+            prompt: parsedBody.prompt || 'luxury bespoke furniture',
+            steps: parsedBody.steps || parsedBody.num_steps || 4
+          });
         } else if (endpoint === 'inpaint') {
           model = '@cf/runwayml/stable-diffusion-v1-5-inpainting';
         } else if (endpoint === 'vision') {
@@ -115,19 +129,22 @@ const server = http.createServer(async (req, res) => {
             'Authorization': `Bearer ${CF_API_TOKEN}`,
             'Content-Type': 'application/json'
           },
-          body: bodyData
+          body: cfPayload
         });
 
         const contentType = cfRes.headers.get('content-type') || 'application/json';
 
         if (contentType.includes('json')) {
           const json = await cfRes.json();
-          // Check if Cloudflare returned errors (e.g. 10,000 neurons limit 4006)
-          if (!cfRes.ok || (json.errors && json.errors.length > 0)) {
-            const handled = await executeFallback(json.errors?.[0]?.message || ('CF HTTP ' + cfRes.status));
+          // Check if Cloudflare returned errors (e.g. 10,000 neurons limit 4006, or bad input)
+          const hasErrors = !cfRes.ok || (json.errors && json.errors.length > 0);
+          const errMsg = json.errors?.[0]?.message || ('CF HTTP ' + cfRes.status);
+          if (hasErrors) {
+            console.log('[AI-Proxy] CF error:', errMsg);
+            const handled = await executeFallback(errMsg);
             if (handled) return;
           }
-          res.writeHead(cfRes.status, {
+          res.writeHead(cfRes.ok ? 200 : cfRes.status, {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           });
