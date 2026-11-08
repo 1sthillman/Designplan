@@ -892,30 +892,26 @@ window.LavoraAI.chatReply = async function(conversationHistory) {
 };
 
 window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
-  // Get all user messages
+  // Aggregate user messages
   const userMsgs = conversationHistory.filter(m => m.role === 'user').map(m => m.content);
   const latestUserMsg = userMsgs[userMsgs.length - 1] || '';
   const fullChat = conversationHistory.map(m => (m.role === 'user' ? 'Müşteri: ' : 'Mimar: ') + m.content).join('\n');
 
-  const systemPrompt = 'You are an elite interior architect and Flux-1 diffusion prompt engineer.\n' +
-    'Your task: Analyze the user Turkish furniture request and extract the EXACT design into a structured JSON.\n\n' +
-    'CRITICAL RULES:\n' +
-    '1. NEVER use canned placeholder text. Extract ONLY what the user actually asked for.\n' +
-    '2. fluxPrompt MUST be 100% in English. Faithfully translate and describe EVERY single object, material, color, leg, handle, background, wall, floor, and lighting mentioned in the user request.\n' +
-    '3. Output ONLY valid JSON with these exact keys:\n' +
-    '{\n' +
-    '  "itemName": "Short Turkish title of the furniture (e.g. Masif Ceviz Konsol, Bordo Ayakkabılık, Meşe TV Ünitesi)",\n' +
-    '  "dimensions": "Dimensions in cm (e.g. 180 × 45 × 75 cm)",\n' +
-    '  "material": "Materials and wood species mentioned in Turkish",\n' +
-    '  "specs": "Key design features, legs, handles, doors mentioned in Turkish",\n' +
-    '  "fluxPrompt": "A highly detailed, photorealistic commercial product and interior editorial photograph in English describing the exact furniture, materials, colors, hardware, floor, wall, and lighting"\n' +
-    '}';
+  const systemPrompt = 'You are an objective architectural design analysis engine.\n' +
+    'The customer is describing their custom furniture, cabinetry, or interior piece in Turkish.\n' +
+    'Analyze their conversation and extract their exact design into a valid JSON object:\n' +
+    '- "itemName": Concise title of the furniture in Turkish (string, derived purely from customer words)\n' +
+    '- "dimensions": Dimensions in cm (string, based on user input or realistic standard proportions)\n' +
+    '- "material": Wood species, finishes, and materials specified by customer in Turkish (string)\n' +
+    '- "specs": Key design features, hardware, legs, doors, compartments in Turkish (string)\n' +
+    '- "fluxPrompt": A comprehensive, photorealistic commercial product and interior editorial photograph prompt. MANDATORY: The text of fluxPrompt MUST be written 100% in ENGLISH, translating every single color, material, hardware, silhouette, and lighting detail requested by the customer.\n\n' +
+    'Return ONLY valid JSON.';
 
   try {
     const data = await this.callApi('text', {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Müşteri Talebi:\n' + (latestUserMsg.length > 80 ? latestUserMsg : fullChat) + '\n\nJSON output:' }
+        { role: 'user', content: 'Customer conversation (Turkish):\n' + (latestUserMsg.length > 80 ? latestUserMsg : fullChat) + '\n\nOutput JSON:' }
       ],
       max_tokens: 700,
       temperature: 0.1
@@ -933,33 +929,30 @@ window.LavoraAI.extractDesignFromChat = async function(conversationHistory) {
     if (match) {
       const parsed = JSON.parse(match[0]);
       if (parsed.itemName && parsed.fluxPrompt) {
-        // Sanity check: Ensure placeholder text didn't leak
-        if (!/örnek|bordo.*ayakkabılık/i.test(parsed.itemName) || /ayakkab/i.test(fullChat)) {
-          return parsed;
-        }
+        return {
+          itemName: String(parsed.itemName || 'Özel Tasarım Mobilya').trim(),
+          dimensions: String(parsed.dimensions || 'Kişiye özel ölçü').trim(),
+          material: String(parsed.material || 'Doğal Ahşap & Özel Kaplama').trim(),
+          specs: String(parsed.specs || 'Kişiye özel imalat detayları').trim(),
+          fluxPrompt: String(parsed.fluxPrompt).trim()
+        };
       }
     }
   } catch(err) {
     console.warn('extractDesignFromChat error:', err);
   }
 
-  // Fallback: Smart direct extraction from user's words
-  const fullText = userMsgs.join(' ');
-  let title = 'Özel Tasarım Mobilya';
-  if (/konsol/i.test(fullText)) title = 'Özel Retro Ceviz Konsol';
-  else if (/ayakkab/i.test(fullText)) title = 'Özel Tasarım Ayakkabılık';
-  else if (/tv/i.test(fullText)) title = 'Özel Tasarım TV Ünitesi';
-  else if (/masa|çalışma/i.test(fullText)) title = 'Özel Çalışma Masası';
-  else if (/gardrop|dolap/i.test(fullText)) title = 'Özel İmalat Gardrop';
-  else if (/yemek/i.test(fullText)) title = 'Masif Yemek Masası';
+  // Dynamic fallback directly from user's words (no hardcoded product bias)
+  const userText = userMsgs.join(' ').trim();
+  const words = userText.split(/\s+/).slice(0, 5).join(' ');
+  const dynamicTitle = words ? (words.charAt(0).toUpperCase() + words.slice(1)) : 'Kişiye Özel Tasarım Mobilya';
 
-  // Translate user text directly for Flux if long
   return {
-    itemName: title,
-    dimensions: '180 × 45 × 75 cm',
-    material: /ceviz/i.test(fullText) ? 'Doğal Masif Ceviz' : /lake/i.test(fullText) ? 'İpek Mat Lake' : 'Doğal Masif Ahşap',
-    specs: fullText.slice(0, 100),
-    fluxPrompt: 'commercial editorial studio photograph of ' + title + ', bespoke solid wood craftsmanship, ' + (fullText.slice(0, 200)) + ', warm lighting, 8k resolution, photorealistic'
+    itemName: dynamicTitle,
+    dimensions: 'Kişiye özel ölçü',
+    material: 'Doğal Ahşap & Özel Kaplama',
+    specs: userText.slice(0, 100) || 'Özel tasarım imalatı',
+    fluxPrompt: 'award-winning commercial studio product photograph of bespoke custom ' + (userText.slice(0, 200)) + ', clean minimalist architectural background, warm soft cinematic lighting, 8k resolution, photorealistic'
   };
 };
 
@@ -1191,11 +1184,11 @@ window.lvOpenCustomerRequest = function(target) {
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
-        '<button class="lv-gemini-chip" data-hint="180 cm masif ceviz konsol, fırçalanmış pirinç kulplu">✦ 180cm Ceviz Konsol</button>',
-        '<button class="lv-gemini-chip" data-hint="Masif meşe TV ünitesi, siyah metal ayak ve açık raf">✦ Meşe TV Ünitesi</button>',
-        '<button class="lv-gemini-chip" data-hint="Bordo lake bombeli oval ayakkabılık, pirinç ayaklı">✦ Oval Ayakkabılık</button>',
-        '<button class="lv-gemini-chip" data-hint="İpek mat antrasit lake çalışma masası, çekmeceli">✦ Lake Çalışma Masası</button>',
-        '<button class="lv-gemini-chip" data-hint="Minimalist aynalı sürgülü gardrop, füme cam detaylı">✦ Minimalist Gardrop</button>',
+        '<button class="lv-gemini-chip" data-hint="Hayalimdeki mobilyanın tarzı ve detayları şunlar: ">✦ Hayalimi Anlatmak İstiyorum</button>',
+        '<button class="lv-gemini-chip" data-hint="Mekanım için modern ve minimalist bir tasarım istiyorum.">✦ Minimalist &amp; Modern</button>',
+        '<button class="lv-gemini-chip" data-hint="Doğal masif ahşap dokulu ve sıcak tonlarda olsun.">✦ Doğal Masif Ahşap</button>',
+        '<button class="lv-gemini-chip" data-hint="Gizli çekmeceli ve çok fonksiyonlu depolama alanı olsun.">✦ Fonksiyonel Depolama</button>',
+        '<button class="lv-gemini-chip" data-hint="Ölçü ve malzeme konusunda bana öneride bulunur musun?">✦ Mimar Önerisi Al</button>',
       '</div>',
 
       // Attached photo preview banner
