@@ -394,7 +394,7 @@ window.LavoraAI = {
   CF_API_TOKEN: (typeof atob === 'function' ? atob('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=') : ''),
 
   getWorkerUrl() {
-    const sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
+    const sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || 'https://designplan.minifinise.workers.dev';
     return sUrl.trim().replace(/\/+$/, '');
   },
 
@@ -5611,7 +5611,7 @@ window._lvAdminHubModal = function(defaultTab){
  // --- SETTINGS TAB ACTIONS (100% FUNCTIONAL & EXPANDED) ---
  const syncSettingsInputs=()=>{
   const elWk = document.getElementById('_lv-set-cf-worker');
-  if (elWk) elWk.value = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
+  if (elWk) elWk.value = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || 'https://designplan.minifinise.workers.dev';
   const copyBtn = document.getElementById('_lv-btn-copy-worker');
   if (copyBtn) {
    copyBtn.onclick = () => {
