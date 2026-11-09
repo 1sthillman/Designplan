@@ -1041,6 +1041,58 @@ img.onerror = reject;
     return info.join('\n');
   };
 
+    // Akıllı Mimari Yedek Yanıtlayıcı (CORS veya Ağ Kesintisi Durumunda)
+  LA.generateArchitectFallback = function (conversationHistory, liveProjectContext) {
+    var lastUserMsg = '';
+    for (var i = (conversationHistory || []).length - 1; i >= 0; i--) {
+      if (conversationHistory[i].role === 'user' && conversationHistory[i].content) {
+        lastUserMsg = conversationHistory[i].content.toLowerCase();
+        break;
+      }
+    }
+
+    // 1. Kargo, sipariş, teslimat ve imalat durumu soruları
+    if (/kargo|teslim|nerede|ne zaman|bitti mi|durum|asamada|asama/i.test(lastUserMsg)) {
+      if (liveProjectContext) {
+        var lines = liveProjectContext.split('\n').filter(Boolean);
+        var projName = 'Projeniz';
+        var statusLines = [];
+        lines.forEach(function(l) {
+          if (l.indexOf('Proje Adı:') !== -1) projName = l.replace('- Proje Adı:', '').trim();
+          if (l.indexOf('Planlanan Teslim Tarihi:') !== -1 || l.indexOf('Genel İmalat Tamamlanma') !== -1 || l.indexOf('Güncel Durum') !== -1) {
+            statusLines.push(l.replace(/^-\s*/, '').trim());
+          }
+          if (l.indexOf('->') !== -1) {
+            statusLines.push(l.trim());
+          }
+        });
+        var statusSummary = statusLines.length ? ('\n\n' + statusLines.join('\n')) : '';
+        return projName + ' için canlı atölye imalat verilerini kontrol ettim:' + statusSummary + '\n\nİmalat ve sevk aşamalarınız atölye ekibimiz tarafından titizlikle takip edilmektedir. İlave bir talebiniz varsa yukarıdaki "✦ Talebi Atölyeye İlet" butonuyla atölyemize doğrudan yazabilirsiniz.';
+      }
+      return 'Sistemde açık olan projenizin tüm imalat aşamaları atölye ekibimiz tarafından titizlikle takip edilmektedir. Detaylı bilgi almak veya revize iletmek için yukarıdaki "✦ Talebi Atölyeye İlet" butonunu kullanabilirsiniz.';
+    }
+
+    // 2. Tasarım, ölçü, malzeme talepleri
+    var brief = LA.parseRequestBrief(conversationHistory);
+    var item = brief.itemName || 'Özel Tasarım Mobilya';
+    var mat = brief.material || 'Doğal Masif Ahşap';
+
+    if (/mese|ceviz|lake|ahsap|malzeme/i.test(lastUserMsg)) {
+      return item + ' tasarımınız için ' + mat + ' tercihi mekanınızın karakterine asil bir sıcaklık katacaktır. Çekmece veya kapaklarda bas-aç (push-to-open) gizli raylar mı yoksa fırçalanmış pirinç kulplar mı tercih edersiniz?';
+    }
+
+    if (/olcu|ebat|boyut|derinlik|yukseklik|genislik|metre|cm/i.test(lastUserMsg)) {
+      return 'Belirttiğiniz ölçüler mekan ergonomisi açısından dengeli bir oran sunuyor. İç bölmelerde açık dekoratif raflar mı yoksa geniş depolama çekmeceleri mi sizin için daha fonksiyonel olur?';
+    }
+
+    if (/fiyat|butce|maliyet|kac para|ne kadar/i.test(lastUserMsg)) {
+      return item + ' için seçeceğiniz malzeme (' + mat + ') ve mekan ölçülerine göre atölyemizde net bir maliyet çalışması yapılacaktır. Detayları kesinleştirdiğimizde "✦ Talebi Atölyeye İlet" butonuna basarak atölyemizden resmi fiyat teklifi alabilirsiniz.';
+    }
+
+    // 3. Genel mimari karşılama
+    return 'Tasarım vizyonunuzu ve mekan detaylarınızı dinliyorum. Düşündüğünüz ' + item + ' için aklınızdaki ölçüler, ahşap tonu veya fonksiyonel bölmeler hakkında bilgi verebilirseniz projeyi birlikte netleştirebiliriz.';
+  };
+
   LA.chatReply = async function (conversationHistory, liveProjectContext) {
     var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş İç Mimarı ve İmalat Danışmanısın.\n" +
       "Adın: Lavora Tasarım Mimarı.\n\n" +
