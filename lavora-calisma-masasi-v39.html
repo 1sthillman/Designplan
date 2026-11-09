@@ -331,13 +331,17 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .lx-switch input[type="checkbox"] { width:22px; height:22px; accent-color:var(--ac); cursor:pointer; }
 .lx-skeleton { background:linear-gradient(90deg, var(--s2) 25%, var(--s) 50%, var(--s2) 75%); background-size:200% 100%; animation:lxShimmer 1.5s infinite; border-radius:8px; min-height:16px; }
 @keyframes lxShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes lxOrbPing { 0%{transform:scale(0.92);opacity:0.8} 50%{transform:scale(1.36);opacity:0} 100%{transform:scale(0.92);opacity:0} }
 .lx-pill-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; min-height:36px; border-radius:20px; font-size:12.5px; font-weight:700; background:rgba(15,118,110,0.12); color:var(--ac); border:1.5px solid rgba(15,118,110,0.3); cursor:pointer; transition:all .15s; }
 .lx-pill-btn:hover { background:var(--ac); color:#fff; }
 </style></head><body>
 <header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="lx-quick-ai" type="button" onclick="if(window.LVX)window.LVX.openHubModal()" title="Lavora Yapay Zeka Merkezi" aria-label="Yapay Zeka" style="display:inline-flex;align-items:center;justify-content:center;background:rgba(15,118,110,0.12);color:var(--ac);border:1px solid rgba(15,118,110,0.25);border-radius:10px;width:38px;height:38px;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 16v-4M12 8h.01"/></svg></button>
 <button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
 <main id="app"></main>
-<nav class="dock" aria-label="Ana gezinme"><button data-a="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projeler</button><button data-a="w:all"><svg class="i" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>İş Akışı</button><button class="cm" data-a="photo" aria-label="Fotoğraftan tablo"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v12H4zM12 17a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"/></svg></button><button data-a="led"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM4 10h16M15 14h2"/></svg>Defter</button><button data-a="file"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Dosya</button></nav>
+<nav class="dock" aria-label="Ana gezinme"><button data-a="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projeler</button><button data-a="w:all"><svg class="i" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>İş Akışı</button><button class="cm" id="lx-dock-ai-btn" type="button" onclick="if(window.LVX)window.LVX.openOrbitalHub()" aria-label="Lavora Yapay Zeka Merkezi" style="background:linear-gradient(135deg,#0284c7,#0f766e);box-shadow:0 0 22px rgba(6,182,212,0.55);border:1.5px solid rgba(255,255,255,0.45);position:relative">
+  <div style="position:absolute;inset:-3px;border-radius:50%;border:1px solid rgba(6,182,212,0.4);animation:lxOrbPing 2.5s infinite"></div>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+</button><button data-a="led"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM4 10h16M15 14h2"/></svg>Defter</button><button data-a="file"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Dosya</button></nav>
 <div id="sh" hidden></div><div id="lvlive" class="sro" role="status" aria-live="polite"></div><div id="pr"></div>
 <input type="file" id="fu" accept=".xlsx,.xls,.csv,.json" hidden><input type="file" id="fp" accept="image/*" capture="environment" hidden><input type="file" id="fl" accept="image/png,image/jpeg" hidden>
 <!--LV-VOICE-START-->
@@ -2450,7 +2454,7 @@ else if(/\n|\t/.test(t)||(t.match(/[;,]/g)||[]).length>=2)wb=XLSX.read(t,{type:'
 if(wb)return openWb(wb,'QR verisi')}catch(x){dbg('QR veri çözme: '+x.message)}
 newP('QR: '+t.slice(0,24),[{n:'QR',h:['İçerik'],r:[[t]]}]);toast('QR metni projeye eklendi')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,d=b.dataset;
-if(a=='photo'){e.stopPropagation();sheet(`<h3>Yeni kayıt</h3><button class="opt" type="button" onclick="close();if(window.LVX)window.LVX.openReceiptModal()"><b>Fis / Fatura Tara (Yapay Zeka)</b><span>Fis fotografindan tarih, tutar, KDV ve tedarikciye otomatik cikar</span></button><button class="opt" data-a="la" data-k="g"><b>Gider ekle</b><span>Malzeme, işçilik, nakliye ve diğer masraflar</span></button><button class="opt" data-a="la" data-k="i"><b>Gelir ekle</b><span>Kapora, taksit, kalan ödeme</span></button><button class="opt" data-a="laf"><b>Fişi çekip gider ekle</b><span>Kamera açılır, fotoğraf kayda eklenir</span></button>`)}
+if(a=='photo'){e.stopPropagation();if(window.LVX){window.LVX.openOrbitalHub();return;}sheet(`<h3>Yeni kayıt</h3><button class="opt" type="button" onclick="close();if(window.LVX)window.LVX.openReceiptModal()"><b>Fis / Fatura Tara (Yapay Zeka)</b><span>Fis fotografindan tarih, tutar, KDV ve tedarikciye otomatik cikar</span></button><button class="opt" data-a="la" data-k="g"><b>Gider ekle</b><span>Malzeme, işçilik, nakliye ve diğer masraflar</span></button><button class="opt" data-a="la" data-k="i"><b>Gelir ekle</b><span>Kapora, taksit, kalan ödeme</span></button><button class="opt" data-a="laf"><b>Fişi çekip gider ekle</b><span>Kamera açılır, fotoğraf kayda eklenir</span></button>`)}
 else if(a=='pic'){close();$('#fp').click()}else if(a=='qr')startQR();
 else if(a=='cm'){qmode=d.m;document.querySelectorAll('[data-a=cm]').forEach(x=>x.classList.toggle('on',x.dataset.m==qmode))}
 else if(a=='snap'){const v=$('#qv');if(!v||!v.videoWidth)return toast('Kamera hazır değil');const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);c.toBlob(bl=>{qs&&qs.getTracks().forEach(t=>t.stop());qs=null;close();readPhoto(new File([bl],'kamera.jpg',{type:'image/jpeg'}))},'image/jpeg',.92)}
@@ -7374,6 +7378,14 @@ if(loadConfig()){
       renderSuggestion(container, parsed, closeModal) {
         container.style.display = 'block';
 
+        // Detect action type
+        let action = parsed.action || 'update_stage';
+        if (!parsed.action) {
+          if (parsed.amount != null || /gider|masraf|fatura|öde|harca/i.test(parsed.note || '')) action = 'add_expense';
+          else if (/gelir|tahsilat|kapora|avans/i.test(parsed.note || '')) action = 'add_income';
+          else if (parsed.todo) action = 'add_todo';
+        }
+
         // Fuzzy match project from P
         let matchedProj = null;
         if (typeof window.P !== 'undefined' && Array.isArray(window.P)) {
@@ -7386,11 +7398,292 @@ if(loadConfig()){
         }
 
         const projTitle = matchedProj ? (matchedProj.name || 'Proje') : (parsed.project || 'Genel');
-        const confPercent = Math.round((parsed.confidence || 0.85) * 100);
+        const confPercent = Math.round((parsed.confidence || 0.88) * 100);
 
+        // 1. ADD EXPENSE (Gider Gir)
+        if (action === 'add_expense') {
+          const amt = parsed.amount || 0;
+          const cat = parsed.category || 'Malzeme';
+          const note = parsed.note || 'Sesli gider girişi';
+
+          container.innerHTML = `
+            <div class="lx-card-suggest" style="border-color:#f43f5e">
+              <span class="lx-tag-suggest" style="background:#f43f5e">Gider Girişi</span>
+              <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Sesli Çıkarımı</div>
+              <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%;background:#f43f5e"></div></div>
+              <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
+
+              <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Gider Tutarı (₺)</label>
+                    <input id="lx-sug-amt" type="number" step="0.01" value="${amt}" style="font-size:14px;font-weight:800;color:#f43f5e;padding:8px 10px;border-radius:8px">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Kategori</label>
+                    <select id="lx-sug-cat" style="font-size:13px;padding:8px 10px;border-radius:8px;background:var(--s);color:var(--ink);border:1px solid var(--ln);width:100%">
+                      <option value="Malzeme" ${cat==='Malzeme'?'selected':''}>Malzeme</option>
+                      <option value="İşçilik" ${cat==='İşçilik'?'selected':''}>İşçilik</option>
+                      <option value="Nakliye" ${cat==='Nakliye'?'selected':''}>Nakliye</option>
+                      <option value="Atölye Masrafı" ${cat==='Atölye Masrafı'?'selected':''}>Atölye Masrafı</option>
+                      <option value="Hırdavat" ${cat==='Hırdavat'?'selected':''}>Hırdavat</option>
+                      <option value="Yemek" ${cat==='Yemek'?'selected':''}>Yemek</option>
+                      <option value="Vergi" ${cat==='Vergi'?'selected':''}>Vergi</option>
+                      <option value="Diğer" ${cat==='Diğer'?'selected':''}>Diğer</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">İlişkili Proje</label>
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Açıklama / Not</label>
+                  <input id="lx-sug-note" type="text" value="${LVX.ui.esc(note)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+                <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+                <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px;background:#f43f5e">Deftere Masrafı Ekle</button>
+              </div>
+            </div>
+          `;
+
+          container.querySelector('#lx-sug-cancel').onclick = closeModal;
+          container.querySelector('#lx-sug-apply').onclick = () => {
+            const finalAmt = parseFloat(container.querySelector('#lx-sug-amt').value) || 0;
+            const finalCat = container.querySelector('#lx-sug-cat').value;
+            const finalProj = container.querySelector('#lx-sug-proj').value.trim();
+            const finalNote = container.querySelector('#lx-sug-note').value.trim();
+
+            const dStr = new Date().toISOString().split('T')[0];
+            const rec = {
+              id: 'led_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+              d: dStr,
+              k: 'g',
+              a: finalAmt,
+              c: finalCat,
+              p: finalProj,
+              n: finalNote,
+              u: Date.now()
+            };
+
+            if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+              window.LR.push(rec);
+            }
+            if (typeof window.save === 'function') window.save();
+            if (typeof window.path === 'function') {
+              window.path('ledger').child(rec.id).set(rec);
+            }
+            LVX.ui.toast(LVX.ui.formatMoney(finalAmt) + ' gider deftere başarıyla kaydedildi.');
+            closeModal();
+            if (typeof window.ledRnd === 'function') window.ledRnd();
+          };
+          return;
+        }
+
+        // 2. ADD INCOME (Gelir / Tahsilat Gir)
+        if (action === 'add_income') {
+          const amt = parsed.amount || 0;
+          const cat = parsed.category || 'Kapora';
+          const note = parsed.note || 'Sesli tahsilat girişi';
+
+          container.innerHTML = `
+            <div class="lx-card-suggest" style="border-color:#10b981">
+              <span class="lx-tag-suggest" style="background:#10b981">Gelir / Tahsilat</span>
+              <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Sesli Çıkarımı</div>
+              <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%;background:#10b981"></div></div>
+              <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
+
+              <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Tahsilat Tutarı (₺)</label>
+                    <input id="lx-sug-amt" type="number" step="0.01" value="${amt}" style="font-size:14px;font-weight:800;color:#10b981;padding:8px 10px;border-radius:8px">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Kategori</label>
+                    <select id="lx-sug-cat" style="font-size:13px;padding:8px 10px;border-radius:8px;background:var(--s);color:var(--ink);border:1px solid var(--ln);width:100%">
+                      <option value="Kapora" ${cat==='Kapora'?'selected':''}>Kapora</option>
+                      <option value="Taksit" ${cat==='Taksit'?'selected':''}>Taksit</option>
+                      <option value="Kalan Ödeme" ${cat==='Kalan Ödeme'?'selected':''}>Kalan Ödeme</option>
+                      <option value="Diğer" ${cat==='Diğer'?'selected':''}>Diğer</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">İlişkili Proje</label>
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Açıklama / Not</label>
+                  <input id="lx-sug-note" type="text" value="${LVX.ui.esc(note)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+                <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+                <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px;background:#10b981">Deftere Geliri Ekle</button>
+              </div>
+            </div>
+          `;
+
+          container.querySelector('#lx-sug-cancel').onclick = closeModal;
+          container.querySelector('#lx-sug-apply').onclick = () => {
+            const finalAmt = parseFloat(container.querySelector('#lx-sug-amt').value) || 0;
+            const finalCat = container.querySelector('#lx-sug-cat').value;
+            const finalProj = container.querySelector('#lx-sug-proj').value.trim();
+            const finalNote = container.querySelector('#lx-sug-note').value.trim();
+
+            const dStr = new Date().toISOString().split('T')[0];
+            const rec = {
+              id: 'led_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+              d: dStr,
+              k: 'i',
+              a: finalAmt,
+              c: finalCat,
+              p: finalProj,
+              n: finalNote,
+              u: Date.now()
+            };
+
+            if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+              window.LR.push(rec);
+            }
+            if (typeof window.save === 'function') window.save();
+            if (typeof window.path === 'function') {
+              window.path('ledger').child(rec.id).set(rec);
+            }
+            LVX.ui.toast(LVX.ui.formatMoney(finalAmt) + ' gelir deftere başarıyla kaydedildi.');
+            closeModal();
+            if (typeof window.ledRnd === 'function') window.ledRnd();
+          };
+          return;
+        }
+
+        // 3. ADD TASK / TODO (Görev Ekle)
+        if (action === 'add_todo') {
+          const taskText = parsed.todo || parsed.note || 'Yeni görev';
+
+          container.innerHTML = `
+            <div class="lx-card-suggest" style="border-color:#8b5cf6">
+              <span class="lx-tag-suggest" style="background:#8b5cf6">Yapılacak İş</span>
+              <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Sesli Çıkarımı</div>
+              <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%;background:#8b5cf6"></div></div>
+              <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
+
+              <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Proje</label>
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Görev / Yapılacak İş</label>
+                  <input id="lx-sug-todo" type="text" value="${LVX.ui.esc(taskText)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+                <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+                <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px;background:#8b5cf6">Görevi Projeye Ekle</button>
+              </div>
+            </div>
+          `;
+
+          container.querySelector('#lx-sug-cancel').onclick = closeModal;
+          container.querySelector('#lx-sug-apply').onclick = () => {
+            const finalTask = container.querySelector('#lx-sug-todo').value.trim();
+            if (matchedProj && matchedProj.w) {
+              if (!Array.isArray(matchedProj.w.todo)) matchedProj.w.todo = [];
+              matchedProj.w.todo.push({
+                id: 'td_' + Date.now().toString(36),
+                t: finalTask,
+                x: 0
+              });
+              if (typeof window.save === 'function') window.save();
+              LVX.ui.toast('Görev projeye eklendi: ' + finalTask);
+              if (typeof window.wRnd === 'function') window.wRnd();
+            } else {
+              LVX.ui.toast('İlişkili proje bulunamadı.');
+            }
+            closeModal();
+          };
+          return;
+        }
+
+        // 4. ADD ITEM (Yeni Ürün Ekle)
+        if (action === 'add_item') {
+          const itName = parsed.item || 'Yeni Ürün';
+          const dim = parsed.dimensions || '';
+          const mat = parsed.material || '';
+
+          container.innerHTML = `
+            <div class="lx-card-suggest" style="border-color:#0284c7">
+              <span class="lx-tag-suggest" style="background:#0284c7">Yeni Kalem</span>
+              <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Sesli Çıkarımı</div>
+              <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%;background:#0284c7"></div></div>
+              <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
+
+              <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Proje</label>
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Ürün Adı</label>
+                  <input id="lx-sug-item" type="text" value="${LVX.ui.esc(itName)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Ölçüler</label>
+                    <input id="lx-sug-dim" type="text" value="${LVX.ui.esc(dim)}" placeholder="örn: 240x60x45" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                  </div>
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--mu)">Malzeme</label>
+                    <input id="lx-sug-mat" type="text" value="${LVX.ui.esc(mat)}" placeholder="örn: Meşe Kaplama" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+                <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+                <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px;background:#0284c7">Ürünü Projeye Ekle</button>
+              </div>
+            </div>
+          `;
+
+          container.querySelector('#lx-sug-cancel').onclick = closeModal;
+          container.querySelector('#lx-sug-apply').onclick = () => {
+            const finalName = container.querySelector('#lx-sug-item').value.trim();
+            const finalDim = container.querySelector('#lx-sug-dim').value.trim();
+            const finalMat = container.querySelector('#lx-sug-mat').value.trim();
+
+            if (matchedProj && matchedProj.w) {
+              if (!Array.isArray(matchedProj.w.items)) matchedProj.w.items = [];
+              const newItem = {
+                id: 'it_' + Date.now().toString(36),
+                n: finalName,
+                dim: finalDim,
+                mat: finalMat,
+                q: 1,
+                st: {},
+                ph: []
+              };
+              matchedProj.w.items.push(newItem);
+              if (typeof window.save === 'function') window.save();
+              LVX.ui.toast('Ürün projeye eklendi: ' + finalName);
+              if (typeof window.wRnd === 'function') window.wRnd();
+            }
+            closeModal();
+          };
+          return;
+        }
+
+        // 5. DEFAULT: UPDATE STAGE (Aşama Güncelle)
         container.innerHTML = `
           <div class="lx-card-suggest">
-            <span class="lx-tag-suggest">Öneri</span>
+            <span class="lx-tag-suggest">Aşama Güncelle</span>
             <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Çıkarımı</div>
             <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%"></div></div>
             <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
@@ -7418,7 +7711,7 @@ if(loadConfig()){
 
             <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
               <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
-              <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px">✦ Onayla ve Uygula</button>
+              <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px">Onayla ve Uygula</button>
             </div>
           </div>
         `;
@@ -7542,7 +7835,7 @@ if(loadConfig()){
           try {
             const dataUrl = await new Promise((res, rej) => {
               const r = new FileReader();
-              r.onload = () => res(r.target.result);
+              r.onload = (e) => res((e && e.target && e.target.result) || r.result);
               r.onerror = rej;
               r.readAsDataURL(file);
             });
@@ -8371,6 +8664,279 @@ if(loadConfig()){
     `, [
       { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
     ]);
+  };
+
+  // ==========================================
+  // RADIAL ORBITAL AI HUB (Mobile First)
+  // ==========================================
+  LVX.openOrbitalHub = function() {
+    const existing = document.getElementById('lx-orbital-hub-overlay');
+    if (existing) existing.remove();
+
+    const items = [
+      {
+        id: 1,
+        title: 'Sesli Asistan',
+        category: 'SESLE YÖNETİM',
+        status: 'completed',
+        energy: 98,
+        desc: 'Konuşarak gider girin ("5000 TL gider gir"), gelir ekleyin, aşama güncelleyin veya görev oluşturun.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>',
+        action: () => LVX.voice.openModal()
+      },
+      {
+        id: 2,
+        title: 'Fiş / Fatura Tara',
+        category: 'OPTİK TARAMA',
+        status: 'completed',
+        energy: 92,
+        desc: 'Kameradan veya galeriden fiş fotoğrafı çekip tutar, KDV ve tedarikçiyi doğrudan masraf defterine işleyin.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+        action: () => LVX.receipt.openModal()
+      },
+      {
+        id: 3,
+        title: 'Atölyeye Sor (AI)',
+        category: 'AKIL YÜRÜTME',
+        status: 'in-progress',
+        energy: 95,
+        desc: 'Kasa durumu, geciken işler ve projeler hakkında doğal dilde soru sorun, anında yanıt alın.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        action: () => LVX.ask.openModal()
+      },
+      {
+        id: 4,
+        title: 'Günlük Brifing',
+        category: 'KARAR DESTEĞİ',
+        status: 'completed',
+        energy: 84,
+        desc: 'Bugünün teslimat öncelikleri, acil işler ve haftalık gelir-gider durumunu tek ekranda görün.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+        action: () => LVX.briefing.openModal()
+      },
+      {
+        id: 5,
+        title: 'Kesim & Malzeme',
+        category: 'ÜRETİM HESABI',
+        status: 'pending',
+        energy: 89,
+        desc: 'Serbest metin ölçülerinden plaka adedi, kenar bandı metrajı ve fire hesabı yapın.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+        action: () => LVX.cut.openModal()
+      },
+      {
+        id: 6,
+        title: 'Olay Günlüğü',
+        category: 'DENETİM & TAKİP',
+        status: 'completed',
+        energy: 78,
+        desc: 'Son 7 günde hangi kalemlerin aşaması kim tarafından değiştirildi inceleyin.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        action: () => LVX.events.openModal()
+      },
+      {
+        id: 7,
+        title: 'Teklif Zenginleştir',
+        category: 'VİTRİN & TEKLİF',
+        status: 'pending',
+        energy: 86,
+        desc: 'Teklif kalemlerine profesyonel teknik şartname ve garanti metni ekleyin.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+        action: () => LVX.enrichProposal()
+      }
+    ];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'lx-orbital-hub-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99995;background:radial-gradient(circle at 50% 50%, rgba(15,23,42,0.96) 0%, #030712 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;animation:lxFadeIn .2s ease';
+
+    overlay.innerHTML = `
+      <div style="position:absolute;top:max(16px, env(safe-area-inset-top));left:0;right:0;padding:0 20px;display:flex;align-items:center;justify-content:space-between;z-index:100">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,#06b6d4,#3b82f6);display:grid;place-items:center;color:#fff;box-shadow:0 0 16px rgba(6,182,212,0.5)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </div>
+          <div>
+            <div style="font-size:14.5px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em">Lavora Yapay Zeka Merkezi</div>
+            <div style="font-size:11px;color:#94a3b8">Cloudflare Workers AI &bull; Mobil Uyumlu</div>
+          </div>
+        </div>
+        <button id="lx-orbital-close-btn" type="button" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;font-size:18px;display:grid;place-items:center;cursor:pointer">✕</button>
+      </div>
+
+      <div style="position:absolute;top:max(68px, calc(env(safe-area-inset-top) + 48px));font-size:12px;color:rgba(255,255,255,0.5);text-align:center;pointer-events:none;z-index:90">
+        Bir araca dokunarak detayları görün ve başlatın
+      </div>
+
+      <div id="lx-orbital-stage" style="position:relative;width:100%;height:100%;max-width:560px;max-height:560px;display:flex;align-items:center;justify-content:center">
+        <!-- Central Glowing Core -->
+        <div id="lx-orbital-core" style="position:absolute;width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg, #a855f7, #3b82f6, #06b6d4);box-shadow:0 0 45px rgba(6,182,212,0.55), inset 0 0 15px rgba(255,255,255,0.5);display:grid;place-items:center;z-index:20;cursor:pointer">
+          <div style="position:absolute;inset:-16px;border-radius:50%;border:1.5px solid rgba(6,182,212,0.3);animation:lxOrbPing 2.5s infinite"></div>
+          <div style="position:absolute;inset:-32px;border-radius:50%;border:1px solid rgba(168,85,247,0.2);animation:lxOrbPing 2.5s infinite .8s"></div>
+          <div style="width:24px;height:24px;border-radius:50%;background:#ffffff;box-shadow:0 0 14px #fff"></div>
+        </div>
+
+        <!-- Orbit Track Ring -->
+        <div id="lx-orbit-track" style="position:absolute;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.12);pointer-events:none"></div>
+
+        <!-- Orbiting Nodes Container -->
+        <div id="lx-nodes-container" style="position:absolute;inset:0"></div>
+
+        <!-- Floating Card Container -->
+        <div id="lx-active-card-container" style="position:absolute;bottom:max(20px, env(safe-area-inset-bottom));left:16px;right:16px;max-width:380px;margin:0 auto;z-index:150;pointer-events:auto"></div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const stage = overlay.querySelector('#lx-orbital-stage');
+    const track = overlay.querySelector('#lx-orbit-track');
+    const nodesContainer = overlay.querySelector('#lx-nodes-container');
+    const cardContainer = overlay.querySelector('#lx-active-card-container');
+    const closeBtn = overlay.querySelector('#lx-orbital-close-btn');
+
+    const isMobile = window.innerWidth < 520;
+    const radius = isMobile ? Math.min(132, Math.floor((window.innerWidth - 80) / 2)) : 190;
+    const trackSize = radius * 2;
+    track.style.width = trackSize + 'px';
+    track.style.height = trackSize + 'px';
+
+    let rotationAngle = 0;
+    let isAutoRotating = true;
+    let activeItemId = null;
+    let animFrameId = null;
+
+    function closeOverlay() {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      overlay.style.animation = 'lxFadeIn .15s ease reverse';
+      setTimeout(() => overlay.remove(), 140);
+    }
+    closeBtn.onclick = closeOverlay;
+    overlay.onclick = (e) => {
+      if (e.target === overlay || e.target === stage) {
+        if (activeItemId !== null) {
+          activeItemId = null;
+          cardContainer.innerHTML = '';
+          isAutoRotating = true;
+        } else {
+          closeOverlay();
+        }
+      }
+    };
+
+    const nodeElements = {};
+
+    items.forEach((item, index) => {
+      const nodeEl = document.createElement('div');
+      nodeEl.className = 'lx-orbital-node';
+      nodeEl.style.cssText = 'position:absolute;width:46px;height:46px;border-radius:50%;background:#090d16;border:2px solid rgba(255,255,255,0.3);display:grid;place-items:center;color:#fff;cursor:pointer;transition:transform .2s, border-color .2s, box-shadow .2s;user-select:none';
+      nodeEl.innerHTML = `
+        ${item.iconSvg}
+        <div class="lx-node-label" style="position:absolute;top:50px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);white-space:nowrap;letter-spacing:0.02em;text-shadow:0 2px 8px rgba(0,0,0,0.9);pointer-events:none">${item.title}</div>
+      `;
+
+      nodeEl.onclick = (e) => {
+        e.stopPropagation();
+        selectNode(item.id);
+      };
+
+      nodesContainer.appendChild(nodeEl);
+      nodeElements[item.id] = nodeEl;
+    });
+
+    function selectNode(id) {
+      if (activeItemId === id) {
+        activeItemId = null;
+        cardContainer.innerHTML = '';
+        isAutoRotating = true;
+        updateNodes();
+        return;
+      }
+
+      activeItemId = id;
+      isAutoRotating = false;
+
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      cardContainer.innerHTML = `
+        <div style="background:rgba(15,23,42,0.95);border:1.5px solid rgba(6,182,212,0.45);border-radius:20px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,0.7), 0 0 24px rgba(6,182,212,0.25);animation:lxSlideUp .22s cubic-bezier(0.16,1,0.3,1)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:800;color:#38bdf8;background:rgba(56,189,248,0.12);padding:2px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.25)">${item.category}</span>
+            <span style="font-size:10px;font-weight:700;color:#10b981;display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#10b981"></span> AKTİF</span>
+          </div>
+          <div style="font-size:15px;font-weight:800;color:#f8fafc;margin-bottom:4px">${item.title}</div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.4;margin-bottom:14px">${item.desc}</div>
+          <div style="display:flex;gap:8px">
+            <button id="lx-orbital-launch-btn" type="button" class="lx-btn lx-btn-primary" style="flex:1;min-height:40px;font-size:13.5px;background:linear-gradient(135deg,#0284c7,#0f766e)">Hemen Başlat</button>
+            <button id="lx-orbital-card-close" type="button" class="lx-btn lx-btn-secondary" style="min-height:40px;font-size:13px">Kapat</button>
+          </div>
+        </div>
+      `;
+
+      cardContainer.querySelector('#lx-orbital-card-close').onclick = () => {
+        activeItemId = null;
+        cardContainer.innerHTML = '';
+        isAutoRotating = true;
+        updateNodes();
+      };
+
+      cardContainer.querySelector('#lx-orbital-launch-btn').onclick = () => {
+        closeOverlay();
+        setTimeout(() => item.action(), 150);
+      };
+
+      updateNodes();
+    }
+
+    function updateNodes() {
+      const total = items.length;
+      const centerX = stage.clientWidth / 2;
+      const centerY = stage.clientHeight / 2;
+
+      items.forEach((item, index) => {
+        const el = nodeElements[item.id];
+        if (!el) return;
+
+        const angle = (index / total) * 360 + rotationAngle;
+        const rad = (angle * Math.PI) / 180;
+        const x = centerX + radius * Math.cos(rad) - 23;
+        const y = centerY + radius * Math.sin(rad) - 23;
+
+        const isActive = activeItemId === item.id;
+        const depth = Math.sin(rad);
+        const scale = isActive ? 1.35 : (0.85 + 0.15 * ((depth + 1) / 2));
+        const opacity = isActive ? 1 : (0.55 + 0.45 * ((depth + 1) / 2));
+        const zIndex = isActive ? 120 : Math.round(50 + 20 * depth);
+
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.transform = `scale(${scale})`;
+        el.style.opacity = opacity;
+        el.style.zIndex = zIndex;
+
+        if (isActive) {
+          el.style.borderColor = '#38bdf8';
+          el.style.boxShadow = '0 0 25px rgba(56,189,248,0.8), 0 0 50px rgba(56,189,248,0.35)';
+          el.style.background = '#0284c7';
+        } else {
+          el.style.borderColor = 'rgba(255,255,255,0.3)';
+          el.style.boxShadow = 'none';
+          el.style.background = '#090d16';
+        }
+      });
+    }
+
+    function loop() {
+      if (isAutoRotating) {
+        rotationAngle = (rotationAngle + 0.28) % 360;
+        updateNodes();
+      }
+      animFrameId = requestAnimationFrame(loop);
+    }
+
+    updateNodes();
+    animFrameId = requestAnimationFrame(loop);
   };
 
   // Expose globally

@@ -426,23 +426,37 @@ export default {
         let systemPrompt = "";
         let userPrompt = "";
 
-        if (mode === "voice_update") {
-          systemPrompt = "Sen Lavora mobilya atölyesinin sesli komut çözümleyicisisin.\n" +
-            "Ustanın veya mimarın söylediği cümleden proje, ürün, aşama, durum ve not bilgilerini çıkar.\n" +
+        if (mode === "voice_update" || mode === "voice_command") {
+          systemPrompt = "Sen Lavora mobilya atölyesinin akıllı sesli komut asistanısın.\n" +
+            "Ustanın veya yöneticinin söylediği cümleyi analiz et ve uygulamadaki ilgili eylemi (action) belirle:\n" +
+            "EYLEM TÜRLERİ (action):\n" +
+            "1. 'add_expense': Gider/masraf/ödeme girişi (örn: '5000 liralık gider gir', 'hırdavatçıya 1200 TL verdim', 'mazot masrafı yaz')\n" +
+            "2. 'add_income': Gelir/tahsilat/kapora girişi (örn: 'Voger projesinden 50 bin TL kapora aldım', '20.000 lira tahsilat gir')\n" +
+            "3. 'update_stage': Üretim aşaması güncelleme (örn: 'gardrobun kesimi bitti', 'cila işlemine başlandı', 'montaj tamamlandı')\n" +
+            "4. 'add_todo': Yapılacak iş / görev ekleme (örn: 'yarın kulp numunesi götür diye görev ekle', 'menteşe siparişi verilecek')\n" +
+            "5. 'add_item': Yeni ürün/kalem ekleme (örn: 'Voger projesine 240x60 lake vestiyer ekle')\n" +
+            "6. 'create_project': Yeni proje açma (örn: 'Ahmet Bey için villa projesi oluştur')\n" +
+            "7. 'query_status': Durum veya bilgi sorma (örn: 'kasada ne kadar var', 'bu hafta ne teslim edilecek')\n\n" +
             "Aşama adları: Ölçü/Keşif, Çizim/Onay, Malzeme, Kesim, Bantlama, Üretim/Montaj, Boya/Kaplama, Sevkiyat, Kurulum/Teslim.\n" +
             "Durumlar: 0 bekliyor, 1 devam, 2 tamam, 3 yarıda.\n" +
+            "Gider Kategorileri: Malzeme, İşçilik, Nakliye, Atölye Masrafı, Yemek, Vergi, Hırdavat, Diğer.\n" +
+            "Gelir Kategorileri: Kapora, Taksit, Kalan Ödeme, Diğer.\n\n" +
             "Kesinlikle ve yalnızca şu JSON şemasında yanıt ver:\n" +
             "{\n" +
+            '  "action": "add_expense" veya "add_income" veya "update_stage" veya "add_todo" veya "add_item" veya "create_project" veya "query_status",\n' +
+            '  "amount": sayı veya null (örn: 5000),\n' +
+            '  "category": "kategori adı veya boş string",\n' +
             '  "project": "proje adı veya boş string",\n' +
             '  "item": "ürün adı veya boş string",\n' +
             '  "stage": "aşama adı veya boş string",\n' +
             '  "status": 0 veya 1 veya 2 veya 3 veya null,\n' +
-            '  "note": "ilgili ek not veya boş string",\n' +
-            '  "todo": "görev veya boş string",\n' +
-            '  "due": "varsa teslim tarihi veya boş string",\n' +
+            '  "note": "ilgili açıklama veya boş string",\n' +
+            '  "todo": "görev metni veya boş string",\n' +
+            '  "dimensions": "varsa ölçüler veya boş string",\n' +
+            '  "material": "varsa malzeme veya boş string",\n' +
             '  "confidence": 0.0 ile 1.0 arası sayı\n' +
             "}\n" +
-            "Emoji kesinlikle kullanma. Bilmediğin alanı boş string veya null bırak.";
+            "Sayıları Türkçe metinden sayıya çevir (örn: 'beş bin' -> 5000, 'bin iki yüz' -> 1200). Emoji kesinlikle kullanma.";
 
           userPrompt = "Ustanın ses kaydı metni: \"" + text + "\"";
         } else if (mode === "receipt") {
