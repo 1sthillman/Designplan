@@ -331,10 +331,11 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .lx-switch input[type="checkbox"] { width:22px; height:22px; accent-color:var(--ac); cursor:pointer; }
 .lx-skeleton { background:linear-gradient(90deg, var(--s2) 25%, var(--s) 50%, var(--s2) 75%); background-size:200% 100%; animation:lxShimmer 1.5s infinite; border-radius:8px; min-height:16px; }
 @keyframes lxShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-.lx-pill-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; min-height:34px; border-radius:20px; font-size:12px; font-weight:700; background:rgba(15,118,110,0.1); color:var(--ac); border:1px solid rgba(15,118,110,0.25); cursor:pointer; transition:all .15s; }
+.lx-pill-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; min-height:36px; border-radius:20px; font-size:12.5px; font-weight:700; background:rgba(15,118,110,0.12); color:var(--ac); border:1.5px solid rgba(15,118,110,0.3); cursor:pointer; transition:all .15s; }
 .lx-pill-btn:hover { background:var(--ac); color:#fff; }
 </style></head><body>
-<header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
+<header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="lx-quick-ai" type="button" onclick="if(window.LVX)window.LVX.openHubModal()" title="Lavora Yapay Zeka Merkezi" aria-label="Yapay Zeka" style="display:inline-flex;align-items:center;justify-content:center;background:rgba(15,118,110,0.12);color:var(--ac);border:1px solid rgba(15,118,110,0.25);border-radius:10px;width:38px;height:38px;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+<button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
 <main id="app"></main>
 <nav class="dock" aria-label="Ana gezinme"><button data-a="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projeler</button><button data-a="w:all"><svg class="i" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>İş Akışı</button><button class="cm" data-a="photo" aria-label="Fotoğraftan tablo"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v12H4zM12 17a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"/></svg></button><button data-a="led"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM4 10h16M15 14h2"/></svg>Defter</button><button data-a="file"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Dosya</button></nav>
 <div id="sh" hidden></div><div id="lvlive" class="sro" role="status" aria-live="polite"></div><div id="pr"></div>
@@ -438,7 +439,6 @@ window.LavoraAI = {
       if (u && typeof u.getIdToken === 'function') {
         return await u.getIdToken();
       }
-      // Auth may not be initialized yet — wait up to 4s for state
       const authObj = window.auth || (typeof firebase !== 'undefined' && firebase.auth && firebase.auth());
       if (authObj && typeof authObj.onAuthStateChanged === 'function') {
         return await new Promise((resolve) => {
@@ -869,38 +869,49 @@ Lütfen şu JSON formatında yanıt ver:
 
   async generateAdminDraft(reqData) {
     const r = reqData || {};
-    const prompt = `Aşağıdaki müşteri tasarım ve mobilya talebi için, Lavora Design yöneticisi adına müşteriye hitaben kibar, son derece profesyonel, güven veren, Türkçe bir yanıt hazırla. Kesinlikle hiçbir emoji kullanma.
-Müşteri: ${r.email || 'Değerli Müşterimiz'}
-Konu: ${r.subject || 'Özel Tasarım Talebi'}
-İlgili Ürün / Ölçüler: ${r.itemName || ''} ${r.dimensions ? 'Ölçüler: ' + r.dimensions : ''}
+    let customerName = r.userName || r.name || (r.email ? r.email.split('@')[0] : 'Değerli Müşterimiz');
+    if (customerName.includes('@')) customerName = customerName.split('@')[0];
+
+    const prompt = `Müşteri Adı: ${customerName}
+Konu: ${r.subject || 'Özel Tasarım & Mobilya Talebi'}
+İlgili Kalem: ${r.itemName || ''} ${r.dimensions ? '(' + r.dimensions + ')' : ''}
 Malzeme: ${r.material || ''}
-Tahmini Bütçe: ${r.aiEstimate || ''}
-Müşteri Notu: ${r.text || ''}
-Cevap 2-3 paragraf olsun; ilgileri için teşekkür et, seçilen malzemenin ve ölçünün mekanlarına çok yakışacağını belirt, keşif veya numune randevusu için iletişime geçileceğini bildir.`;
+Müşteri Talebi: ${r.text || ''}
+
+GÖREV:
+Yukarıdaki müşteri talebine Lavora Design atölye sahibi Sezer Yüksekyıldız adına kurumsal, nazik ve profesyonel Türkçe bir yanıt hazırla.
+KURALLAR:
+1. "Sayın ${customerName}," şeklinde hitapla başla. Kesinlikle [Müşteri Adı] veya [İsim] gibi köşeli parantez kullanma.
+2. Talebin dikkatle incelendiğini bildir. Seçilen malzemenin ve detayların mekana çok yakışacağını belirt.
+3. Fiyat veya net teslim tarihi belirtme; atölye yönetimimizin en kısa sürede doğrudan kendileriyle iletişime geçeceğini bildir.
+4. Kesinlikle hiçbir emoji kullanma.
+5. Metni tam olarak şu imza ile bitir:
+Sezer Yüksekyıldız
+Lavora Design Atölye Yönetimi`;
 
     try {
       const data = await this.callApi('text', {
         messages: [
-          { role: 'system', content: 'Sen Lavora Design lüks mobilya ve iç mimarlık firmasının yöneticisisin. Müşteriye hitaben kibar, Türkçe ve tamamen emojisiz yanıt hazırla.' },
+          { role: 'system', content: 'Sen Lavora Design atölye sahibi Sezer Yüksekyıldız adına kurumsal, nazik ve profesyonel Türkçe yanıtlar yazan bir danışmansın. Kesinlikle hiçbir emoji ve şablon parantez kullanma.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 300
+        max_tokens: 380,
+        temperature: 0.5
       });
-      if (data && data.result && data.result.response) {
-        return data.result.response.trim();
+      let text = '';
+      if (typeof data?.result?.response === 'string') text = data.result.response;
+      else if (typeof data?.response === 'string') text = data.response;
+      else if (typeof data?.result?.choices?.[0]?.message?.content === 'string') text = data.result.choices[0].message.content;
+      else if (typeof data === 'string') text = data;
+
+      if (text) {
+        return text.replace(/\[(Müşteri Adı|isminiz|İsim)[^\]]*\]/gi, customerName).trim();
       }
     } catch (err) {
-      console.warn('[LavoraAI] Text gen remote call note:', err.message);
+      console.warn('[LavoraAI] Draft note:', err.message);
     }
 
-    return `Sayın ${r.email ? r.email.split('@')[0] : 'Müşterimiz'},
-
-${r.subject || 'Özel tasarım mobilya'} talebiniz ve paylaştığınız detaylar mimari ekibimiz tarafından incelenmiştir. ${r.dimensions ? r.dimensions + ' ölçülerindeki ' : ''}${r.material ? r.material + ' tercihiniz ' : 'tasarımınız '}, mekanınızın dokusuyla estetik bir uyum yakalayacaktır.
-
-Belirtilen ${r.aiEstimate || 'tahmini bütçe'} doğrultusunda, net cila/ahşap numuneleri ve yerinde keşif planlaması için uzman ekibimiz en kısa sürede sizinle iletişime geçecektir. 
-
-Lavora Design'ı tercih ettiğiniz için teşekkür ederiz.
-Lavora Tasarım ve Üretim Ekibi`;
+    return `Sayın ${customerName},\n\nÖzel tasarım mobilya ve iç mimarlık talebiniz atölyemizde dikkatle incelenmiştir. Belirttiğiniz detaylar doğrultusunda üretim planlamamız ve malzeme seçim sürecimiz titizlikle yürütülmektedir.\n\nProjenizin sonraki adımları ve teknik detaylar hakkında en kısa sürede doğrudan sizinle iletişime geçeceğiz.\n\nSezer Yüksekyıldız\nLavora Design Atölye Yönetimi`;
   }
 };
 
@@ -1128,26 +1139,33 @@ img.onerror = reject;
   };
 
   LA.chatReply = async function (conversationHistory, liveProjectContext) {
-    var systemPrompt = "Sen Lavora Mobilya ve Özel İmalat Atölyesi'nin Baş İç Mimarı ve İmalat Danışmanısın.\n" +
-      "Adın: Lavora Tasarım Mimarı.\n\n" +
-      "MİMARİ VE İLETİŞİM PRENSİPLERİN:\n" +
-      "1. Gerçek, son derece deneyimli, saygın ve vizyoner bir insan mimar gibi konuş. Samimi, kibar, net ve çözüm odaklı ol.\n" +
-      "2. Kesinlikle hiçbir emoji KULLANMA.\n" +
-      "3. Asla '[İsim]', '+90 ###', sahte telefon numaraları, sahte e-posta veya 'Saygılarımla' gibi şablon e-posta mektubu yazma. Sen bir chat danışmanısın; doğrudan karşındaki kişiyle konuşur gibi yaz.\n" +
-      "4. Asla markdown tablosu (|---|) veya robotik maddeler yazma.\n";
+    // Resolve customer display name from Firebase / Google auth
+    var _currentUser = (window.getCurrentUser && window.getCurrentUser()) || (window.auth && window.auth.currentUser) || window.LV_USER || null;
+    var _customerName = (_currentUser && (_currentUser.displayName || _currentUser.email)) || '';
+    if (_customerName && _customerName.includes('@')) _customerName = _customerName.split('@')[0];
+
+    var systemPrompt = "Sen Lavora Design Mobilya ve İç Mimarlık Atölyesi'nin Kurumsal Danışmanısın.\n" +
+      "Atölye Sahibi: Sezer Yüksekyıldız.\n" +
+      "Müşteri Adı: " + (_customerName ? "Sayın " + _customerName : "Değerli Müşterimiz") + ".\n\n" +
+      "KURUMSAL VE PROFESYONEL İLETİŞİM PRENSİPLERİ:\n" +
+      "1. Kesinlikle hiçbir koşulda 'Hocam', 'Hocamlı', 'Canım', 'Kardeşim', 'Dostum', 'Üstat' gibi sokak veya samimiyetsiz hitaplar KULLANMA! Müşteriye daima saygılı, kurumsal, nezih ve profesyonel bir mimarlık ofisi diliyle hitap et.\n" +
+      "2. TESLİM TARİHİ VE FİYAT BİLGİSİ VERME VE TAHMİN ETME! Fiyatlandırma, ödeme planı ve kesin teslim tarihleri yalnızca işletme sahibimiz Sezer Yüksekyıldız ve atölye yönetimimiz tarafından belirlenir. Müşteri fiyat veya teslim tarihi sorduğunda: 'Teslim tarihi ve fiyatlandırma detayları işletme sahibimiz Sezer Yüksekyıldız ve atölye yönetimimiz tarafından belirlenmekte olup en kısa sürede doğrudan sizinle paylaşılacaktır.' şeklinde net ve kurumsal yanıt ver.\n" +
+      "3. Kesinlikle hiçbir EMOJİ kullanma.\n" +
+      "4. Asla '[İsim]', '[Müşteri Adı]', '+90 ###', sahte telefon numaraları veya 'Saygılarımla' gibi şablon e-posta mektubu yazma. Sen bir danışmansın; doğrudan karşınızdaki kişiyle saygılı konuşur gibi yaz.\n" +
+      "5. Yanıtlarını kısa, net ve sakin tut (en fazla 2-3 cümle).\n";
 
     if (liveProjectContext) {
       systemPrompt += "\nÖNEMLİ - SİSTEMDE AÇIK OLAN MEVCUT PROJE BİLGİSİ:\n" +
         liveProjectContext + "\n\n" +
-        "EĞER MÜŞTERİ 'kargo ne oldu', 'siparişim ne durumda', 'ne zaman gelecek', 'ürünüm bitti mi', 'durum nedir' gibi sorular sorarsa:\n" +
-        "- KESİNLİKLE sipariş numarası, kargo takip no veya belge İSTEME! Zaten projenin atölye sistemi içerisindesin.\n" +
-        "- Yukarıdaki aktif proje ve canlı atölye verilerini baz alarak ürünlerin hangi aşamada olduğunu (kesim, cila, montaj, sevk vb.) ve teslimat durumunu net, dürüst ve güven verici bir dille anlat.\n" +
-        "- Eğer teslim tarihi veya aşama bilgisi varsa doğrudan belirt. Müşteriyi asla bürokratik sorularla yorma.\n\n";
+        "Müşteri üretim durumu sorduğunda:\n" +
+        "- Asla sipariş numarası veya evrak isteme; proje bilgisine zaten entegre olarak ulaşıyorsun.\n" +
+        "- Yalnızca yukarıdaki aktif proje aşamalarını (kesim, bantlama, montaj, boya/cila vb.) özetle.\n" +
+        "- Müşteri projedeki ürünleri ve aşama detaylarını sohbet ekranındaki interaktif kartlar üzerinden de inceleyebilir.\n";
     }
 
-    systemPrompt += "\nEĞER MÜŞTERİ YENİ BİR MOBİLYA TASARLAMAK / YAPTIRMAK İSTİYORSA:\n" +
-      "- Mekanına uygun ergonomik ölçü (örn. ayakkabılık için 35-40 cm derinlik, gardrop için 60 cm), kaliteli ahşap (masif ceviz, meşe, ipek lake), füme cam veya donanım tavsiyeleri ver.\n" +
-      "- Yanıtını kısa ve akıcı tut (2-3 cümle), 1 adet mimari soruyla sohbeti ilerlet.";
+    systemPrompt += "\nMÜŞTERİ YENİ BİR MOBİLYA TASARLAMAK / YAPTIRMAK İSTİYORSA:\n" +
+      "- Mekanına uygun ergonomik ölçü ve kaliteli ahşap dokusu (masif meşe, ceviz, lake) tavsiyeleri ver.\n" +
+      "- Fiyat ve teslim süresine girmeden 1 adet teknik mimari soruyla sohbeti ilerlet.\n";
 
     try {
       var messages = [
@@ -1290,9 +1308,15 @@ window.lvOpenCustomerRequest = function(target) {
   var liveContext = window.LavoraAI.extractProjectLiveContext(pId, pName);
 
   // Conversation history
-  var initGreeting = 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\n' +
-    'Mekanınız için düşündüğünüz mobilyayı anlatabilir, malzeme ve ahşap tonu seçebilir veya açık olan projenizin canlı imalat ve kargo durumunu sorabilirsiniz.';
-  
+  // Resolve customer display name from Firebase / Google Auth
+  var _user = (window.getCurrentUser && window.getCurrentUser()) || (window.auth && window.auth.currentUser) || window.LV_USER || null;
+  var _custName = (_user && (_user.displayName || _user.email)) || '';
+  if (_custName && _custName.includes('@')) _custName = _custName.split('@')[0];
+  var _custGreetingName = _custName ? ' Sayın ' + esc(_custName) : '';
+
+  var initGreeting = 'Hoş geldiniz' + _custGreetingName + '! Lavora Design İç Mimarlık ve Özel İmalat Atölyesi Danışmanınız olarak yardımcı olmaktan memnuniyet duyarım.\n\n' +
+    'Mekanınız için düşündüğünüz mobilyayı anlatabilir, malzeme ve ahşap dokusu tercihlerinizi danışabilir veya atölyemizde devam eden projenizin üretim aşamalarını inceleyebilirsiniz.';
+
   var conversation = [{
     role: 'assistant',
     content: initGreeting
@@ -1864,6 +1888,12 @@ window.lvOpenCustomerRequest = function(target) {
 
   // Render initial messages without animation
   conversation.forEach(function(m) { renderMessage(m, false); });
+  // Render interactive collapsible project card directly below greeting if active project has items
+  if (activeProj && ((activeProj.items && activeProj.items.length) || (activeProj.w && activeProj.w.items && activeProj.w.items.length))) {
+    setTimeout(function() {
+      renderCollapsibleProjectCard(activeProj);
+    }, 120);
+  }
 
   // Submit Request from Chat Handler
   async function submitFullRequest() {
@@ -2322,7 +2352,7 @@ else if(a=='delcol'){close();if(s.h.length<2)toast('En az bir sütun kalmalı');
 else if(a=='rensh'){close();ask({title:'Sayfa adı',fields:[{label:'Yeni ad',value:s.n,max:31,req:1}],ok:'Kaydet'}).then(v=>{if(v){s.n=v[0].slice(0,31);touch();render()}})}
 else if(a=='newsh'){close();cur.s.push({n:'Sayfa '+(cur.s.length+1),h:['Başlık 1','Başlık 2','Başlık 3'],r:[['','','']]});si=cur.s.length-1;touch();render()}
 else if(a=='delsh'){close();if(cur.s.length>1)sure({title:'Sayfa silinsin mi?',text:'Bu sayfadaki tüm satırlar silinir.',ok:'Sil',danger:1}).then(y=>{if(y){cur.s.splice(si,1);si=0;touch();render()}});else toast('Son sayfa silinemez')}
-else if(a=='set')sheet(`<h3>Marka ve ayarlar</h3><div class="fl" style="padding:0"><div><label>Firma adı (PDF başlığı)</label><div class="fw"><input data-set="firm" value="${esc(S.firm)}"></div></div><div><label>Telefon</label><div class="fw"><input data-set="tel" value="${esc(S.tel)}"></div></div><div><label>Adres</label><div class="fw"><input data-set="adr" value="${esc(S.adr)}"></div></div><div><label>Teklif geçerlilik (gün)</label><div class="fw"><input data-set="valid" inputmode="numeric" value="${esc(S.valid||15)}"></div></div><div><label>Ödeme koşulları (PDF altı)</label><div class="fw"><input data-set="terms" value="${esc(S.terms||'')}" placeholder="Örn. %50 peşin, kalan teslimde"></div></div><div><label>IBAN / banka bilgisi</label><div class="fw"><input data-set="iban" value="${esc(S.iban||'')}"></div></div><div><label>Claude API anahtarı (isteğe bağlı: el yazısı fotoğraf okuma)</label><div class="fw"><input type="password" autocomplete="off" data-set="ak" value="${esc(S.ak||'')}" placeholder="sk-ant-..."></div><small>Doluysa, onayınla fotoğraflar okunmak üzere Anthropic'e gönderilir. Anahtar yedek dosyalarına yazılmaz.</small></div><button class="opt" data-a="lx:ai-settings"><b>✦ Yapay Zeka Durumu ve Özellikleri (v39)</b><span>Cloudflare Workers AI bağlantı testi, gecikme ve modül anahtarları</span></button>
+else if(a=='set')sheet(`<h3>Marka ve ayarlar</h3><div class="fl" style="padding:0"><div><label>Firma adı (PDF başlığı)</label><div class="fw"><input data-set="firm" value="${esc(S.firm)}"></div></div><div><label>Telefon</label><div class="fw"><input data-set="tel" value="${esc(S.tel)}"></div></div><div><label>Adres</label><div class="fw"><input data-set="adr" value="${esc(S.adr)}"></div></div><div><label>Teklif geçerlilik (gün)</label><div class="fw"><input data-set="valid" inputmode="numeric" value="${esc(S.valid||15)}"></div></div><div><label>Ödeme koşulları (PDF altı)</label><div class="fw"><input data-set="terms" value="${esc(S.terms||'')}" placeholder="Örn. %50 peşin, kalan teslimde"></div></div><div><label>IBAN / banka bilgisi</label><div class="fw"><input data-set="iban" value="${esc(S.iban||'')}"></div></div><div><label>Claude API anahtarı (isteğe bağlı: el yazısı fotoğraf okuma)</label><div class="fw"><input type="password" autocomplete="off" data-set="ak" value="${esc(S.ak||'')}" placeholder="sk-ant-..."></div><small>Doluysa, onayınla fotoğraflar okunmak üzere Anthropic'e gönderilir. Anahtar yedek dosyalarına yazılmaz.</small></div><button class="opt" data-a="lx:ai-settings"><b>Yapay Zeka Durumu ve Ozellikleri (v39)</b><span>Cloudflare Workers AI baglanti testi, gecikme ve modul anahtarlari</span></button>
 <button class="opt" data-a="kb"><b>Hızlı işlem ve kısayollar</b><span>Ctrl/⌘ + K ile komut paleti</span></button><button class="opt" data-a="bkall"><b>Tüm verileri yedekle</b><span>Projeler, fotoğraflar, defter ve fişler tek dosyada. API anahtarı ve OCR geçmişi yedeğe girmez${S.fb?' · son yedek '+new Date(S.fb).toLocaleDateString('tr-TR'):' · henüz yedek yok'}</span></button><button class="opt" data-a="rsall"><b>Tüm yedeği geri yükle</b><span>Mevcut kayıtlar silinmez, yalnızca yeni veya daha güncel olanlar alınır</span></button><button class="opt" data-a="log"><b>Hata ayıklama kaydı</b><span>Okuma, QR ve veritabanı adımlarını gör</span></button><button class="opt" data-a="logo"><b>Logo değiştir</b><span>JPG veya PNG seç</span></button><button class="opt" data-a="logo0"><b>Varsayılan logoya dön</b></button></div>`);
 else if(a=='logo')$('#fl').click();
 else if(a=='logo0'){S.logo='';save();render();close()}}catch(x){dbg('CLICK '+(b.dataset.a)+': '+(x&&x.message||x));toast('İşlem tamamlanamadı, kayıt değişmedi')}});
@@ -2714,7 +2744,7 @@ return `<button class="lm" data-a="w:all" style="text-align:left;margin-top:12px
 ${(()=>{const T=wtot(p),m=p.meta||{},k=wchk(p).filter(x=>x.lv!='ok').length,inc=LR.filter(r=>r.pid==p.id&&r.k=='i').reduce((a,r)=>a+r.a,0);return T.t||T.pe?`<div style="margin:0 16px 10px;padding:12px 14px;border-radius:16px;background:rgba(16,185,129,.1);box-shadow:inset 0 0 0 1.5px rgba(52,211,153,.45)"><small style="color:#34d399;font-weight:800;letter-spacing:.04em">TEKLİF TOPLAMI</small><div style="font-size:24px;font-weight:800;color:#6ee7b7;margin:2px 0">${wfx(T.t)} ₺</div><small style="display:block">Gelire aktarılan: <b style="color:#6ee7b7">${wfx(inc)} ₺</b>${T.pe?` · <span style="color:#fbbf24">${T.pe} ürün fiyat bekliyor</span>`:''}</small>${m['müşteri temsilcisi']||m.tarih?`<small style="display:block;opacity:.75;margin-top:2px">${esc([m['müşteri temsilcisi'],m.tarih,m['revizyon no']&&'Rev. '+m['revizyon no']].filter(Boolean).join(' · '))}</small>`:''}<button class="opt" data-a="w:chk" style="margin-top:8px">Akıllı kontrol${k?' · <b style="color:#fbbf24">'+k+' uyarı</b>':' · <b style="color:#34d399">temiz</b>'}</button></div>`:''})()} <div class="wsec">Aşama özeti</div><div class="wst">${w.stages.map(s=>{const n=I.length,dn=I.filter(i=>i.st[s.id]==2).length,bd=I.filter(i=>i.st[s.id]==3).length;return `<div><b>${esc(s.n)}</b><div class="wbar"><i style="width:${n?dn/n*100:0}%"></i></div><small style="margin-top:5px">${dn}/${n}${bd?` · <span style="color:var(--dg)">${bd} yarıda</span>`:''}</small></div>`}).join('')}</div>
 <div class="wsec">Ürünler</div>${wch(I,cn,wf)}<div class="sr" style="margin-top:0"><span>${ic(SRCH)}</span><input data-wq placeholder="Ürün, ölçü veya malzeme ara" value="${esc(wq)}"></div><div id="wl">${wlist(w)}</div>
 <div class="tools"><button class="gold" data-a="w:newi">${ic(PLUS)} Ürün ekle</button></div>
-<div class="tools" style="margin-top:0;padding-top:0;gap:8px;flex-wrap:wrap">${typeof window.LVX!=='undefined'?'<button class="lx-pill-btn" type="button" onclick="window.LVX.openVoiceModal()">Sesle Guncelle</button><button class="lx-pill-btn" type="button" onclick="window.LVX.openEventLogModal()">Olay Gunlugu</button>':''}</div>
+<div class="tools" style="margin-top:0;padding-top:0;gap:8px;flex-wrap:wrap">${typeof window.LVX!=='undefined'?'<button class="lx-pill-btn" type="button" onclick="window.LVX.openHubModal()">Yapay Zeka Merkezi</button><button class="lx-pill-btn" type="button" onclick="window.LVX.openVoiceModal()">Sesle Guncelle</button><button class="lx-pill-btn" type="button" onclick="window.LVX.openEventLogModal()">Olay Gunlugu</button>':''}</div>
 <div class="wsec">Yapılacaklar</div>${w.todo.map(t=>`<div class="wtd ${t.x?'dn':''}"><input type="checkbox" ${t.x?'checked':''} data-a="w:tt" data-id="${t.id}" aria-label="Tamamla"><span>${esc(t.t)}</span><button class="hb" style="background:none;color:var(--mu)" data-a="w:tx" data-id="${t.id}" aria-label="Sil">✕</button></div>`).join('')}
 <div class="tools"><div class="fw" style="flex:1"><input id="wtd" placeholder="Yeni iş (örn. renk onayı al)"><button class="mc" data-a="mic" aria-label="Sesle yaz">${ic(MIC)}</button></div><button class="hb" data-a="w:td" aria-label="Ekle" style="width:48px;height:48px">${ic(PLUS)}</button></div>
 <div class="wsec">Proje notu</div><div class="fw" style="margin:0 16px"><input data-wpf="note" value="${esc(w.note)}" placeholder="Genel not"><button class="mc" data-a="mic" aria-label="Sesle yaz">${ic(MIC)}</button></div>`}
@@ -8287,6 +8317,60 @@ if(loadConfig()){
         LVX.ui.toast('Teklif zenginleştirilemedi: ' + e.message);
       }
     }
+  };
+
+  // Aliases and Top-level Convenience Methods for Direct HTML Calls
+  LVX.openReceiptModal = function() { return LVX.receipt.openModal(); };
+  LVX.openVoiceModal = function() { return LVX.voice.openModal(); };
+  LVX.openEventLogModal = function(proj) { return LVX.events.openModal(proj); };
+  LVX.openBriefingModal = function() { return LVX.briefing.openModal(); };
+  LVX.openBriefing = function() { return LVX.briefing.openModal(); };
+  LVX.openAskModal = function() { return LVX.ask.openModal(); };
+  LVX.openCutCalcModal = function() { return LVX.cut.openModal(); };
+  LVX.openSettingsModal = function() { return LVX.settingsUI.openModal(); };
+  LVX.eventLog = LVX.events;
+
+  // AI Assistant Hub Modal - Single click access to all features for the workshop
+  LVX.openHubModal = function() {
+    LVX.ui.createSheet('Lavora Atölye Yapay Zeka Merkezi', `
+      <div>
+        <div style="font-size:13px;color:var(--mu);margin-bottom:14px;line-height:1.4">
+          Atölye ortamında işlerinizi hızlandıran ve kolaylaştıran Cloudflare Workers AI araçları:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openAskModal()" style="text-align:left">
+            <b>Atölyeye ve Verilere Sor (AI)</b>
+            <span>Projeler, acil işler ve kasa durumu hakkında soru sorun</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openVoiceModal()" style="text-align:left">
+            <b>Sesle İş ve Aşama Güncelle</b>
+            <span>Atölyede elleriniz toz veya doluyken sesli komutla aşama güncelleyin</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openReceiptModal()" style="text-align:left">
+            <b>Fiş / Fatura Tara</b>
+            <span>Kameradan fiş fotoğrafı çekip doğrudan masraf defterine işleyin</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openBriefingModal()" style="text-align:left">
+            <b>Günlük Atölye Brifingi</b>
+            <span>Günün teslimat öncelikleri, bekleyen işler ve kasa özeti</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openCutCalcModal()" style="text-align:left">
+            <b>Kesim & Malzeme İhtiyacı Hesabı</b>
+            <span>Ölçülerden plaka, kenar bandı ve fire hesabı yapın</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openEventLogModal()" style="text-align:left">
+            <b>Olay Günlüğü & Değişiklik Takibi</b>
+            <span>Son 7 günde hangi kalemlerin aşaması kim tarafından değiştirildi</span>
+          </button>
+          <button class="opt" type="button" onclick="if(window.LVX)window.LVX.openSettingsModal()" style="text-align:left">
+            <b>Yapay Zeka Durumu ve Ayarları</b>
+            <span>Bağlantı gecikme testi ve modül açma/kapama anahtarları</span>
+          </button>
+        </div>
+      </div>
+    `, [
+      { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+    ]);
   };
 
   // Expose globally

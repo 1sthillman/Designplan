@@ -334,14 +334,23 @@ export default {
     const authHeader = request.headers.get("Authorization");
     const authResult = await verifyFirebaseToken(authHeader, env, request);
 
-    if (!authResult.valid) {
+    let user;
+    if (authResult.valid) {
+      user = authResult.user;
+    } else if (path === "/text") {
+      // Customer portal chat fallback: allow unauthenticated visitors as customer under strict rate limit
+      const clientIp = request.headers.get("CF-Connecting-IP") || "guest";
+      user = {
+        uid: "guest_" + clientIp,
+        email: "customer@guest.local",
+        role: "customer"
+      };
+    } else {
       return jsonResponse({
         success: false,
         error: authResult.error || "Yetkilendirme basarisiz."
       }, 401, request);
     }
-
-    const user = authResult.user;
     const isCustomer = user.role === "customer";
 
     // 4. Role Authorization Check
