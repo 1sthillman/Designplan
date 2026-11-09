@@ -1,0 +1,9 @@
+name = "designplan"
+main = "src/index.js"
+compatibility_date = "2024-04-05"
+
+[ai]
+binding = "AI"
+
+[vars]
+FIREBASE_PROJECT_ID = "designwood"
