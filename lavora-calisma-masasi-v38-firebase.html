@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lavora"><meta name="theme-color" content="#17150F"><title>Lavora Design · Firebase Çalışma Masası v38</title>
+<!DOCTYPE html><html lang="tr"><head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lavora"><meta name="theme-color" content="#17150F"><title>Lavora Design · Firebase Çalışma Masası v38</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230F766E'/%3E%3Ctext x='50' y='70' font-size='60' font-weight='800' font-family='system-ui' text-anchor='middle' fill='white'%3EL%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -394,7 +394,10 @@ window.LavoraAI = {
   CF_API_TOKEN: (typeof atob === 'function' ? atob('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=') : ''),
 
   getWorkerUrl() {
-    const sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || 'https://designplan.minifinise.workers.dev';
+    let sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
+    if (!sUrl || typeof sUrl !== 'string' || !sUrl.startsWith('http')) {
+      sUrl = 'https://designplan.minifinise.workers.dev';
+    }
     return sUrl.trim().replace(/\/+$/, '');
   },
 
