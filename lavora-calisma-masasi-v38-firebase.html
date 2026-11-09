@@ -1070,9 +1070,9 @@ img.onerror = reject;
           }
         });
         var statusSummary = statusLines.length ? ('\n\n' + statusLines.join('\n')) : '';
-        return projName + ' için canlı atölye imalat verilerini kontrol ettim:' + statusSummary + '\n\nİmalat ve sevk aşamalarınız atölye ekibimiz tarafından titizlikle takip edilmektedir. İlave bir talebiniz varsa yukarıdaki "✦ Talebi Atölyeye İlet" butonuyla atölyemize doğrudan yazabilirsiniz.';
+        return projName + ' için canlı atölye imalat verilerini kontrol ettim:' + statusSummary + '\n\nİmalat ve sevk aşamalarınız atölye ekibimiz tarafından titizlikle takip edilmektedir. İlave bir talebiniz varsa yukarıdaki "Talebi Atölyeye İlet" butonuyla atölyemize doğrudan yazabilirsiniz.';
       }
-      return 'Sistemde açık olan projenizin tüm imalat aşamaları atölye ekibimiz tarafından titizlikle takip edilmektedir. Detaylı bilgi almak veya revize iletmek için yukarıdaki "✦ Talebi Atölyeye İlet" butonunu kullanabilirsiniz.';
+      return 'Sistemde açık olan projenizin tüm imalat aşamaları atölye ekibimiz tarafından titizlikle takip edilmektedir. Detaylı bilgi almak veya revize iletmek için yukarıdaki "Talebi Atölyeye İlet" butonunu kullanabilirsiniz.';
     }
 
     // 2. Tasarım, ölçü, malzeme talepleri
@@ -1089,7 +1089,7 @@ img.onerror = reject;
     }
 
     if (/fiyat|butce|maliyet|kac para|ne kadar/i.test(lastUserMsg)) {
-      return item + ' için seçeceğiniz malzeme (' + mat + ') ve mekan ölçülerine göre atölyemizde net bir maliyet çalışması yapılacaktır. Detayları kesinleştirdiğimizde "✦ Talebi Atölyeye İlet" butonuna basarak atölyemizden resmi fiyat teklifi alabilirsiniz.';
+      return item + ' için seçeceğiniz malzeme (' + mat + ') ve mekan ölçülerine göre atölyemizde net bir maliyet çalışması yapılacaktır. Detayları kesinleştirdiğimizde "Talebi Atölyeye İlet" butonuna basarak atölyemizden resmi fiyat teklifi alabilirsiniz.';
     }
 
     // 3. Genel mimari karşılama
@@ -1330,7 +1330,7 @@ window.lvOpenCustomerRequest = function(target) {
       '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">',
         '<button id="lv-btn-submit-req" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(37,99,235,0.35);white-space:nowrap">',
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-          '<span>✦ Sohbeti Talebe Dönüştür</span>',
+          '<span>Sohbeti Talebe Dönüştür</span>',
         '</button>',
         '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1">&#x2715;</button>',
       '</div>',
@@ -1340,11 +1340,11 @@ window.lvOpenCustomerRequest = function(target) {
     '<div style="height:44px;padding:0 16px;background:rgba(15,23,42,0.9);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:9">',
       '<button id="lv-tab-chat-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #3b82f6;background:#2563eb;color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        '💬 AI Mimar ile Danış &amp; Durum Sor',
+        'AI Mimar ile Danış &amp; Durum Sor',
       '</button>',
       '<button id="lv-tab-direct-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#94a3b8;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-        '📝 Doğrudan Talep İlet (AI Olmadan)',
+        'Doğrudan Talep İlet (AI Olmadan)',
       '</button>',
     '</div>',
 
@@ -1354,10 +1354,10 @@ window.lvOpenCustomerRequest = function(target) {
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
-        '<button class="lv-gemini-chip" data-hint="Siparişim ve kargo durumum nedir?">📦 Kargo &amp; İmalat Durumu</button>',
-        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">✦ Ölçü &amp; Mekan</button>',
-        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">✦ Ahşap &amp; Malzeme</button>',
-        '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">✦ Bölme &amp; Fonksiyon</button>',
+        '<button class="lv-gemini-chip" data-hint="Siparişim ve kargo durumum nedir?">Kargo &amp; İmalat Durumu</button>',
+        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">Ölçü &amp; Mekan</button>',
+        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">Ahşap &amp; Malzeme</button>',
+        '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">Bölme &amp; Fonksiyon</button>',
       '</div>',
 
       // Attached photo preview banner
@@ -1428,7 +1428,7 @@ window.lvOpenCustomerRequest = function(target) {
 
       '<button id="lv-dir-send-btn" type="button" class="lv-cta-primary" style="height:44px;border-radius:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px">',
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-        '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>',
+        '<span>Talebi Doğrudan Atölyeye Gönder</span>',
       '</button>',
 
       '<div id="lv-dir-success-msg" style="display:none;padding:16px;border-radius:14px;background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.3);color:#6ee7b7;font-size:13px;line-height:1.5;text-align:center">',
@@ -1567,7 +1567,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talebiniz başarıyla iletildi!');
     } catch(e) {
       dirSendBtn.disabled = false;
-      dirSendBtn.innerHTML = '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>';
+      dirSendBtn.innerHTML = '<span>Talebi Doğrudan Atölyeye Gönder</span>';
       if (typeof toast === 'function') toast('Hata: ' + e.message);
     }
   };
@@ -1643,7 +1643,7 @@ window.lvOpenCustomerRequest = function(target) {
         '<div style="min-width:0;flex:1">',
           '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(pTitle) + '</div>',
           '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">',
-            '<span>📅 Teslim: ' + esc(due) + '</span>',
+            '<span>Teslim: ' + esc(due) + '</span>',
             '<span>&bull;</span>',
             '<span style="color:#10b981;font-weight:700">%' + prog + ' Tamamlandı</span>',
           '</div>',
@@ -1740,7 +1740,7 @@ window.lvOpenCustomerRequest = function(target) {
         var itReqBtn = document.createElement('button');
         itReqBtn.type = 'button';
         itReqBtn.style.cssText = 'padding:5px 11px;border-radius:8px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0';
-        itReqBtn.innerHTML = '✦ Talep İlet';
+        itReqBtn.innerHTML = 'Talep İlet';
         itReqBtn.onmouseenter = function() { itReqBtn.style.background = '#2563eb'; itReqBtn.style.color = '#fff'; };
         itReqBtn.onmouseleave = function() { itReqBtn.style.background = 'rgba(59,130,246,0.12)'; itReqBtn.style.color = '#93c5fd'; };
         itReqBtn.onclick = function(e) {
@@ -1797,7 +1797,7 @@ window.lvOpenCustomerRequest = function(target) {
       // Admin Response Highlight
       var headerRow = document.createElement('div');
       headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
-      headerRow.innerHTML = '<span style="font-size:11.5px;font-weight:800;color:#10b981">✦ Lavora Yönetici / Atölye Yanıtı</span>';
+      headerRow.innerHTML = '<span style="font-size:11.5px;font-weight:800;color:#10b981">Lavora Yönetici / Atölye Yanıtı</span>';
       wrap.appendChild(headerRow);
 
       var body = document.createElement('div');
@@ -1869,7 +1869,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla kaydedildi!');
     } catch(err) {
       submitReqBtn.disabled = false;
-      submitReqBtn.innerHTML = '<span>✦ Sohbeti Talebe Dönüştür</span>';
+      submitReqBtn.innerHTML = '<span>Sohbeti Talebe Dönüştür</span>';
       if (typeof toast === 'function') toast('Hata: ' + err.message);
     }
   }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="tr"><head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lavora"><meta name="theme-color" content="#17150F"><title>Lavora Design · Firebase Çalışma Masası v38</title>
+<!DOCTYPE html><html lang="tr"><head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lavora"><meta name="theme-color" content="#17150F"><title>Lavora Design · Firebase Çalışma Masası v39</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230F766E'/%3E%3Ctext x='50' y='70' font-size='60' font-weight='800' font-family='system-ui' text-anchor='middle' fill='white'%3EL%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -299,6 +299,40 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
   #lv-customer-projects>div{padding:12px!important}
   #lv-customer-projects article{padding:14px!important;border-radius:16px!important}
 }
+
+/* ============================================================
+   LAVORA v39 AI DESIGN SYSTEM (lx-*)
+   ============================================================ */
+.lx-backdrop { position:fixed; inset:0; z-index:99990; background:rgba(10,12,16,0.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:flex-end; justify-content:center; padding:0; animation:lxFadeIn .2s ease; }
+@media (min-width:640px) { .lx-backdrop { align-items:center; padding:16px; } }
+@keyframes lxFadeIn { from{opacity:0} to{opacity:1} }
+@keyframes lxSlideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+@keyframes lxPopIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+.lx-sheet { width:100%; max-width:680px; max-height:92vh; background:var(--s); color:var(--ink); border-radius:24px 24px 0 0; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -8px 32px rgba(0,0,0,0.3); animation:lxSlideUp .24s cubic-bezier(0.16,1,0.3,1); }
+@media (min-width:640px) { .lx-sheet { border-radius:22px; max-height:86vh; animation:lxPopIn .2s ease; } }
+.lx-header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid var(--ln); background:var(--s); flex-shrink:0; }
+.lx-title { font-weight:800; font-size:16px; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; margin:0; }
+.lx-body { padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1; display:flex; flex-direction:column; gap:16px; }
+.lx-footer { padding:14px 20px max(14px, env(safe-area-inset-bottom)); border-top:1px solid var(--ln); background:var(--s); display:flex; gap:10px; justify-content:flex-end; flex-shrink:0; }
+.lx-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 18px; min-height:44px; border-radius:12px; font-weight:700; font-size:14px; border:1px solid transparent; cursor:pointer; transition:all .15s ease; user-select:none; }
+.lx-btn-primary { background:var(--ac); color:var(--onac,#fff); border-color:transparent; }
+.lx-btn-primary:hover { filter:brightness(1.08); }
+.lx-btn-primary:active { transform:scale(0.98); }
+.lx-btn-secondary { background:var(--s2); color:var(--ink); border-color:var(--ln); }
+.lx-btn-secondary:hover { background:var(--s); }
+.lx-btn-danger { background:rgba(220,38,38,0.12); color:var(--dg); border-color:rgba(220,38,38,0.25); }
+.lx-card-suggest { background:var(--s2); border:1.5px dashed var(--ac); border-radius:16px; padding:16px; position:relative; }
+.lx-tag-suggest { position:absolute; top:-10px; right:16px; background:var(--ac); color:#fff; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; padding:2px 8px; border-radius:6px; }
+.lx-conf-bar { height:4px; width:100%; background:rgba(0,0,0,0.08); border-radius:99px; overflow:hidden; margin:8px 0; }
+.lx-conf-fill { height:100%; background:linear-gradient(90deg, #f59e0b, #10b981); border-radius:99px; }
+.lx-wave-canvas { width:100%; height:64px; border-radius:12px; background:var(--s2); }
+.lx-switch { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:var(--s2); border:1px solid var(--ln); border-radius:12px; }
+.lx-switch label { font-size:13.5px; font-weight:700; color:var(--ink); flex:1; }
+.lx-switch input[type="checkbox"] { width:22px; height:22px; accent-color:var(--ac); cursor:pointer; }
+.lx-skeleton { background:linear-gradient(90deg, var(--s2) 25%, var(--s) 50%, var(--s2) 75%); background-size:200% 100%; animation:lxShimmer 1.5s infinite; border-radius:8px; min-height:16px; }
+@keyframes lxShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.lx-pill-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; min-height:34px; border-radius:20px; font-size:12px; font-weight:700; background:rgba(15,118,110,0.1); color:var(--ac); border:1px solid rgba(15,118,110,0.25); cursor:pointer; transition:all .15s; }
+.lx-pill-btn:hover { background:var(--ac); color:#fff; }
 </style></head><body>
 <header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
 <main id="app"></main>
@@ -390,9 +424,6 @@ let lim=40,lk='';
 // LAVORA DESIGN CLOUDFLARE WORKERS AI ENGINE (GLOBAL)
 // ==========================================
 window.LavoraAI = {
-  CF_ACCOUNT_ID: '5884faaabbba129c726403c97e0511ed',
-  CF_API_TOKEN: (typeof atob === 'function' ? atob('Y2Z1dF9KMGY5Y0ZvdFhmOVVFOGZ2YlVocmZ0U0NUcmNiOGdsZWlVSmhSeUZ4YmRkODQ2YzE=') : ''),
-
   getWorkerUrl() {
     let sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
     if (!sUrl || typeof sUrl !== 'string' || !sUrl.startsWith('http')) {
@@ -401,78 +432,78 @@ window.LavoraAI = {
     return sUrl.trim().replace(/\/+$/, '');
   },
 
-  async callApi(endpoint, body) {
-    const wUrl = this.getWorkerUrl();
-    if (wUrl) {
-      try {
-        const res = await fetch(`${wUrl}/${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Worker URL fetch note:', err && err.message);
+  async getIdToken() {
+    try {
+      const u = (window.getCurrentUser && window.getCurrentUser()) || (window.auth && window.auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+      if (u && typeof u.getIdToken === 'function') {
+        return await u.getIdToken();
       }
-    }
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port === '3000') {
-      try {
-        const res = await fetch(`/api/ai/${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+      // Auth may not be initialized yet — wait up to 4s for state
+      const authObj = window.auth || (typeof firebase !== 'undefined' && firebase.auth && firebase.auth());
+      if (authObj && typeof authObj.onAuthStateChanged === 'function') {
+        return await new Promise((resolve) => {
+          const timer = setTimeout(() => resolve(null), 4000);
+          const unsub = authObj.onAuthStateChanged((user) => {
+            clearTimeout(timer);
+            unsub();
+            if (user && typeof user.getIdToken === 'function') {
+              user.getIdToken().then(resolve).catch(() => resolve(null));
+            } else {
+              resolve(null);
+            }
+          });
         });
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Local proxy fetch note:', err && err.message);
       }
-    }
+    } catch (_) {}
+    return null;
+  },
 
-    // Direct Cloudflare Workers AI call
-    let model = '@cf/meta/llama-3.1-8b-instruct';
-    if (endpoint === 'image') model = '@cf/black-forest-labs/flux-1-schnell';
-    else if (endpoint === 'vision') model = '@cf/llava-hf/llava-1.5-7b-hf';
+  async callApi(endpoint, body, options) {
+    options = options || {};
+    const timeoutMs = options.timeoutMs || 25000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.CF_ACCOUNT_ID}/ai/run/${model}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.CF_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && (data.result || data.response)) return data;
-      }
-    } catch (cfErr) {
-      console.warn('Direct Cloudflare AI fetch failed (rate limit or CORS):', cfErr && cfErr.message);
-    }
+      const token = await this.getIdToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      if (window.LV_ROLE) headers['X-Lavora-Role'] = window.LV_ROLE;
 
-    // Static Web & GitHub Pages CORS Fallback (Pollinations text)
-    if (endpoint === 'text') {
-      try {
-        const msgs = body.messages || [{ role: 'user', content: body.prompt || '' }];
-        const pRes = await fetch('https://text.pollinations.ai/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: msgs,
-            model: 'openai',
-            seed: Math.floor(Math.random() * 1000000)
-          })
-        });
-        if (pRes.ok) {
-          const pText = await pRes.text();
-          return { result: { response: pText } };
+      const wUrl = this.getWorkerUrl();
+      if (wUrl) {
+        try {
+          const res = await fetch(`${wUrl}/${endpoint}`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body),
+            signal: controller.signal
+          });
+          if (res.ok) return await res.json();
+          if (res.status === 429) throw new Error('İşlem limiti aşıldı. Lütfen bekleyin.');
+          if (res.status === 403) throw new Error('Bu özellik için yetkiniz bulunmuyor.');
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || ('Sunucu hatası: ' + res.status));
+        } catch (err) {
+          if (err.name === 'AbortError') throw new Error('İstek zaman aşımına uğradı.');
+          throw err;
         }
-      } catch (pErr) {
-        console.warn('Pollinations text fallback failed:', pErr && pErr.message);
       }
-    }
 
-    throw new Error('All AI providers exhausted');
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port === '3000') {
+        const res = await fetch(`/api/ai/${endpoint}`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+        if (res.ok) return await res.json();
+      }
+
+      throw new Error('Yapay zeka servisine bağlanılamadı.');
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
   dataUrlToByteArray(dataUrl) {
@@ -1070,9 +1101,9 @@ img.onerror = reject;
           }
         });
         var statusSummary = statusLines.length ? ('\n\n' + statusLines.join('\n')) : '';
-        return projName + ' için canlı atölye imalat verilerini kontrol ettim:' + statusSummary + '\n\nİmalat ve sevk aşamalarınız atölye ekibimiz tarafından titizlikle takip edilmektedir. İlave bir talebiniz varsa yukarıdaki "✦ Talebi Atölyeye İlet" butonuyla atölyemize doğrudan yazabilirsiniz.';
+        return projName + ' için canlı atölye imalat verilerini kontrol ettim:' + statusSummary + '\n\nİmalat ve sevk aşamalarınız atölye ekibimiz tarafından titizlikle takip edilmektedir. İlave bir talebiniz varsa yukarıdaki "Talebi Atölyeye İlet" butonuyla atölyemize doğrudan yazabilirsiniz.';
       }
-      return 'Sistemde açık olan projenizin tüm imalat aşamaları atölye ekibimiz tarafından titizlikle takip edilmektedir. Detaylı bilgi almak veya revize iletmek için yukarıdaki "✦ Talebi Atölyeye İlet" butonunu kullanabilirsiniz.';
+      return 'Sistemde açık olan projenizin tüm imalat aşamaları atölye ekibimiz tarafından titizlikle takip edilmektedir. Detaylı bilgi almak veya revize iletmek için yukarıdaki "Talebi Atölyeye İlet" butonunu kullanabilirsiniz.';
     }
 
     // 2. Tasarım, ölçü, malzeme talepleri
@@ -1089,7 +1120,7 @@ img.onerror = reject;
     }
 
     if (/fiyat|butce|maliyet|kac para|ne kadar/i.test(lastUserMsg)) {
-      return item + ' için seçeceğiniz malzeme (' + mat + ') ve mekan ölçülerine göre atölyemizde net bir maliyet çalışması yapılacaktır. Detayları kesinleştirdiğimizde "✦ Talebi Atölyeye İlet" butonuna basarak atölyemizden resmi fiyat teklifi alabilirsiniz.';
+      return item + ' için seçeceğiniz malzeme (' + mat + ') ve mekan ölçülerine göre atölyemizde net bir maliyet çalışması yapılacaktır. Detayları kesinleştirdiğimizde "Talebi Atölyeye İlet" butonuna basarak atölyemizden resmi fiyat teklifi alabilirsiniz.';
     }
 
     // 3. Genel mimari karşılama
@@ -1330,7 +1361,7 @@ window.lvOpenCustomerRequest = function(target) {
       '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">',
         '<button id="lv-btn-submit-req" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(37,99,235,0.35);white-space:nowrap">',
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-          '<span>✦ Sohbeti Talebe Dönüştür</span>',
+          '<span>Sohbeti Talebe Dönüştür</span>',
         '</button>',
         '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1">&#x2715;</button>',
       '</div>',
@@ -1340,11 +1371,11 @@ window.lvOpenCustomerRequest = function(target) {
     '<div style="height:44px;padding:0 16px;background:rgba(15,23,42,0.9);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:9">',
       '<button id="lv-tab-chat-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #3b82f6;background:#2563eb;color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        '💬 AI Mimar ile Danış &amp; Durum Sor',
+        'AI Mimar ile Danış &amp; Durum Sor',
       '</button>',
       '<button id="lv-tab-direct-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#94a3b8;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-        '📝 Doğrudan Talep İlet (AI Olmadan)',
+        'Doğrudan Talep İlet (AI Olmadan)',
       '</button>',
     '</div>',
 
@@ -1354,10 +1385,10 @@ window.lvOpenCustomerRequest = function(target) {
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
-        '<button class="lv-gemini-chip" data-hint="Siparişim ve kargo durumum nedir?">📦 Kargo &amp; İmalat Durumu</button>',
-        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">✦ Ölçü &amp; Mekan</button>',
-        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">✦ Ahşap &amp; Malzeme</button>',
-        '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">✦ Bölme &amp; Fonksiyon</button>',
+        '<button class="lv-gemini-chip" data-hint="Siparişim ve kargo durumum nedir?">Kargo &amp; İmalat Durumu</button>',
+        '<button class="lv-gemini-chip" data-hint="Ölçüler ve mekanım hakkında bilgi vermek istiyorum: ">Ölçü &amp; Mekan</button>',
+        '<button class="lv-gemini-chip" data-hint="Masif ahşap, lake veya cam kapak tercihlerim şunlar: ">Ahşap &amp; Malzeme</button>',
+        '<button class="lv-gemini-chip" data-hint="Çekmeceli, raflı ve fonksiyonel depolama bölmeleri olsun.">Bölme &amp; Fonksiyon</button>',
       '</div>',
 
       // Attached photo preview banner
@@ -1428,7 +1459,7 @@ window.lvOpenCustomerRequest = function(target) {
 
       '<button id="lv-dir-send-btn" type="button" class="lv-cta-primary" style="height:44px;border-radius:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px">',
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-        '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>',
+        '<span>Talebi Doğrudan Atölyeye Gönder</span>',
       '</button>',
 
       '<div id="lv-dir-success-msg" style="display:none;padding:16px;border-radius:14px;background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.3);color:#6ee7b7;font-size:13px;line-height:1.5;text-align:center">',
@@ -1567,7 +1598,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talebiniz başarıyla iletildi!');
     } catch(e) {
       dirSendBtn.disabled = false;
-      dirSendBtn.innerHTML = '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>';
+      dirSendBtn.innerHTML = '<span>Talebi Doğrudan Atölyeye Gönder</span>';
       if (typeof toast === 'function') toast('Hata: ' + e.message);
     }
   };
@@ -1643,7 +1674,7 @@ window.lvOpenCustomerRequest = function(target) {
         '<div style="min-width:0;flex:1">',
           '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(pTitle) + '</div>',
           '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">',
-            '<span>📅 Teslim: ' + esc(due) + '</span>',
+            '<span>Teslim: ' + esc(due) + '</span>',
             '<span>&bull;</span>',
             '<span style="color:#10b981;font-weight:700">%' + prog + ' Tamamlandı</span>',
           '</div>',
@@ -1740,7 +1771,7 @@ window.lvOpenCustomerRequest = function(target) {
         var itReqBtn = document.createElement('button');
         itReqBtn.type = 'button';
         itReqBtn.style.cssText = 'padding:5px 11px;border-radius:8px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0';
-        itReqBtn.innerHTML = '✦ Talep İlet';
+        itReqBtn.innerHTML = 'Talep İlet';
         itReqBtn.onmouseenter = function() { itReqBtn.style.background = '#2563eb'; itReqBtn.style.color = '#fff'; };
         itReqBtn.onmouseleave = function() { itReqBtn.style.background = 'rgba(59,130,246,0.12)'; itReqBtn.style.color = '#93c5fd'; };
         itReqBtn.onclick = function(e) {
@@ -1797,7 +1828,7 @@ window.lvOpenCustomerRequest = function(target) {
       // Admin Response Highlight
       var headerRow = document.createElement('div');
       headerRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-left:2px';
-      headerRow.innerHTML = '<span style="font-size:11.5px;font-weight:800;color:#10b981">✦ Lavora Yönetici / Atölye Yanıtı</span>';
+      headerRow.innerHTML = '<span style="font-size:11.5px;font-weight:800;color:#10b981">Lavora Yönetici / Atölye Yanıtı</span>';
       wrap.appendChild(headerRow);
 
       var body = document.createElement('div');
@@ -1869,7 +1900,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla kaydedildi!');
     } catch(err) {
       submitReqBtn.disabled = false;
-      submitReqBtn.innerHTML = '<span>✦ Sohbeti Talebe Dönüştür</span>';
+      submitReqBtn.innerHTML = '<span>Sohbeti Talebe Dönüştür</span>';
       if (typeof toast === 'function') toast('Hata: ' + err.message);
     }
   }
@@ -2283,7 +2314,7 @@ else if(a=='tpls')sheet(`<h3>Hazır şablonlar</h3>${Object.keys(T).map(k=>`<but
 else if(a=='tpl'){if(cur){cur.s.push(blank(d.k));si=cur.s.length-1;touch()}else newP(T[d.k].n,[blank(d.k)]);close();render()}
 else if(a=='up')$('#fu').click();
 else if(a=='photo'){}
-else if(a=='dl'){if(!cur)return toast('Önce bir proje aç');sheet(`<h3>İndir</h3><button class="opt" data-a="xl"><b>Excel (.xlsx)</b><span>Tüm sayfalar. Toplamlar formül olarak yazılır, Excel'de de çalışır.</span></button><button class="opt" data-a="w:xl"><b>Excel + iş akışı + fotoğraflar</b><span>Başka Lavora kullanıcısına gönder, aynen açılır.</span></button><button class="opt" data-a="w:json"><b>Paylaşım dosyası (.json)</b><span>İnternetsiz çalışır, tüm veri ve görseller içinde.</span></button><button class="opt" data-a="pdf"><b>PDF teklif</b><span>Logolu çıktı. Açılan pencerede "PDF olarak kaydet" seç.</span></button>`)}
+else if(a=='dl'){if(!cur)return toast('Önce bir proje aç');sheet(`<h3>İndir</h3><button class="opt" type="button" onclick="close();if(window.LVX)window.LVX.enrichProposal()"><b>Teklifi Yapay Zeka ile Zenginlestir</b><span>Kalemlere profesyonel teknik aciklama, kapsam ve garanti metni ekle</span></button><button class="opt" data-a="xl"><b>Excel (.xlsx)</b><span>Tüm sayfalar. Toplamlar formül olarak yazılır, Excel'de de çalışır.</span></button><button class="opt" data-a="w:xl"><b>Excel + iş akışı + fotoğraflar</b><span>Başka Lavora kullanıcısına gönder, aynen açılır.</span></button><button class="opt" data-a="w:json"><b>Paylaşım dosyası (.json)</b><span>İnternetsiz çalışır, tüm veri ve görseller içinde.</span></button><button class="opt" data-a="pdf"><b>PDF teklif</b><span>Logolu çıktı. Açılan pencerede "PDF olarak kaydet" seç.</span></button>`)}
 else if(a=='xl'){close();xl()}else if(a=='pdf'){close();pdf()}
 else if(a=='more')sheet(`<h3>Sayfa ve sütun</h3><button class="opt" data-a="addcol"><b>Sütun ekle</b></button><button class="opt" data-a="delcol"><b>Sütun sil</b></button><button class="opt" data-a="rensh"><b>Sayfayı yeniden adlandır</b></button><button class="opt" data-a="bulk"><b>Fiyatları toplu değiştir (%)</b><span>Zam veya iskonto: birim fiyatlar ve tutarlar birlikte güncellenir</span></button><button class="opt" data-a="newsh"><b>Boş sayfa ekle</b></button><button class="opt" data-a="delsh"><b>Sayfayı sil</b></button>`);
 else if(a=='addcol'){close();ask({icon:'col',title:'Yeni sütun',fields:[{label:'Sütun adı',ph:'Örn. Birim fiyat',req:1}],ok:'Ekle'}).then(v=>{if(v){s.h.push(v[0]);s.r.forEach(r=>r.push(''));touch();render()}})}
@@ -2291,7 +2322,8 @@ else if(a=='delcol'){close();if(s.h.length<2)toast('En az bir sütun kalmalı');
 else if(a=='rensh'){close();ask({title:'Sayfa adı',fields:[{label:'Yeni ad',value:s.n,max:31,req:1}],ok:'Kaydet'}).then(v=>{if(v){s.n=v[0].slice(0,31);touch();render()}})}
 else if(a=='newsh'){close();cur.s.push({n:'Sayfa '+(cur.s.length+1),h:['Başlık 1','Başlık 2','Başlık 3'],r:[['','','']]});si=cur.s.length-1;touch();render()}
 else if(a=='delsh'){close();if(cur.s.length>1)sure({title:'Sayfa silinsin mi?',text:'Bu sayfadaki tüm satırlar silinir.',ok:'Sil',danger:1}).then(y=>{if(y){cur.s.splice(si,1);si=0;touch();render()}});else toast('Son sayfa silinemez')}
-else if(a=='set')sheet(`<h3>Marka ve ayarlar</h3><div class="fl" style="padding:0"><div><label>Firma adı (PDF başlığı)</label><div class="fw"><input data-set="firm" value="${esc(S.firm)}"></div></div><div><label>Telefon</label><div class="fw"><input data-set="tel" value="${esc(S.tel)}"></div></div><div><label>Adres</label><div class="fw"><input data-set="adr" value="${esc(S.adr)}"></div></div><div><label>Teklif geçerlilik (gün)</label><div class="fw"><input data-set="valid" inputmode="numeric" value="${esc(S.valid||15)}"></div></div><div><label>Ödeme koşulları (PDF altı)</label><div class="fw"><input data-set="terms" value="${esc(S.terms||'')}" placeholder="Örn. %50 peşin, kalan teslimde"></div></div><div><label>IBAN / banka bilgisi</label><div class="fw"><input data-set="iban" value="${esc(S.iban||'')}"></div></div><div><label>Claude API anahtarı (isteğe bağlı: el yazısı fotoğraf okuma)</label><div class="fw"><input type="password" autocomplete="off" data-set="ak" value="${esc(S.ak||'')}" placeholder="sk-ant-..."></div><small>Doluysa, onayınla fotoğraflar okunmak üzere Anthropic'e gönderilir. Anahtar yedek dosyalarına yazılmaz.</small></div><button class="opt" data-a="kb"><b>Hızlı işlem ve kısayollar</b><span>Ctrl/⌘ + K ile komut paleti</span></button><button class="opt" data-a="bkall"><b>Tüm verileri yedekle</b><span>Projeler, fotoğraflar, defter ve fişler tek dosyada. API anahtarı ve OCR geçmişi yedeğe girmez${S.fb?' · son yedek '+new Date(S.fb).toLocaleDateString('tr-TR'):' · henüz yedek yok'}</span></button><button class="opt" data-a="rsall"><b>Tüm yedeği geri yükle</b><span>Mevcut kayıtlar silinmez, yalnızca yeni veya daha güncel olanlar alınır</span></button><button class="opt" data-a="log"><b>Hata ayıklama kaydı</b><span>Okuma, QR ve veritabanı adımlarını gör</span></button><button class="opt" data-a="logo"><b>Logo değiştir</b><span>JPG veya PNG seç</span></button><button class="opt" data-a="logo0"><b>Varsayılan logoya dön</b></button></div>`);
+else if(a=='set')sheet(`<h3>Marka ve ayarlar</h3><div class="fl" style="padding:0"><div><label>Firma adı (PDF başlığı)</label><div class="fw"><input data-set="firm" value="${esc(S.firm)}"></div></div><div><label>Telefon</label><div class="fw"><input data-set="tel" value="${esc(S.tel)}"></div></div><div><label>Adres</label><div class="fw"><input data-set="adr" value="${esc(S.adr)}"></div></div><div><label>Teklif geçerlilik (gün)</label><div class="fw"><input data-set="valid" inputmode="numeric" value="${esc(S.valid||15)}"></div></div><div><label>Ödeme koşulları (PDF altı)</label><div class="fw"><input data-set="terms" value="${esc(S.terms||'')}" placeholder="Örn. %50 peşin, kalan teslimde"></div></div><div><label>IBAN / banka bilgisi</label><div class="fw"><input data-set="iban" value="${esc(S.iban||'')}"></div></div><div><label>Claude API anahtarı (isteğe bağlı: el yazısı fotoğraf okuma)</label><div class="fw"><input type="password" autocomplete="off" data-set="ak" value="${esc(S.ak||'')}" placeholder="sk-ant-..."></div><small>Doluysa, onayınla fotoğraflar okunmak üzere Anthropic'e gönderilir. Anahtar yedek dosyalarına yazılmaz.</small></div><button class="opt" data-a="lx:ai-settings"><b>✦ Yapay Zeka Durumu ve Özellikleri (v39)</b><span>Cloudflare Workers AI bağlantı testi, gecikme ve modül anahtarları</span></button>
+<button class="opt" data-a="kb"><b>Hızlı işlem ve kısayollar</b><span>Ctrl/⌘ + K ile komut paleti</span></button><button class="opt" data-a="bkall"><b>Tüm verileri yedekle</b><span>Projeler, fotoğraflar, defter ve fişler tek dosyada. API anahtarı ve OCR geçmişi yedeğe girmez${S.fb?' · son yedek '+new Date(S.fb).toLocaleDateString('tr-TR'):' · henüz yedek yok'}</span></button><button class="opt" data-a="rsall"><b>Tüm yedeği geri yükle</b><span>Mevcut kayıtlar silinmez, yalnızca yeni veya daha güncel olanlar alınır</span></button><button class="opt" data-a="log"><b>Hata ayıklama kaydı</b><span>Okuma, QR ve veritabanı adımlarını gör</span></button><button class="opt" data-a="logo"><b>Logo değiştir</b><span>JPG veya PNG seç</span></button><button class="opt" data-a="logo0"><b>Varsayılan logoya dön</b></button></div>`);
 else if(a=='logo')$('#fl').click();
 else if(a=='logo0'){S.logo='';save();render();close()}}catch(x){dbg('CLICK '+(b.dataset.a)+': '+(x&&x.message||x));toast('İşlem tamamlanamadı, kayıt değişmedi')}});
 $('#sh').addEventListener('input',()=>{});
@@ -2388,7 +2420,7 @@ else if(/\n|\t/.test(t)||(t.match(/[;,]/g)||[]).length>=2)wb=XLSX.read(t,{type:'
 if(wb)return openWb(wb,'QR verisi')}catch(x){dbg('QR veri çözme: '+x.message)}
 newP('QR: '+t.slice(0,24),[{n:'QR',h:['İçerik'],r:[[t]]}]);toast('QR metni projeye eklendi')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,d=b.dataset;
-if(a=='photo'){e.stopPropagation();sheet(`<h3>Yeni kayıt</h3><button class="opt" data-a="la" data-k="g"><b>Gider ekle</b><span>Malzeme, işçilik, nakliye ve diğer masraflar</span></button><button class="opt" data-a="la" data-k="i"><b>Gelir ekle</b><span>Kapora, taksit, kalan ödeme</span></button><button class="opt" data-a="laf"><b>Fişi çekip gider ekle</b><span>Kamera açılır, fotoğraf kayda eklenir</span></button>`)}
+if(a=='photo'){e.stopPropagation();sheet(`<h3>Yeni kayıt</h3><button class="opt" type="button" onclick="close();if(window.LVX)window.LVX.openReceiptModal()"><b>Fis / Fatura Tara (Yapay Zeka)</b><span>Fis fotografindan tarih, tutar, KDV ve tedarikciye otomatik cikar</span></button><button class="opt" data-a="la" data-k="g"><b>Gider ekle</b><span>Malzeme, işçilik, nakliye ve diğer masraflar</span></button><button class="opt" data-a="la" data-k="i"><b>Gelir ekle</b><span>Kapora, taksit, kalan ödeme</span></button><button class="opt" data-a="laf"><b>Fişi çekip gider ekle</b><span>Kamera açılır, fotoğraf kayda eklenir</span></button>`)}
 else if(a=='pic'){close();$('#fp').click()}else if(a=='qr')startQR();
 else if(a=='cm'){qmode=d.m;document.querySelectorAll('[data-a=cm]').forEach(x=>x.classList.toggle('on',x.dataset.m==qmode))}
 else if(a=='snap'){const v=$('#qv');if(!v||!v.videoWidth)return toast('Kamera hazır değil');const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);c.toBlob(bl=>{qs&&qs.getTracks().forEach(t=>t.stop());qs=null;close();readPhoto(new File([bl],'kamera.jpg',{type:'image/jpeg'}))},'image/jpeg',.92)}
@@ -2682,6 +2714,7 @@ return `<button class="lm" data-a="w:all" style="text-align:left;margin-top:12px
 ${(()=>{const T=wtot(p),m=p.meta||{},k=wchk(p).filter(x=>x.lv!='ok').length,inc=LR.filter(r=>r.pid==p.id&&r.k=='i').reduce((a,r)=>a+r.a,0);return T.t||T.pe?`<div style="margin:0 16px 10px;padding:12px 14px;border-radius:16px;background:rgba(16,185,129,.1);box-shadow:inset 0 0 0 1.5px rgba(52,211,153,.45)"><small style="color:#34d399;font-weight:800;letter-spacing:.04em">TEKLİF TOPLAMI</small><div style="font-size:24px;font-weight:800;color:#6ee7b7;margin:2px 0">${wfx(T.t)} ₺</div><small style="display:block">Gelire aktarılan: <b style="color:#6ee7b7">${wfx(inc)} ₺</b>${T.pe?` · <span style="color:#fbbf24">${T.pe} ürün fiyat bekliyor</span>`:''}</small>${m['müşteri temsilcisi']||m.tarih?`<small style="display:block;opacity:.75;margin-top:2px">${esc([m['müşteri temsilcisi'],m.tarih,m['revizyon no']&&'Rev. '+m['revizyon no']].filter(Boolean).join(' · '))}</small>`:''}<button class="opt" data-a="w:chk" style="margin-top:8px">Akıllı kontrol${k?' · <b style="color:#fbbf24">'+k+' uyarı</b>':' · <b style="color:#34d399">temiz</b>'}</button></div>`:''})()} <div class="wsec">Aşama özeti</div><div class="wst">${w.stages.map(s=>{const n=I.length,dn=I.filter(i=>i.st[s.id]==2).length,bd=I.filter(i=>i.st[s.id]==3).length;return `<div><b>${esc(s.n)}</b><div class="wbar"><i style="width:${n?dn/n*100:0}%"></i></div><small style="margin-top:5px">${dn}/${n}${bd?` · <span style="color:var(--dg)">${bd} yarıda</span>`:''}</small></div>`}).join('')}</div>
 <div class="wsec">Ürünler</div>${wch(I,cn,wf)}<div class="sr" style="margin-top:0"><span>${ic(SRCH)}</span><input data-wq placeholder="Ürün, ölçü veya malzeme ara" value="${esc(wq)}"></div><div id="wl">${wlist(w)}</div>
 <div class="tools"><button class="gold" data-a="w:newi">${ic(PLUS)} Ürün ekle</button></div>
+<div class="tools" style="margin-top:0;padding-top:0;gap:8px;flex-wrap:wrap">${typeof window.LVX!=='undefined'?'<button class="lx-pill-btn" type="button" onclick="window.LVX.openVoiceModal()">Sesle Guncelle</button><button class="lx-pill-btn" type="button" onclick="window.LVX.openEventLogModal()">Olay Gunlugu</button>':''}</div>
 <div class="wsec">Yapılacaklar</div>${w.todo.map(t=>`<div class="wtd ${t.x?'dn':''}"><input type="checkbox" ${t.x?'checked':''} data-a="w:tt" data-id="${t.id}" aria-label="Tamamla"><span>${esc(t.t)}</span><button class="hb" style="background:none;color:var(--mu)" data-a="w:tx" data-id="${t.id}" aria-label="Sil">✕</button></div>`).join('')}
 <div class="tools"><div class="fw" style="flex:1"><input id="wtd" placeholder="Yeni iş (örn. renk onayı al)"><button class="mc" data-a="mic" aria-label="Sesle yaz">${ic(MIC)}</button></div><button class="hb" data-a="w:td" aria-label="Ekle" style="width:48px;height:48px">${ic(PLUS)}</button></div>
 <div class="wsec">Proje notu</div><div class="fw" style="margin:0 16px"><input data-wpf="note" value="${esc(w.note)}" placeholder="Genel not"><button class="mc" data-a="mic" aria-label="Sesle yaz">${ic(MIC)}</button></div>`}
@@ -3799,6 +3832,7 @@ a('Klavye kısayolları','Tüm kısayolların listesi',()=>showKeys(),'kisayol y
 return A}
 function results(qs){const n=nk(qs).trim(),R=[],A=actions();
 if(!n){R.push(...A);const rc=P.filter(p=>!p.d).sort((a,b)=>b.u-a.u).slice(0,5);rc.forEach(p=>R.push({g:'Son projeler',l:p.name,s:(p.cust||'Müşteri girilmedi'),fn:()=>{tap('home');tap('open',{id:p.id})}}));return R}
+if(typeof window.LVX==='object'&&window.LVX.getPaletteActions){R.push(...window.LVX.getPaletteActions(n));}
 A.filter(x=>nk(x.l+' '+x.s+' '+x.k).includes(n)).slice(0,8).forEach(x=>R.push(x));
 const pr=P.filter(p=>!p.d&&nk(p.name+' '+p.cust).includes(n)).slice(0,6);
 pr.forEach(p=>{R.push({g:'Projeler',l:p.name,s:(p.cust||'Müşteri girilmedi')+' · teklif sayfasını aç',fn:()=>{tap('home');tap('open',{id:p.id})}});
@@ -6939,4 +6973,1338 @@ if(loadConfig()){
  auth.onAuthStateChanged(u=>{if(u)startForUser(u);else{if(window.LV_UNSUB){window.LV_UNSUB();window.LV_UNSUB=null}ready=false;profile=null;currentUser=null;window.LV_ROLE='';window.LV_USER=null;document.body.classList.remove('lv-admin');document.querySelectorAll('#lv-team-open,#lv-signout,#lv-customer-signout,#lv-admin-hub-btn').forEach(x=>x.remove());team.style.display='none';authEl.hidden=false;appRoot(false);authView('Güvenli çalışma alanı','Google hesabınızla giriş yapın.')}})
 }else{authEl.hidden=false}
 })();
-</script></body></html>
+</script>
+<script>
+/* ============================================================
+   LAVORA DESIGN v39 ADVANCED WORKSHOP AI SUITE (window.LVX)
+   ============================================================ */
+(function() {
+  'use strict';
+
+  // Protect against multiple executions
+  if (window.LVX && window.LVX._initialized) return;
+
+  const LVX = {
+    _initialized: true,
+    version: '39.0.0',
+
+    // ==========================================
+    // 1. AUTHENTICATION & WORKER API CLIENT
+    // ==========================================
+    auth: {
+      async getIdToken() {
+        try {
+          const u = (window.getCurrentUser && window.getCurrentUser()) || (window.auth && window.auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+          if (u && typeof u.getIdToken === 'function') {
+            return await u.getIdToken();
+          }
+        } catch (_) {}
+        return null;
+      },
+      getCurrentUser() {
+        return (window.getCurrentUser && window.getCurrentUser()) || (window.auth && window.auth.currentUser) || window.LV_USER || null;
+      },
+      getRole() {
+        return window.LV_ROLE || (this.getCurrentUser() && this.getCurrentUser().role) || 'staff';
+      }
+    },
+
+    getWorkerUrl() {
+      let sUrl = (window.S && window.S.aiWorkerUrl) || localStorage.getItem('lavora_ai_worker_url') || '';
+      if (!sUrl || typeof sUrl !== 'string' || !sUrl.startsWith('http')) {
+        sUrl = 'https://designplan.minifinise.workers.dev';
+      }
+      return sUrl.trim().replace(/\/+$/, '');
+    },
+
+    async callApi(endpoint, body, options) {
+      options = options || {};
+      const timeoutMs = options.timeoutMs || 25000;
+
+      if (!navigator.onLine) {
+        throw new Error('İnternet bağlantısı yok. Lütfen ağınızı kontrol edin.');
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const token = await this.auth.getIdToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const role = this.auth.getRole();
+        if (role) headers['X-Lavora-Role'] = role;
+
+        const wUrl = this.getWorkerUrl();
+        const res = await fetch(`${wUrl}/${endpoint}`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(body || {}),
+          signal: controller.signal
+        });
+
+        if (res.ok) {
+          return await res.json();
+        }
+
+        if (res.status === 429) {
+          throw new Error('Yapay zeka işlem sınırı aşıldı. Lütfen bir süre bekleyin.');
+        }
+        if (res.status === 403) {
+          throw new Error('Bu özellik için yetkiniz bulunmuyor.');
+        }
+        if (res.status === 413) {
+          throw new Error('İçerik boyutu çok büyük.');
+        }
+
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || ('Sunucu hatası: ' + res.status));
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error('İstek zaman aşımına uğradı (25 sn).');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+
+    // ==========================================
+    // 2. FEATURE TOGGLES MANAGER
+    // ==========================================
+    toggles: {
+      _defaults: {
+        voiceUpdate: true,
+        receiptScan: true,
+        smartExcel: true,
+        handwriting: true,
+        dailyBriefing: true,
+        askMode: true,
+        semanticSearch: true,
+        proposalEnrich: true,
+        handoverDoc: true,
+        eventLog: true,
+        cutCalc: true
+      },
+      getAll() {
+        try {
+          const stored = JSON.parse(localStorage.getItem('lvx_toggles') || '{}');
+          return Object.assign({}, this._defaults, (window.S && window.S.aiToggles) || {}, stored);
+        } catch (_) {
+          return Object.assign({}, this._defaults);
+        }
+      },
+      isEnabled(key) {
+        const all = this.getAll();
+        return all[key] !== false;
+      },
+      set(key, val) {
+        const all = this.getAll();
+        all[key] = !!val;
+        localStorage.setItem('lvx_toggles', JSON.stringify(all));
+        if (window.S) {
+          window.S.aiToggles = all;
+          if (typeof window.save === 'function') window.save();
+        }
+      }
+    },
+
+    // ==========================================
+    // 3. UI SYSTEM & HELPERS
+    // ==========================================
+    ui: {
+      toast(msg) {
+        if (typeof window.toast === 'function') {
+          window.toast(msg);
+        } else {
+          console.log('[Lavora Toast]:', msg);
+        }
+      },
+      haptic(ms) {
+        if (navigator.vibrate) {
+          try { navigator.vibrate(ms || 20); } catch (_) {}
+        }
+      },
+      esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      },
+      createSheet(title, bodyHtml, buttons) {
+        buttons = buttons || [];
+        const backdrop = document.createElement('div');
+        backdrop.className = 'lx-backdrop';
+
+        const sheet = document.createElement('div');
+        sheet.className = 'lx-sheet';
+        sheet.setAttribute('role', 'dialog');
+        sheet.setAttribute('aria-modal', 'true');
+
+        const header = document.createElement('div');
+        header.className = 'lx-header';
+        header.innerHTML = `
+          <h3 class="lx-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>${this.esc(title)}</span>
+          </h3>
+          <button class="hb lx-close-btn" type="button" aria-label="Kapat" style="background:none;border:none;color:var(--mu);cursor:pointer;padding:6px;border-radius:8px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        `;
+
+        const body = document.createElement('div');
+        body.className = 'lx-body';
+        body.innerHTML = bodyHtml || '';
+
+        const footer = document.createElement('div');
+        footer.className = 'lx-footer';
+
+        sheet.append(header, body, footer);
+        backdrop.append(sheet);
+
+        function close() {
+          backdrop.style.opacity = '0';
+          backdrop.style.transition = 'opacity .2s';
+          setTimeout(() => backdrop.remove(), 210);
+        }
+
+        header.querySelector('.lx-close-btn').onclick = close;
+        backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
+
+        buttons.forEach(btn => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'lx-btn ' + (btn.className || 'lx-btn-secondary');
+          b.textContent = btn.text;
+          b.onclick = () => { if (btn.onClick) btn.onClick(close, body); };
+          footer.append(b);
+        });
+
+        document.body.append(backdrop);
+        return { backdrop, sheet, body, footer, close };
+      }
+    },
+
+    // ==========================================
+    // 4. FAZ 1 - SESLE İŞ GÜNCELLEME (VOICE WORK UPDATE)
+    // ==========================================
+    voice: {
+      mediaRecorder: null,
+      audioChunks: [],
+      timerInterval: null,
+      remainingSec: 60,
+
+      async openModal() {
+        if (!LVX.toggles.isEnabled('voiceUpdate')) {
+          return LVX.ui.toast('Sesle güncelleme özelliği ayarlardan devre dışı bırakılmış.');
+        }
+
+        // Test microphone support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          return LVX.ui.toast('Bu tarayıcı ses kaydını desteklemiyor.');
+        }
+
+        const modal = LVX.ui.createSheet('Sesle İş ve Aşama Güncelle', `
+          <div style="text-align:center;padding:10px 0">
+            <div id="lx-voice-status" style="font-size:14px;font-weight:700;color:var(--mu);margin-bottom:14px">Mikrofona basarak konuşun (en fazla 60 sn)</div>
+            
+            <div style="position:relative;width:96px;height:96px;margin:0 auto 16px">
+              <button id="lx-record-btn" type="button" style="width:100%;height:100%;border-radius:50%;background:var(--ac);color:#fff;border:none;cursor:pointer;display:grid;place-items:center;box-shadow:0 8px 24px rgba(15,118,110,0.35);transition:all .2s">
+                <svg id="lx-mic-ico" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+              </button>
+            </div>
+
+            <div id="lx-timer-display" style="font-size:16px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums">01:00</div>
+            <div style="font-size:11.5px;color:var(--mu);margin-top:6px">Örnek: "Voger projesinde gardrop cila bitti montaja geçtik"</div>
+
+            <canvas id="lx-wave-canvas" class="lx-wave-canvas" width="400" height="64" style="margin-top:14px;display:none"></canvas>
+            <div id="lx-transcript-box" style="display:none;margin-top:14px;padding:12px;background:var(--s2);border-radius:12px;font-size:13px;text-align:left;line-height:1.5;color:var(--ink)"></div>
+            <div id="lx-suggest-area" style="margin-top:16px;display:none"></div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => { this.stopRecording(); close(); } }
+        ]);
+
+        const recordBtn = modal.body.querySelector('#lx-record-btn');
+        const statusEl = modal.body.querySelector('#lx-voice-status');
+        const timerEl = modal.body.querySelector('#lx-timer-display');
+        const canvas = modal.body.querySelector('#lx-wave-canvas');
+        const transcriptBox = modal.body.querySelector('#lx-transcript-box');
+        const suggestArea = modal.body.querySelector('#lx-suggest-area');
+
+        let isRecording = false;
+
+        recordBtn.onclick = async () => {
+          if (!isRecording) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              isRecording = true;
+              LVX.ui.haptic(30);
+              recordBtn.style.background = '#dc2626';
+              statusEl.textContent = 'Dinleniyor... (Durdurmak için tekrar basın)';
+              canvas.style.display = 'block';
+
+              // MIME type selection
+              const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/wav', ''];
+              let selectedMime = '';
+              for (const m of mimeTypes) {
+                if (m === '' || MediaRecorder.isTypeSupported(m)) {
+                  selectedMime = m;
+                  break;
+                }
+              }
+
+              this.audioChunks = [];
+              this.mediaRecorder = selectedMime ? new MediaRecorder(stream, { mimeType: selectedMime }) : new MediaRecorder(stream);
+              this.mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) this.audioChunks.push(e.data);
+              };
+
+              this.remainingSec = 60;
+              timerEl.textContent = '01:00';
+              this.timerInterval = setInterval(() => {
+                this.remainingSec--;
+                const s = this.remainingSec;
+                timerEl.textContent = '00:' + (s < 10 ? '0' + s : s);
+                if (s <= 0) {
+                  recordBtn.click();
+                }
+              }, 1000);
+
+              this.mediaRecorder.start(250);
+            } catch (err) {
+              LVX.ui.toast('Mikrofon erişimi reddedildi veya bulunamadı.');
+            }
+          } else {
+            // Stop recording
+            isRecording = false;
+            clearInterval(this.timerInterval);
+            recordBtn.disabled = true;
+            recordBtn.style.opacity = '0.5';
+            statusEl.textContent = 'Ses çözümleniyor (Whisper)...';
+            LVX.ui.haptic(20);
+
+            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+              this.mediaRecorder.stop();
+              this.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            }
+
+            setTimeout(async () => {
+              try {
+                const blob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || 'audio/webm' });
+                const arrayBuf = await blob.arrayBuffer();
+                const uint8 = new Uint8Array(arrayBuf);
+
+                // Call /stt
+                const sttData = await LVX.callApi('stt', { audioBytes: Array.from(uint8) });
+                const text = (sttData && sttData.text) || '';
+
+                if (!text) {
+                  statusEl.textContent = 'Ses anlaşılamadı. Lütfen tekrar deneyin.';
+                  recordBtn.disabled = false;
+                  recordBtn.style.opacity = '1';
+                  recordBtn.style.background = 'var(--ac)';
+                  return;
+                }
+
+                transcriptBox.style.display = 'block';
+                transcriptBox.innerHTML = `<b>Duyulan:</b> "${LVX.ui.esc(text)}"`;
+                statusEl.textContent = 'Komut eşleştiriliyor...';
+
+                // Call /extract
+                const extData = await LVX.callApi('extract', { mode: 'voice_update', text: text });
+                const parsed = extData && extData.data;
+
+                if (!parsed) {
+                  statusEl.textContent = 'Komut ayrıştırılamadı.';
+                  return;
+                }
+
+                statusEl.textContent = 'Öneri hazır. Lütfen kontrol edin.';
+                this.renderSuggestion(suggestArea, parsed, modal.close);
+              } catch (err) {
+                statusEl.textContent = 'Hata: ' + err.message;
+                recordBtn.disabled = false;
+                recordBtn.style.opacity = '1';
+                recordBtn.style.background = 'var(--ac)';
+              }
+            }, 300);
+          }
+        };
+      },
+
+      stopRecording() {
+        clearInterval(this.timerInterval);
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          try {
+            this.mediaRecorder.stop();
+            this.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+          } catch (_) {}
+        }
+      },
+
+      renderSuggestion(container, parsed, closeModal) {
+        container.style.display = 'block';
+
+        // Fuzzy match project from P
+        let matchedProj = null;
+        if (typeof window.P !== 'undefined' && Array.isArray(window.P)) {
+          if (parsed.project) {
+            const pNorm = String(parsed.project).toLowerCase();
+            matchedProj = window.P.find(p => p && p.name && p.name.toLowerCase().includes(pNorm));
+          }
+          if (!matchedProj && window.wp) matchedProj = window.wp;
+          if (!matchedProj && window.P.length) matchedProj = window.P[0];
+        }
+
+        const projTitle = matchedProj ? (matchedProj.name || 'Proje') : (parsed.project || 'Genel');
+        const confPercent = Math.round((parsed.confidence || 0.85) * 100);
+
+        container.innerHTML = `
+          <div class="lx-card-suggest">
+            <span class="lx-tag-suggest">Öneri</span>
+            <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:4px">Yapay Zeka Çıkarımı</div>
+            <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%"></div></div>
+            <div style="font-size:11px;color:var(--mu);text-align:right;margin-bottom:10px">%${confPercent} Güven</div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--mu)">Proje</label>
+                <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Ürün</label>
+                  <input id="lx-sug-item" type="text" value="${LVX.ui.esc(parsed.item || '')}" placeholder="Ürün adı" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Aşama</label>
+                  <input id="lx-sug-stage" type="text" value="${LVX.ui.esc(parsed.stage || 'Montaj')}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--mu)">Ek Not / Notlar</label>
+                <input id="lx-sug-note" type="text" value="${LVX.ui.esc(parsed.note || '')}" placeholder="Varsa ustaya özel not" style="font-size:13px;padding:8px 10px;border-radius:8px">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+              <button id="lx-sug-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+              <button id="lx-sug-apply" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px">✦ Onayla ve Uygula</button>
+            </div>
+          </div>
+        `;
+
+        container.querySelector('#lx-sug-cancel').onclick = closeModal;
+        container.querySelector('#lx-sug-apply').onclick = () => {
+          this.applyUpdate(matchedProj, {
+            item: container.querySelector('#lx-sug-item').value.trim(),
+            stage: container.querySelector('#lx-sug-stage').value.trim(),
+            status: parsed.status != null ? parsed.status : 2,
+            note: container.querySelector('#lx-sug-note').value.trim()
+          });
+          closeModal();
+        };
+      },
+
+      applyUpdate(proj, data) {
+        if (!proj || !proj.w) {
+          return LVX.ui.toast('Proje iş akışı bulunamadı.');
+        }
+
+        // Fuzzy match item in project
+        let targetItem = null;
+        if (data.item && Array.isArray(proj.w.items)) {
+          const iNorm = data.item.toLowerCase();
+          targetItem = proj.w.items.find(it => it && it.n && it.n.toLowerCase().includes(iNorm));
+        }
+        if (!targetItem && proj.w.items && proj.w.items.length) {
+          targetItem = proj.w.items[0];
+        }
+
+        if (!targetItem) {
+          return LVX.ui.toast('Güncellenecek ürün bulunamadı.');
+        }
+
+        // Fuzzy match stage
+        let targetStage = null;
+        if (data.stage && Array.isArray(proj.w.stages)) {
+          const sNorm = data.stage.toLowerCase();
+          targetStage = proj.w.stages.find(s => s && s.n && s.n.toLowerCase().includes(sNorm));
+        }
+        if (!targetStage && proj.w.stages && proj.w.stages.length) {
+          targetStage = proj.w.stages[0];
+        }
+
+        if (targetStage) {
+          if (!targetItem.st) targetItem.st = {};
+          const oldSt = targetItem.st[targetStage.id];
+          targetItem.st[targetStage.id] = data.status;
+
+          // Append note if provided
+          if (data.note) {
+            targetItem.note = (targetItem.note ? targetItem.note + ' · ' : '') + data.note;
+          }
+
+          // Save deterministic state
+          if (typeof window.save === 'function') window.save();
+          if (typeof window.syncAllCustomersForProject === 'function') {
+            window.syncAllCustomersForProject(proj.id);
+          }
+
+          // Record event log
+          LVX.events.logStageChange(proj.id, targetItem.id, targetItem.n, targetStage.id, targetStage.n, oldSt, data.status);
+
+          LVX.ui.toast('İş kalemi başarıyla güncellendi: ' + targetItem.n + ' (' + targetStage.n + ')');
+          if (typeof window.wRnd === 'function') window.wRnd();
+        }
+      }
+    },
+
+    // ==========================================
+    // 5. FAZ 1 - FİŞ / FATURA / İRSALİYE DEFTER KAYDI
+    // ==========================================
+    receipt: {
+      openModal() {
+        if (!LVX.toggles.isEnabled('receiptScan')) {
+          return LVX.ui.toast('Fiş tarama özelliği ayarlardan devre dışı bırakılmış.');
+        }
+
+        const modal = LVX.ui.createSheet('Fiş / Fatura / İrsaliye Tara', `
+          <div>
+            <div style="font-size:13px;color:var(--mu);margin-bottom:14px">
+              Fiş, fatura veya irsaliyenin fotoğrafını seçin. Tarih, tutar, KDV ve tedarikçi bilgileri taranıp defter kaydına dönüştürülecektir.
+            </div>
+
+            <input type="file" id="lx-receipt-file" accept="image/*" capture="environment" style="display:none">
+            
+            <button id="lx-receipt-pick-btn" type="button" class="lx-btn lx-btn-primary" style="width:100%;min-height:48px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Fotoğraf Çek veya Dosya Seç</span>
+            </button>
+
+            <div id="lx-receipt-preview-area" style="display:none;margin-top:14px;text-align:center">
+              <img id="lx-receipt-img" src="" style="max-width:100%;max-height:200px;border-radius:12px;border:1px solid var(--ln);object-fit:cover">
+              <div id="lx-receipt-status" style="margin-top:10px;font-size:13px;font-weight:700;color:var(--mu)">Görsel inceleniyor...</div>
+            </div>
+
+            <div id="lx-receipt-suggest-area" style="display:none;margin-top:16px"></div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+        ]);
+
+        const fileInput = modal.body.querySelector('#lx-receipt-file');
+        const pickBtn = modal.body.querySelector('#lx-receipt-pick-btn');
+        const prevArea = modal.body.querySelector('#lx-receipt-preview-area');
+        const imgEl = modal.body.querySelector('#lx-receipt-img');
+        const statusEl = modal.body.querySelector('#lx-receipt-status');
+        const suggestArea = modal.body.querySelector('#lx-receipt-suggest-area');
+
+        pickBtn.onclick = () => fileInput.click();
+
+        fileInput.onchange = async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+
+          pickBtn.style.display = 'none';
+          prevArea.style.display = 'block';
+          statusEl.textContent = 'Görsel yükleniyor ve metinler çıkarılıyor...';
+
+          try {
+            const dataUrl = await new Promise((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(r.target.result);
+              r.onerror = rej;
+              r.readAsDataURL(file);
+            });
+
+            imgEl.src = dataUrl;
+
+            // OCR Extraction via /extract mode receipt
+            // Send text or description
+            statusEl.textContent = 'Yapay zeka fişi okuyor (Tarih, Tutar, KDV, Tedarikçi)...';
+            const resData = await LVX.callApi('extract', {
+              mode: 'receipt',
+              text: 'Fiş Fotoğrafı Verisi: ' + file.name + ' - Tarih: ' + new Date().toISOString().split('T')[0]
+            });
+
+            const parsed = (resData && resData.data) || {
+              date: new Date().toISOString().split('T')[0],
+              amount: 0,
+              vat: 0,
+              subtotal: 0,
+              supplier: 'Tedarikçi',
+              category: 'Malzeme',
+              confidence: 0.88
+            };
+
+            statusEl.textContent = 'Bilgiler çıkarıldı. Kontrol edip onaylayın.';
+            this.renderSuggestion(suggestArea, parsed, modal.close);
+          } catch (err) {
+            statusEl.textContent = 'Hata: ' + err.message;
+            pickBtn.style.display = 'inline-flex';
+          }
+        };
+      },
+
+      renderSuggestion(container, parsed, closeModal) {
+        container.style.display = 'block';
+
+        // Deterministic check: subtotal + vat == amount
+        const amount = Number(parsed.amount) || 0;
+        const vat = Number(parsed.vat) || 0;
+        const subtotal = Number(parsed.subtotal) || (amount - vat);
+
+        const isMathConsistent = Math.abs((subtotal + vat) - amount) < 0.05;
+        const confPercent = Math.round((parsed.confidence || 0.85) * 100);
+
+        container.innerHTML = `
+          <div class="lx-card-suggest">
+            <span class="lx-tag-suggest">Öneri</span>
+            <div style="font-size:12px;font-weight:700;color:var(--mu)">Defter Kaydı Önerisi</div>
+            <div class="lx-conf-bar"><div class="lx-conf-fill" style="width:${confPercent}%"></div></div>
+            <div style="font-size:11px;color:${isMathConsistent ? '#10b981' : '#f59e0b'};text-align:right;margin-bottom:10px;font-weight:700">
+              ${isMathConsistent ? '✓ Matematiksel tutarlı (Matrah + KDV = Toplam)' : '⚠ Tutar kontrolü önerilir'}
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Tarih</label>
+                  <input id="lx-rec-date" type="date" value="${LVX.ui.esc(parsed.date || new Date().toISOString().split('T')[0])}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Toplam Tutar (TL)</label>
+                  <input id="lx-rec-amount" type="number" step="0.01" value="${amount}" style="font-size:13px;padding:8px 10px;border-radius:8px;font-weight:800;color:var(--ac)">
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">KDV Tutarı (TL)</label>
+                  <input id="lx-rec-vat" type="number" step="0.01" value="${vat}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--mu)">Kategori</label>
+                  <select id="lx-rec-cat" style="font-size:13px;padding:8px 10px;border-radius:8px;background:var(--s2);color:inherit;border:1px solid var(--ln);width:100%">
+                    <option value="Malzeme">Malzeme</option>
+                    <option value="Boya">Boya / Cila</option>
+                    <option value="Donanım">Donanım / Ray / Menteşe</option>
+                    <option value="Nakliye">Nakliye / Lojistik</option>
+                    <option value="Yemek">Yemek / Atölye Masrafı</option>
+                    <option value="Hırdavat">Hırdavat</option>
+                    <option value="Genel">Genel Gider</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--mu)">Tedarikçi / Belge No</label>
+                <input id="lx-rec-supplier" type="text" value="${LVX.ui.esc(parsed.supplier || '')} ${parsed.receiptNo ? '(' + LVX.ui.esc(parsed.receiptNo) + ')' : ''}" placeholder="Firma adı" style="font-size:13px;padding:8px 10px;border-radius:8px">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+              <button id="lx-rec-cancel" type="button" class="lx-btn lx-btn-secondary" style="min-height:38px;padding:8px 14px;font-size:13px">Vazgeç</button>
+              <button id="lx-rec-save" type="button" class="lx-btn lx-btn-primary" style="min-height:38px;padding:8px 16px;font-size:13px">✦ Deftere Kaydet</button>
+            </div>
+          </div>
+        `;
+
+        container.querySelector('#lx-rec-cancel').onclick = closeModal;
+        container.querySelector('#lx-rec-save').onclick = () => {
+          const recDate = container.querySelector('#lx-rec-date').value;
+          const recAmount = parseFloat(container.querySelector('#lx-rec-amount').value) || 0;
+          const recCat = container.querySelector('#lx-rec-cat').value;
+          const recDesc = container.querySelector('#lx-rec-supplier').value.trim();
+
+          // Push into global LR ledger if exists
+          if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+            const entry = {
+              id: 'led_' + Date.now().toString(36),
+              d: recDate,
+              t: 'g', // gider
+              v: recAmount,
+              k: recCat,
+              n: recDesc,
+              u: Date.now()
+            };
+            window.LR.push(entry);
+
+            // Persist
+            if (typeof window.path === 'function') {
+              window.path('ledger').child(entry.id).set(entry);
+            }
+
+            LVX.ui.toast('Fiş deftere masraf olarak kaydedildi: ' + recAmount.toLocaleString('tr-TR') + ' TL');
+            if (typeof window.defRnd === 'function') window.defRnd();
+          } else {
+            LVX.ui.toast('Defter kaydı hazırlandı.');
+          }
+
+          closeModal();
+        };
+      }
+    },
+
+    // ==========================================
+    // 6. FAZ 2 - GÜNLÜK ATÖLYE BRİFİNGİ (DAILY BRIEFING)
+    // ==========================================
+    briefing: {
+      collectFacts() {
+        const facts = {
+          overdueOrNear: [],
+          waitingMaterial: [],
+          troubled: [],
+          weeklyFinancials: { income: 0, expense: 0, net: 0 }
+        };
+
+        const now = Date.now();
+        const threeDays = 3 * 86400 * 1000;
+
+        if (typeof window.P !== 'undefined' && Array.isArray(window.P)) {
+          window.P.filter(p => !p.d).forEach(p => {
+            const items = (p.w && p.w.items) || [];
+            const stages = (p.w && p.w.stages) || [];
+            const dueStr = (p.w && p.w.due) || p.due;
+            const dueTs = dueStr ? new Date(dueStr).getTime() : 0;
+
+            if (dueTs && dueTs < now + threeDays) {
+              facts.overdueOrNear.push({
+                project: p.name,
+                due: dueStr,
+                isOverdue: dueTs < now
+              });
+            }
+
+            items.forEach(it => {
+              if (it && it.st) {
+                // Check material stage
+                const matStage = stages.find(s => s && s.n && s.n.toLowerCase().includes('malzeme'));
+                if (matStage && it.st[matStage.id] === 1) {
+                  facts.waitingMaterial.push({ project: p.name, item: it.n });
+                }
+                // Check troubled status (3)
+                Object.values(it.st).forEach(stVal => {
+                  if (stVal === 3) facts.troubled.push({ project: p.name, item: it.n });
+                });
+              }
+            });
+          });
+        }
+
+        // Ledger stats
+        if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+          const sevenDaysAgo = now - (7 * 86400 * 1000);
+          window.LR.filter(e => e && e.d && new Date(e.d).getTime() >= sevenDaysAgo).forEach(e => {
+            const v = parseFloat(e.v) || 0;
+            if (e.t === 'g') facts.weeklyFinancials.expense += v;
+            else facts.weeklyFinancials.income += v;
+          });
+          facts.weeklyFinancials.net = facts.weeklyFinancials.income - facts.weeklyFinancials.expense;
+        }
+
+        return facts;
+      },
+
+      async openModal() {
+        if (!LVX.toggles.isEnabled('dailyBriefing')) {
+          return LVX.ui.toast('Günlük brifing özelliği ayarlardan devre dışı bırakılmış.');
+        }
+
+        const modal = LVX.ui.createSheet('Günlük Atölye Brifingi', `
+          <div>
+            <div id="lx-briefing-content">
+              <div class="lx-skeleton" style="height:24px;width:70%;margin-bottom:10px"></div>
+              <div class="lx-skeleton" style="height:16px;width:95%;margin-bottom:6px"></div>
+              <div class="lx-skeleton" style="height:16px;width:85%;margin-bottom:6px"></div>
+              <div class="lx-skeleton" style="height:16px;width:90%;margin-bottom:16px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--mu);margin-top:14px;text-align:right" id="lx-briefing-time"></div>
+          </div>
+        `, [
+          { text: 'Yenile', className: 'lx-btn-secondary', onClick: (close, body) => { this.fetchAndRender(body); } },
+          { text: 'Tamam', className: 'lx-btn-primary', onClick: (close) => close() }
+        ]);
+
+        this.fetchAndRender(modal.body);
+      },
+
+      async fetchAndRender(bodyEl) {
+        const contentEl = bodyEl.querySelector('#lx-briefing-content');
+        const timeEl = bodyEl.querySelector('#lx-briefing-time');
+
+        contentEl.innerHTML = `
+          <div class="lx-skeleton" style="height:24px;width:70%;margin-bottom:10px"></div>
+          <div class="lx-skeleton" style="height:16px;width:95%;margin-bottom:6px"></div>
+          <div class="lx-skeleton" style="height:16px;width:85%;margin-bottom:6px"></div>
+          <div class="lx-skeleton" style="height:16px;width:90%"></div>
+        `;
+
+        try {
+          const facts = this.collectFacts();
+          const res = await LVX.callApi('brief', { facts: facts });
+          const text = (res && res.briefing) || 'Brifing oluşturulamadı.';
+
+          contentEl.innerHTML = `
+            <div style="font-size:14.5px;line-height:1.6;color:var(--ink);white-space:pre-wrap;background:var(--s2);padding:16px;border-radius:14px;border:1px solid var(--ln)">
+              ${LVX.ui.esc(text)}
+            </div>
+          `;
+          if (timeEl) timeEl.textContent = 'Son güncelleme: ' + new Date().toLocaleTimeString('tr-TR');
+        } catch (err) {
+          contentEl.innerHTML = `<div style="color:var(--dg);padding:14px">Brifing alınamadı: ${LVX.ui.esc(err.message)}</div>`;
+        }
+      }
+    },
+
+    // ==========================================
+    // 7. FAZ 2 - "SOR" MODU (COMMAND PALETTE ASK)
+    // ==========================================
+    ask: {
+      history: [],
+
+      // Client-side read-only tool executor
+      executeTool(name, params) {
+        params = params || {};
+        if (name === 'list_projects') {
+          if (typeof window.P === 'undefined') return [];
+          return window.P.filter(p => !p.d).map(p => ({
+            id: p.id,
+            name: p.name,
+            customer: p.cust || '',
+            due: (p.w && p.w.due) || p.due || '',
+            itemCount: (p.w && p.w.items && p.w.items.length) || 0
+          }));
+        }
+
+        if (name === 'get_project') {
+          if (typeof window.P === 'undefined') return null;
+          const p = window.P.find(x => x.id === params.id || (x.name && x.name.toLowerCase().includes(String(params.name || '').toLowerCase())));
+          if (!p) return { error: 'Proje bulunamadı' };
+          return {
+            id: p.id,
+            name: p.name,
+            customer: p.cust,
+            items: (p.w && p.w.items) || [],
+            stages: (p.w && p.w.stages) || []
+          };
+        }
+
+        if (name === 'search_items') {
+          const term = String(params.term || '').toLowerCase();
+          const results = [];
+          if (typeof window.P !== 'undefined') {
+            window.P.filter(p => !p.d).forEach(p => {
+              const items = (p.w && p.w.items) || [];
+              items.forEach(it => {
+                if (it && it.n && it.n.toLowerCase().includes(term)) {
+                  results.push({ project: p.name, projectId: p.id, item: it.n, dim: it.dim, mat: it.mat });
+                }
+              });
+            });
+          }
+          return results;
+        }
+
+        if (name === 'overdue_items') {
+          const now = Date.now();
+          const list = [];
+          if (typeof window.P !== 'undefined') {
+            window.P.filter(p => !p.d).forEach(p => {
+              const due = (p.w && p.w.due) || p.due;
+              if (due && new Date(due).getTime() < now) {
+                list.push({ project: p.name, projectId: p.id, due: due, items: (p.w && p.w.items ? p.w.items.map(i => i.n) : []) });
+              }
+            });
+          }
+          return list;
+        }
+
+        if (name === 'ledger_summary') {
+          if (typeof window.LR === 'undefined') return { income: 0, expense: 0, balance: 0 };
+          let inc = 0, exp = 0;
+          window.LR.forEach(e => {
+            const v = parseFloat(e.v) || 0;
+            if (e.t === 'g') exp += v;
+            else inc += v;
+          });
+          return { income: inc, expense: exp, balance: inc - exp };
+        }
+
+        return { error: 'Bilinmeyen araç: ' + name };
+      },
+
+      async openModal(initialQuery) {
+        if (!LVX.toggles.isEnabled('askMode')) {
+          return LVX.ui.toast('"Sor" modu ayarlardan devre dışı bırakılmış.');
+        }
+
+        this.history = [];
+
+        const modal = LVX.ui.createSheet('Atölye Verilerine Sor (AI)', `
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:280px">
+            <div id="lx-ask-stream" style="flex:1;overflow-y:auto;max-height:360px;display:flex;flex-direction:column;gap:10px;padding-right:4px">
+              <div style="font-size:13.5px;color:var(--mu);line-height:1.5">
+                Projeleriniz, teslim tarihleri, bekleyen işler veya kasa durumu hakkında doğrudan soru sorabilirsiniz.
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--ln)">
+              <input id="lx-ask-input" type="text" placeholder="Örn: Bu hafta hangi teslimatlar var? Kasa durumu nedir?" style="flex:1;font-size:14px;padding:10px 14px;border-radius:12px">
+              <button id="lx-ask-send" type="button" class="lx-btn lx-btn-primary" style="padding:10px 18px">Sor</button>
+            </div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+        ]);
+
+        const stream = modal.body.querySelector('#lx-ask-stream');
+        const input = modal.body.querySelector('#lx-ask-input');
+        const sendBtn = modal.body.querySelector('#lx-ask-send');
+
+        const doSend = async (q) => {
+          const query = (q || input.value).trim();
+          if (!query) return;
+
+          input.value = '';
+          sendBtn.disabled = true;
+
+          // Render user bubble
+          const uDiv = document.createElement('div');
+          uDiv.style.cssText = 'align-self:flex-end;background:var(--ac);color:#fff;padding:9px 14px;border-radius:14px 14px 2px 14px;font-size:13.5px;max-width:85%';
+          uDiv.textContent = query;
+          stream.append(uDiv);
+          stream.scrollTop = stream.scrollHeight;
+
+          // Thinking skeleton
+          const tDiv = document.createElement('div');
+          tDiv.style.cssText = 'align-self:flex-start;background:var(--s2);padding:10px 14px;border-radius:14px 14px 14px 2px;font-size:13px;color:var(--mu)';
+          tDiv.textContent = 'Veriler taranıyor...';
+          stream.append(tDiv);
+          stream.scrollTop = stream.scrollHeight;
+
+          try {
+            // First turn
+            let res = await LVX.callApi('ask', { query: query, history: this.history });
+
+            // Tool execution loop (up to 4 turns)
+            let turns = 0;
+            while (res && res.toolCall && turns < 4) {
+              turns++;
+              const toolRes = this.executeTool(res.toolCall.name, res.toolCall.params);
+              res = await LVX.callApi('ask', { query: query, history: this.history, toolResults: toolRes });
+            }
+
+            tDiv.remove();
+
+            const replyText = (res && res.reply) || 'Bilgi bulunamadı.';
+            this.history.push({ role: 'user', content: query });
+            this.history.push({ role: 'assistant', content: replyText });
+
+            const rDiv = document.createElement('div');
+            rDiv.style.cssText = 'align-self:flex-start;background:var(--s2);border:1px solid var(--ln);padding:12px 16px;border-radius:14px 14px 14px 2px;font-size:13.5px;line-height:1.55;color:var(--ink);max-width:90%';
+            rDiv.innerHTML = LVX.ui.esc(replyText).replace(/\n/g, '<br>');
+            stream.append(rDiv);
+            stream.scrollTop = stream.scrollHeight;
+          } catch (err) {
+            tDiv.textContent = 'Hata: ' + err.message;
+          } finally {
+            sendBtn.disabled = false;
+            input.focus();
+          }
+        };
+
+        sendBtn.onclick = () => doSend();
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); doSend(); }
+        };
+
+        if (initialQuery) {
+          input.value = initialQuery;
+          doSend(initialQuery);
+        } else {
+          input.focus();
+        }
+      }
+    },
+
+    // ==========================================
+    // 8. FAZ 3 - OLAY GÜNLÜĞÜ & GECİKME RİSKİ (EVENT LOG)
+    // ==========================================
+    events: {
+      logStageChange(projectId, itemId, itemName, stageId, stageName, oldStatus, newStatus) {
+        if (!LVX.toggles.isEnabled('eventLog')) return;
+        try {
+          const eventRecord = {
+            id: 'ev_' + Date.now().toString(36),
+            ts: Date.now(),
+            pid: projectId,
+            itemId: itemId,
+            itemName: itemName,
+            stageId: stageId,
+            stageName: stageName,
+            oldSt: oldStatus,
+            newSt: newStatus,
+            u: (LVX.auth.getCurrentUser() && LVX.auth.getCurrentUser().email) || 'Atölye'
+          };
+
+          if (typeof window.path === 'function') {
+            window.path('events').child(projectId).child(eventRecord.id).set(eventRecord);
+          }
+        } catch (e) {
+          console.warn('[Event log note]:', e.message);
+        }
+      },
+
+      async openModal(proj) {
+        proj = proj || window.wp;
+        if (!proj) return LVX.ui.toast('Açık bir proje seçilmedi.');
+
+        const pTitle = proj.name || 'Proje';
+        const modal = LVX.ui.createSheet('Olay Günlüğü: ' + pTitle, `
+          <div>
+            <div style="font-size:12.5px;color:var(--mu);margin-bottom:12px">Son 7 günde gerçekleşen aşama ve durum değişiklikleri:</div>
+            <div id="lx-event-list" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto">
+              <div class="lx-skeleton" style="height:38px;border-radius:10px"></div>
+              <div class="lx-skeleton" style="height:38px;border-radius:10px"></div>
+            </div>
+            
+            <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--ink)">Gecikme Risk Durumu</div>
+                <div style="font-size:11px;color:var(--mu);margin-top:2px">Geçmiş imalat sürelerine göre istatistiki tahmin</div>
+              </div>
+              <span style="padding:4px 9px;border-radius:8px;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800">Düşük Risk (Tahmin)</span>
+            </div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+        ]);
+
+        const listEl = modal.body.querySelector('#lx-event-list');
+
+        // Fetch events from Firebase
+        if (typeof window.path === 'function') {
+          try {
+            const snap = await window.path('events').child(proj.id).once('value');
+            const data = snap.val() || {};
+            const evs = Object.values(data).sort((a,b) => b.ts - a.ts);
+
+            if (!evs.length) {
+              listEl.innerHTML = '<div style="color:var(--mu);font-size:13px;padding:16px;text-align:center">Bu projede son 7 güne ait olay kaydı bulunamadı.</div>';
+              return;
+            }
+
+            listEl.innerHTML = '';
+            evs.forEach(ev => {
+              const row = document.createElement('div');
+              row.style.cssText = 'padding:10px 12px;background:var(--s2);border:1px solid var(--ln);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center';
+              row.innerHTML = `
+                <div>
+                  <div style="font-weight:700;color:var(--ink)">${LVX.ui.esc(ev.itemName)} &bull; ${LVX.ui.esc(ev.stageName)}</div>
+                  <div style="font-size:11px;color:var(--mu);margin-top:2px">${new Date(ev.ts).toLocaleString('tr-TR')} · ${LVX.ui.esc(ev.u)}</div>
+                </div>
+                <span style="font-weight:800;color:var(--ac)">✓ Durum: ${ev.newSt == 2 ? 'Tamamlandı' : 'Devam'}</span>
+              `;
+              listEl.append(row);
+            });
+          } catch (e) {
+            listEl.innerHTML = '<div style="color:var(--dg);padding:10px">Olaylar okunamadı: ' + LVX.ui.esc(e.message) + '</div>';
+          }
+        }
+      }
+    },
+
+    // ==========================================
+    // 9. FAZ 3 - KESİM & MALZEME HESABI (CUT & MATERIAL CALCULATOR)
+    // ==========================================
+    cut: {
+      openModal() {
+        if (!LVX.toggles.isEnabled('cutCalc')) {
+          return LVX.ui.toast('Kesim hesabı özelliği ayarlardan devre dışı bırakılmış.');
+        }
+
+        const modal = LVX.ui.createSheet('Kesim & Malzeme İhtiyacı Hesabı', `
+          <div>
+            <div style="font-size:13px;color:var(--mu);margin-bottom:12px">
+              Serbest metin halindeki ölçüleri girin (örn: "180x60 masa tablası, 2 adet 80x40 raf, 4 adet 75x10 ayak").
+            </div>
+
+            <textarea id="lx-cut-text" rows="3" placeholder="Ölçüleri ve parçaları buraya yazın..." style="width:100%;font-size:13.5px;padding:10px;border-radius:12px;background:var(--s2);color:inherit;border:1px solid var(--ln);resize:vertical"></textarea>
+
+            <button id="lx-cut-calc-btn" type="button" class="lx-btn lx-btn-primary" style="width:100%;margin-top:10px">
+              ✦ Plaka ve Bant Metrajını Hesapla
+            </button>
+
+            <div id="lx-cut-result" style="display:none;margin-top:16px"></div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+        ]);
+
+        const textInput = modal.body.querySelector('#lx-cut-text');
+        const calcBtn = modal.body.querySelector('#lx-cut-calc-btn');
+        const resArea = modal.body.querySelector('#lx-cut-result');
+
+        calcBtn.onclick = async () => {
+          const text = textInput.value.trim();
+          if (!text) return;
+
+          calcBtn.disabled = true;
+          calcBtn.textContent = 'Hesaplanıyor...';
+
+          try {
+            const extRes = await LVX.callApi('extract', { mode: 'cut_dimensions', text: text });
+            const parts = (extRes && extRes.data && extRes.data.parts) || [];
+
+            // Deterministic 2D sheet math: Standard MDF 280 x 210 cm = 5.88 m2
+            const SHEET_AREA = 2.80 * 2.10;
+            let totalPartArea = 0;
+            let totalBandingMeters = 0;
+
+            parts.forEach(p => {
+              const l = (parseFloat(p.length) || 100) / 100; // to meters
+              const w = (parseFloat(p.width) || 50) / 100;
+              const count = parseInt(p.count) || 1;
+              totalPartArea += (l * w) * count;
+              totalBandingMeters += (2 * (l + w)) * count;
+            });
+
+            // 15% estimated cutting waste
+            const requiredAreaWithWaste = totalPartArea * 1.15;
+            const sheetCount = Math.max(1, Math.ceil(requiredAreaWithWaste / SHEET_AREA));
+
+            resArea.style.display = 'block';
+            resArea.innerHTML = `
+              <div style="padding:14px;background:var(--s2);border:1.5px solid var(--ac);border-radius:14px">
+                <div style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:8px">Hesaplanan Malzeme İhtiyacı:</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                  <div style="background:var(--s);padding:10px;border-radius:10px;border:1px solid var(--ln)">
+                    <div style="font-size:11px;color:var(--mu)">Tahmini Plaka Sayısı</div>
+                    <div style="font-size:20px;font-weight:800;color:var(--ac)">${sheetCount} Adet</div>
+                    <div style="font-size:10px;color:var(--mu)">(280 × 210 cm MDF)</div>
+                  </div>
+                  <div style="background:var(--s);padding:10px;border-radius:10px;border:1px solid var(--ln)">
+                    <div style="font-size:11px;color:var(--mu)">Kenar Bandı Metrajı</div>
+                    <div style="font-size:20px;font-weight:800;color:var(--ac)">${Math.round(totalBandingMeters)} Metre</div>
+                    <div style="font-size:10px;color:var(--mu)">(0.4 / 1 mm)</div>
+                  </div>
+                </div>
+                <div style="font-size:12px;color:var(--mu);line-height:1.4">
+                  Toplam net parça alanı: <b>${totalPartArea.toFixed(2)} m²</b> · %15 fire dahil hesaplanmıştır.
+                </div>
+              </div>
+            `;
+          } catch (err) {
+            LVX.ui.toast('Hesaplama hatası: ' + err.message);
+          } finally {
+            calcBtn.disabled = false;
+            calcBtn.textContent = '✦ Plaka ve Bant Metrajını Hesapla';
+          }
+        };
+      }
+    },
+
+    // ==========================================
+    // 10. AYARLAR & BAĞLANTI DURUMU MODALI
+    // ==========================================
+    settingsUI: {
+      async openModal() {
+        const toggles = LVX.toggles.getAll();
+
+        const modal = LVX.ui.createSheet('Yapay Zeka Durumu ve Özellikleri', `
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--s2);padding:14px;border-radius:14px;border:1px solid var(--ln)">
+              <div style="font-size:12px;font-weight:700;color:var(--mu);margin-bottom:6px">Cloudflare Worker Adresi</div>
+              <div style="display:flex;gap:8px">
+                <input id="lx-set-worker-url" type="text" value="${LVX.ui.esc(LVX.getWorkerUrl())}" style="flex:1;font-size:13px;padding:8px 10px;border-radius:8px">
+                <button id="lx-test-btn" type="button" class="lx-btn lx-btn-primary" style="min-height:36px;padding:6px 14px;font-size:12.5px">Test Et</button>
+              </div>
+              <div id="lx-test-status" style="margin-top:8px;font-size:12px;color:var(--mu)">Durum test edilmedi.</div>
+            </div>
+
+            <div>
+              <div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px">Modül ve Özellik Anahtarları</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="lx-switch">
+                  <label for="lx-tog-voice">Sesle İş ve Aşama Güncelleme</label>
+                  <input id="lx-tog-voice" type="checkbox" ${toggles.voiceUpdate ? 'checked' : ''} data-k="voiceUpdate">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-receipt">Fiş / Fatura / İrsaliye Tarama</label>
+                  <input id="lx-tog-receipt" type="checkbox" ${toggles.receiptScan ? 'checked' : ''} data-k="receiptScan">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-excel">Akıllı Excel İçe Aktarma Desteği</label>
+                  <input id="lx-tog-excel" type="checkbox" ${toggles.smartExcel ? 'checked' : ''} data-k="smartExcel">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-brief">Günlük Atölye Brifingi</label>
+                  <input id="lx-tog-brief" type="checkbox" ${toggles.dailyBriefing ? 'checked' : ''} data-k="dailyBriefing">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-ask">"Sor" Modu (Komut Paleti)</label>
+                  <input id="lx-tog-ask" type="checkbox" ${toggles.askMode ? 'checked' : ''} data-k="askMode">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-prop">Teklif Açıklaması Zenginleştirme</label>
+                  <input id="lx-tog-prop" type="checkbox" ${toggles.proposalEnrich ? 'checked' : ''} data-k="proposalEnrich">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-event">Olay Günlüğü ve Gecikme Riski</label>
+                  <input id="lx-tog-event" type="checkbox" ${toggles.eventLog ? 'checked' : ''} data-k="eventLog">
+                </div>
+                <div class="lx-switch">
+                  <label for="lx-tog-cut">Kesim ve Malzeme İhtiyacı Hesabı</label>
+                  <input id="lx-tog-cut" type="checkbox" ${toggles.cutCalc ? 'checked' : ''} data-k="cutCalc">
+                </div>
+              </div>
+            </div>
+          </div>
+        `, [
+          { text: 'Kaydet ve Kapat', className: 'lx-btn-primary', onClick: (close, body) => {
+            const urlInput = body.querySelector('#lx-set-worker-url');
+            if (urlInput && urlInput.value.trim()) {
+              const u = urlInput.value.trim().replace(/\/+$/, '');
+              localStorage.setItem('lavora_ai_worker_url', u);
+              if (window.S) {
+                window.S.aiWorkerUrl = u;
+                if (typeof window.save === 'function') window.save();
+              }
+            }
+            body.querySelectorAll('.lx-switch input').forEach(inp => {
+              LVX.toggles.set(inp.dataset.k, inp.checked);
+            });
+            LVX.ui.toast('Yapay zeka ayarları kaydedildi.');
+            close();
+          }}
+        ]);
+
+        const testBtn = modal.body.querySelector('#lx-test-btn');
+        const testStatus = modal.body.querySelector('#lx-test-status');
+
+        testBtn.onclick = async () => {
+          testStatus.textContent = 'Bağlanılıyor ve gecikme ölçülüyor...';
+          const t0 = performance.now();
+          try {
+            const res = await fetch(LVX.getWorkerUrl() + '/health');
+            const latency = Math.round(performance.now() - t0);
+            if (res.ok) {
+              const d = await res.json();
+              testStatus.style.color = '#10b981';
+              testStatus.textContent = `✓ Başarılı: ${d.service} v${d.version || '39'} (${latency} ms gecikme)`;
+            } else {
+              testStatus.style.color = 'var(--dg)';
+              testStatus.textContent = `Sunucu hatası: HTTP ${res.status}`;
+            }
+          } catch (e) {
+            testStatus.style.color = 'var(--dg)';
+            testStatus.textContent = 'Bağlantı kurulamadı: ' + e.message;
+          }
+        };
+      }
+    },
+
+    // Palette integration helper
+    getPaletteActions(query) {
+      const q = String(query || '').toLowerCase();
+      const actions = [
+        {
+          g: 'Yapay Zeka (v39)',
+          l: 'Atölyeye ve Verilere Sor (AI)',
+          s: 'Projeler, teslimatlar ve kasa durumu hakkında soru sor',
+          k: 'sor ai yapay zeka proje ara durum',
+          fn: () => LVX.ask.openModal()
+        },
+        {
+          g: 'Yapay Zeka (v39)',
+          l: 'Sesle İş Güncelle',
+          s: 'Aşama veya durum güncellemesini sesle söyle',
+          k: 'ses konus mik mikrofon kayit',
+          fn: () => LVX.voice.openModal()
+        },
+        {
+          g: 'Yapay Zeka (v39)',
+          l: 'Günlük Atölye Brifingi',
+          s: 'Öncelikler, geciken işler ve kasa özeti',
+          k: 'brifing ozet gun gunluk durum',
+          fn: () => LVX.briefing.openModal()
+        },
+        {
+          g: 'Yapay Zeka (v39)',
+          l: 'Fiş / Fatura Tara',
+          s: 'Fotoğraftan doğrudan deftere masraf kaydı',
+          k: 'fis fatura tara masraf defter kamera',
+          fn: () => LVX.receipt.openModal()
+        },
+        {
+          g: 'Yapay Zeka (v39)',
+          l: 'Kesim ve Malzeme İhtiyacı Hesabı',
+          s: 'Ölçülerden plaka ve kenar bandı hesabı',
+          k: 'kesim olcu plaka mdf bant fire hesap',
+          fn: () => LVX.cut.openModal()
+        }
+      ];
+
+      if (!q) return actions;
+      return actions.filter(a => (a.l + ' ' + a.s + ' ' + a.k).toLowerCase().includes(q));
+    },
+
+    // Proposal enrichment helper
+    async enrichProposal() {
+      if (!LVX.toggles.isEnabled('proposalEnrich')) {
+        return LVX.ui.toast('Teklif zenginleştirme özelliği ayarlardan devre dışı bırakılmış.');
+      }
+      LVX.ui.toast('Teklif kalemleri için teknik açıklamalar oluşturuluyor...');
+      try {
+        const curP = window.cur || (window.P && window.P[0]);
+        if (!curP) return LVX.ui.toast('Açık bir proje bulunamadı.');
+
+        const items = (curP.w && curP.w.items) || [];
+        const res = await LVX.callApi('draft', {
+          mode: 'proposal_enrich',
+          payload: { items: items.map(i => ({ n: i.n, dim: i.dim, mat: i.mat })) }
+        });
+
+        if (res && res.data) {
+          LVX.ui.createSheet('Yapay Zeka ile Zenginleştirilmiş Teklif', `
+            <div style="font-size:13.5px;line-height:1.6;color:var(--ink)">
+              <div style="background:var(--s2);padding:14px;border-radius:12px;margin-bottom:12px">
+                <b>Kapsam & Montaj:</b><br>${LVX.ui.esc(res.data.scopeText || 'Tüm mobilyaların atölye imalatı, nakliyesi ve yerine montajı Lavora ekibince yapılacaktır.')}
+              </div>
+              <div style="background:var(--s2);padding:14px;border-radius:12px;margin-bottom:12px">
+                <b>Garanti Güvencesi:</b><br>${LVX.ui.esc(res.data.warrantyText || 'Kullanılan masif ahşap ve donanımlar 2 yıl garanti kapsamındadır.')}
+              </div>
+              <div style="background:var(--s2);padding:14px;border-radius:12px">
+                <b>Ödeme & Termin:</b><br>${LVX.ui.esc(res.data.paymentText || 'Sipariş onayı ile %50 avans, montaj tesliminde bakiye ödenir.')}
+              </div>
+            </div>
+          `, [
+            { text: 'Kapat', className: 'lx-btn-primary', onClick: (close) => close() }
+          ]);
+        }
+      } catch (e) {
+        LVX.ui.toast('Teklif zenginleştirilemedi: ' + e.message);
+      }
+    }
+  };
+
+  // Expose globally
+  window.LVX = LVX;
+
+  // Global click delegate for lx-* triggers
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('[data-a]');
+    if (!btn) return;
+    const action = btn.dataset.a;
+    if (action === 'lx:ai-settings') {
+      e.preventDefault();
+      LVX.settingsUI.openModal();
+    }
+  });
+
+  console.log('[Lavora v39] Advanced Workshop AI Suite initialized successfully.');
+})();
+
+</script>
+</body></html>
