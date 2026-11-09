@@ -1154,36 +1154,70 @@ img.onerror = reject;
 
 window.lvSendCustomerRequest = async function(data) {
   try {
-    if (typeof firebase === 'undefined' || !window.auth) {
-      if (typeof toast === 'function') toast('Talebiniz kaydedildi!');
-      return true;
+    const user = (window.getCurrentUser && window.getCurrentUser()) || (window.currentUser) || (window.auth && window.auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || window.LV_USER;
+    
+    // Find or create persistent client UID
+    let uid = (user && (user.uid || user.id));
+    if (!uid) {
+      uid = localStorage.getItem('lvr_guest_uid');
+      if (!uid) {
+        uid = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        localStorage.setItem('lvr_guest_uid', uid);
+      }
     }
-    const user = window.auth.currentUser;
-    if (!user) {
-      if (typeof toast === 'function') toast('Lütfen önce giriş yapın.');
-      return false;
-    }
+
+    const email = (user && user.email) || data.email || data.userEmail || 'Müşteri';
+    const name = (user && (user.displayName || user.email)) || data.userName || email.split('@')[0] || 'Müşteri';
+
     const reqData = {
-      subject: data.subject || (data.specs && data.specs.itemName) || 'Özel Tasarım Mobilya Talebi',
-      itemName: (data.specs && data.specs.itemName) || data.itemName || '',
-      dimensions: (data.specs && data.specs.dimensions) || data.dimensions || '',
-      material: (data.specs && data.specs.material) || data.material || '',
+      subject: data.subject || (data.specs && data.specs.itemName) || (data.projectName ? data.projectName + ' Talebi' : 'Özel Mobilya & Tasarım Talebi'),
+      itemName: data.itemName || (data.specs && data.specs.itemName) || '',
+      dimensions: data.dimensions || (data.specs && data.specs.dimensions) || '',
+      material: data.material || (data.specs && data.specs.material) || '',
       projectName: data.projectName || '',
       projectId: data.projectId || '',
       customerPhoto: data.customerPhoto || '',
-      chatHistory: data.chatHistory || [],
+      chatHistory: Array.isArray(data.chatHistory) ? data.chatHistory : [],
       text: data.text || (data.specs && data.specs.summary) || '',
       specs: data.specs || {},
       status: 'open',
       createdAt: Date.now(),
-      userEmail: user.email || '',
-      userName: user.displayName || user.email || '',
-      userId: user.uid
+      email: email,
+      userEmail: email,
+      userName: name,
+      uid: uid,
+      userId: uid
     };
-    if (typeof path === 'function') {
-      await path('customer_requests').child(user.uid).push(reqData);
+
+    // Robust Database writing targeting tenants/lavora-main/customer_requests
+    let targetRef = null;
+    if (typeof window.path === 'function') {
+      targetRef = window.path('customer_requests').child(uid);
+    } else if (typeof path === 'function') {
+      targetRef = path('customer_requests').child(uid);
+    } else if (window.db) {
+      targetRef = window.db.ref('tenants/lavora-main/customer_requests/' + uid);
+    } else if (typeof firebase !== 'undefined' && firebase.database) {
+      targetRef = firebase.database().ref('tenants/lavora-main/customer_requests/' + uid);
     }
-    if (typeof toast === 'function') toast('Tasarım talebiniz ve sohbet detayları atölyeye iletildi!');
+
+    if (targetRef) {
+      const newReqRef = targetRef.push();
+      await newReqRef.set(reqData);
+      console.log('[LavoraAI] Customer request successfully saved to Firebase RTDB:', newReqRef.key);
+    } else {
+      console.warn('[LavoraAI] Database reference not ready, saving request locally in localStorage');
+      try {
+        const localQueue = JSON.parse(localStorage.getItem('lvr_pending_reqs') || '[]');
+        localQueue.push(reqData);
+        localStorage.setItem('lvr_pending_reqs', JSON.stringify(localQueue));
+      } catch(_) {}
+    }
+
+    if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla iletildi!');
+    if (typeof window.lvReloadAdminReqList === 'function') {
+      window.lvReloadAdminReqList();
+    }
     return true;
   } catch(err) {
     console.error('lvSendCustomerRequest error:', err);
@@ -1195,37 +1229,50 @@ window.lvSendCustomerRequest = async function(data) {
 window.lvOpenCustomerRequest = function(target) {
   if (document.getElementById('lv-gemini-modal')) return;
 
-  var pId = '', pName = '', itId = '', itName = '';
+  var pId = '', pName = '', itId = '', itName = '', itPhoto = '';
   if (target && typeof target === 'object') {
     pId = target.projectId || target.id || ''; pName = target.projectName || target.name || '';
-    itId = target.itemId || ''; itName = target.itemName || '';
+    itId = target.itemId || ''; itName = target.itemName || ''; itPhoto = target.itemPhoto || '';
   } else if (typeof target === 'string') { itName = target; }
-  if (!pId && window._lvCustomerProjects && window._lvCustomerProjects.length) {
-    pId = window._lvCustomerProjects[0].projectId || window._lvCustomerProjects[0].id || '';
-    pName = window._lvCustomerProjects[0].projectName || window._lvCustomerProjects[0].name || '';
+  
+  // Find project in customer or admin cache
+  var activeProj = null;
+  if (window._lvCustomerProjects && Array.isArray(window._lvCustomerProjects) && window._lvCustomerProjects.length) {
+    if (pId) activeProj = window._lvCustomerProjects.find(function(p){ return p && (p.projectId === pId || p.id === pId); });
+    if (!activeProj && pName) activeProj = window._lvCustomerProjects.find(function(p){ return p && ((p.projectName && p.projectName.indexOf(pName)!==-1) || (p.name && p.name.indexOf(pName)!==-1)); });
+    if (!activeProj) activeProj = window._lvCustomerProjects[0];
+  }
+  if (!activeProj && typeof P !== 'undefined' && Array.isArray(P) && P.length) {
+    if (pId) activeProj = P.find(function(p){ return p && (p.id === pId || p.projectId === pId); });
+    if (!activeProj && pName) activeProj = P.find(function(p){ return p && p.name && p.name.indexOf(pName)!==-1; });
+    if (!activeProj) activeProj = P[0];
+  }
+  if (!activeProj && typeof wp !== 'undefined' && wp) activeProj = wp;
+  if (!activeProj && typeof pcur === 'function') { try { activeProj = pcur(); } catch(_) {} }
+
+  if (activeProj) {
+    if (!pId) pId = activeProj.projectId || activeProj.id || '';
+    if (!pName) pName = activeProj.projectName || activeProj.name || '';
   }
 
   // Canlı Proje Bağlamını Çıkar
   var liveContext = window.LavoraAI.extractProjectLiveContext(pId, pName);
 
   // Conversation history
-  var initGreeting = 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\n';
-  if (pName) {
-    initGreeting += '**' + esc(pName) + '** projeniz hakkında üretim ve kargo durumunu öğrenebilir veya mekanınıza özel yeni bir mobilya tasarlamamı isteyebilirsiniz. Size nasıl yardımcı olabilirim?';
-  } else {
-    initGreeting += 'Mekanınız için hayal ettiğiniz mobilyayı (ölçüler, ahşap türü, renkler veya özel ihtiyaçlar) bana anlatabilirsiniz. Projenizi birlikte netleştirdikten sonra doğrudan atölye imalat ekibimize ileteceğiz.';
-  }
-
+  var initGreeting = 'Merhaba! Ben Lavora İç Mimarlık ve Özel Mobilya Danışmanınız.\n\n' +
+    'Mekanınız için düşündüğünüz mobilyayı anlatabilir, malzeme ve ahşap tonu seçebilir veya açık olan projenizin canlı imalat ve kargo durumunu sorabilirsiniz.';
+  
   var conversation = [{
     role: 'assistant',
     content: initGreeting
   }];
   if (itName) {
-    conversation.push({ role: 'user', content: itName + ' hakkında bilgi almak ve tasarlamak istiyorum.' });
-    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için birlikte çalışalım. Aklınızdaki ahşap tonu, ölçü veya sormak istediğiniz imalat detayları nelerdir?' });
+    conversation.push({ role: 'user', content: itName + ' hakkında bilgi almak ve talebimi iletmek istiyorum.' });
+    conversation.push({ role: 'assistant', content: 'Harika! **' + esc(itName) + '** için size memnuniyetle yardımcı olabilirim. Aklınızdaki ahşap dokusu, ölçü değişikliği veya sormak istediğiniz imalat aşaması nedir?' });
   }
 
   var userAttachedPhoto = '';
+  var dirAttachedPhoto = itPhoto || '';
 
   // Inject styles once
   if (!document.getElementById('lv-gemini-styles')) {
@@ -1276,22 +1323,34 @@ window.lvOpenCustomerRequest = function(target) {
           '<span style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:#10b981;border:1.5px solid #0d121d"></span>',
         '</div>',
         '<div style="min-width:0;overflow:hidden">',
-          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar</div>',
+          '<div style="font-size:15px;font-weight:800;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Lavora AI Mimar &amp; Müşteri Talep Portalı</div>',
           '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + subText + '</div>',
         '</div>',
       '</div>',
       '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">',
         '<button id="lv-btn-submit-req" type="button" class="lv-cta-primary" style="height:34px;padding:0 14px;border-radius:50px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(37,99,235,0.35);white-space:nowrap">',
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-          '<span>✦ Talebi Atölyeye İlet</span>',
+          '<span>✦ Sohbeti Talebe Dönüştür</span>',
         '</button>',
         '<button id="lv-btn-close-modal" type="button" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:grid;place-items:center;font-size:17px;line-height:1">&#x2715;</button>',
       '</div>',
     '</div>',
 
-    // Main Chat Stream
+    // Tab Switcher Row (AI Danışman vs Doğrudan Talep İlet)
+    '<div style="height:44px;padding:0 16px;background:rgba(15,23,42,0.9);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:9">',
+      '<button id="lv-tab-chat-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #3b82f6;background:#2563eb;color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        '💬 AI Mimar ile Danış &amp; Durum Sor',
+      '</button>',
+      '<button id="lv-tab-direct-btn" type="button" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#94a3b8;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s">',
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        '📝 Doğrudan Talep İlet (AI Olmadan)',
+      '</button>',
+    '</div>',
+
+    // Main Chat Stream Pane
     '<div id="lv-chat-pane" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">',
-      '<div id="lv-chat-stream" class="lv-gemini-scroll lv-chat-stream-pad" style="flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:18px;-webkit-overflow-scrolling:touch"></div>',
+      '<div id="lv-chat-stream" class="lv-gemini-scroll lv-chat-stream-pad" style="flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px;-webkit-overflow-scrolling:touch"></div>',
 
       // Chips suggestion row
       '<div id="lv-chips-bar" style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0;-webkit-overflow-scrolling:touch">',
@@ -1323,12 +1382,69 @@ window.lvOpenCustomerRequest = function(target) {
         '</div>',
         '<input type="file" id="lv-hidden-file-input" accept="image/*" style="display:none">',
       '</div>',
+    '</div>',
+
+    // Direct Request Form Pane (AI olmadan doğrudan talep)
+    '<div id="lv-direct-pane" class="lv-gemini-scroll" style="display:none;flex:1;overflow-y:auto;padding:22px;flex-direction:column;gap:16px;-webkit-overflow-scrolling:touch">',
+      '<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.22);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px">',
+        '<div style="width:36px;height:36px;min-width:36px;border-radius:10px;background:#2563eb;display:grid;place-items:center;color:#fff;flex-shrink:0">',
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+        '</div>',
+        '<div style="flex:1;min-width:0">',
+          '<div style="font-size:13.5px;font-weight:700;color:#f8fafc">Atölye ve Yönetim Ekibine Doğrudan Talep</div>',
+          '<div style="font-size:11.5px;color:#94a3b8;margin-top:2px">Yapay zeka ile konuşmadan, talebinizi veya revizenizi doğrudan atölye yöneticilerimize gönderebilirsiniz.</div>',
+        '</div>',
+      '</div>',
+
+      '<div style="display:flex;flex-direction:column;gap:14px">',
+        '<div>',
+          '<label style="display:block;font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:6px">İlgili Proje &amp; Ürün</label>',
+          '<input id="lv-dir-target-display" type="text" readonly style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 14px;color:#93c5fd;font-weight:600;font-size:13px;outline:none">',
+        '</div>',
+        '<div>',
+          '<label style="display:block;font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:6px">Talep Başlığı / Konu *</label>',
+          '<input id="lv-dir-subject" type="text" placeholder="Örn: Gardrop kulp tercihi veya teslimat tarihi sorusu" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 14px;color:#f8fafc;font-size:13.5px;outline:none;transition:border-color .2s">',
+        '</div>',
+        '<div>',
+          '<label style="display:block;font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:6px">Talebiniz / Notlarınız *</label>',
+          '<textarea id="lv-dir-text" rows="4" placeholder="Atölye ekibimize iletmek istediğiniz detayları, ölçü değişikliklerini veya sorularınızı buraya yazın…" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px 14px;color:#f8fafc;font-size:13.5px;line-height:1.5;outline:none;resize:vertical;font-family:inherit"></textarea>',
+        '</div>',
+        '<div>',
+          '<label style="display:block;font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:6px">Fotoğraf veya Referans Görseli (İsteğe Bağlı)</label>',
+          '<div style="display:flex;align-items:center;gap:12px">',
+            '<button id="lv-dir-photo-btn" type="button" style="padding:9px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#e2e8f0;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px">',
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+              'Görsel Seç',
+            '</button>',
+            '<span id="lv-dir-photo-status" style="font-size:12px;color:#94a3b8">Henüz görsel seçilmedi</span>',
+          '</div>',
+          '<div id="lv-dir-photo-preview-box" style="display:none;margin-top:10px;position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1.5px solid #38bdf8">',
+            '<img id="lv-dir-photo-thumb" src="" style="width:100%;height:100%;object-fit:cover">',
+            '<button id="lv-dir-photo-del" type="button" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.7);color:#ef4444;border:none;cursor:pointer;display:grid;place-items:center;font-size:12px">&#x2715;</button>',
+          '</div>',
+          '<input type="file" id="lv-dir-hidden-file" accept="image/*" style="display:none">',
+        '</div>',
+      '</div>',
+
+      '<button id="lv-dir-send-btn" type="button" class="lv-cta-primary" style="height:44px;border-radius:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px">',
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+        '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>',
+      '</button>',
+
+      '<div id="lv-dir-success-msg" style="display:none;padding:16px;border-radius:14px;background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.3);color:#6ee7b7;font-size:13px;line-height:1.5;text-align:center">',
+        '✓ Talebiniz Lavora Yönetici Paneline başarıyla iletildi! Atölye ekibimiz talebinizi inceleyip kısa sürede geri dönüş yapacaktır.',
+      '</div>',
     '</div>'
-  ].join('');
+  ].join('\n');
 
   document.body.appendChild(modal);
 
   // References
+  var tabChatBtn = container.querySelector('#lv-tab-chat-btn');
+  var tabDirectBtn = container.querySelector('#lv-tab-direct-btn');
+  var chatPane = container.querySelector('#lv-chat-pane');
+  var directPane = container.querySelector('#lv-direct-pane');
+
   var chatStream = container.querySelector('#lv-chat-stream');
   var chipsBar = container.querySelector('#lv-chips-bar');
   var promptInput = container.querySelector('#lv-prompt-input');
@@ -1340,6 +1456,121 @@ window.lvOpenCustomerRequest = function(target) {
   var removePhotoBtn = container.querySelector('#lv-remove-photo-btn');
   var submitReqBtn = container.querySelector('#lv-btn-submit-req');
   var closeModalBtn = container.querySelector('#lv-btn-close-modal');
+
+  // Direct tab references
+  var dirTargetDisplay = container.querySelector('#lv-dir-target-display');
+  var dirSubject = container.querySelector('#lv-dir-subject');
+  var dirText = container.querySelector('#lv-dir-text');
+  var dirPhotoBtn = container.querySelector('#lv-dir-photo-btn');
+  var dirPhotoStatus = container.querySelector('#lv-dir-photo-status');
+  var dirPhotoBox = container.querySelector('#lv-dir-photo-preview-box');
+  var dirPhotoThumb = container.querySelector('#lv-dir-photo-thumb');
+  var dirPhotoDel = container.querySelector('#lv-dir-photo-del');
+  var dirHiddenFile = container.querySelector('#lv-dir-hidden-file');
+  var dirSendBtn = container.querySelector('#lv-dir-send-btn');
+  var dirSuccessMsg = container.querySelector('#lv-dir-success-msg');
+
+  // Tab switching logic
+  function setTab(tab) {
+    if (tab === 'direct') {
+      chatPane.style.display = 'none';
+      directPane.style.display = 'flex';
+      tabDirectBtn.style.background = '#2563eb';
+      tabDirectBtn.style.color = '#fff';
+      tabDirectBtn.style.borderColor = '#3b82f6';
+      tabChatBtn.style.background = 'rgba(255,255,255,0.04)';
+      tabChatBtn.style.color = '#94a3b8';
+      tabChatBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+      submitReqBtn.style.display = 'none';
+    } else {
+      directPane.style.display = 'none';
+      chatPane.style.display = 'flex';
+      tabChatBtn.style.background = '#2563eb';
+      tabChatBtn.style.color = '#fff';
+      tabChatBtn.style.borderColor = '#3b82f6';
+      tabDirectBtn.style.background = 'rgba(255,255,255,0.04)';
+      tabDirectBtn.style.color = '#94a3b8';
+      tabDirectBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+      submitReqBtn.style.display = 'inline-flex';
+    }
+  }
+
+  tabChatBtn.onclick = function() { setTab('chat'); };
+  tabDirectBtn.onclick = function() { setTab('direct'); };
+
+  // Set initial direct target display
+  function updateDirectTarget(tProjName, tItName) {
+    var parts = [];
+    if (tProjName) parts.push('Proje: ' + tProjName);
+    if (tItName) parts.push('Ürün: ' + tItName);
+    dirTargetDisplay.value = parts.length ? parts.join(' &bull; ') : 'Genel Atölye Talebi';
+    if (tItName && !dirSubject.value) {
+      dirSubject.value = tItName + ' Talebi';
+    }
+  }
+  updateDirectTarget(pName, itName);
+
+  // Direct Tab Photo Pick
+  dirPhotoBtn.onclick = function() { dirHiddenFile.click(); };
+  dirHiddenFile.onchange = async function() {
+    var file = dirHiddenFile.files[0];
+    if (!file) return;
+    try {
+      var compressed = window._lvCompressImageFile ? await window._lvCompressImageFile(file) : await new Promise(function(res, rej) {
+        var reader = new FileReader();
+        reader.onload = function(e) { res(e.target.result); };
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      dirAttachedPhoto = compressed;
+      dirPhotoThumb.src = compressed;
+      dirPhotoBox.style.display = 'block';
+      dirPhotoStatus.textContent = file.name || 'Görsel eklendi';
+    } catch(err) {
+      console.warn('Direct photo pick error:', err);
+    }
+  };
+  dirPhotoDel.onclick = function() {
+    dirAttachedPhoto = '';
+    dirPhotoThumb.src = '';
+    dirPhotoBox.style.display = 'none';
+    dirPhotoStatus.textContent = 'Henüz görsel seçilmedi';
+    dirHiddenFile.value = '';
+  };
+
+  // Direct Send Button Handler
+  dirSendBtn.onclick = async function() {
+    var sVal = dirSubject.value.trim();
+    var tVal = dirText.value.trim();
+    if (!sVal && !tVal) {
+      if (typeof toast === 'function') toast('Lütfen bir konu veya talep açıklaması yazın.');
+      dirSubject.focus();
+      return;
+    }
+
+    dirSendBtn.disabled = true;
+    dirSendBtn.innerHTML = '<span>İletiliyor…</span>';
+
+    try {
+      await window.lvSendCustomerRequest({
+        subject: sVal || (itName ? itName + ' Talebi' : (pName ? pName + ' Talebi' : 'Müşteri Talebi')),
+        itemName: itName || '',
+        projectName: pName || '',
+        projectId: pId || '',
+        text: tVal,
+        customerPhoto: dirAttachedPhoto,
+        chatHistory: []
+      });
+
+      dirSendBtn.style.display = 'none';
+      dirSuccessMsg.style.display = 'block';
+      if (typeof toast === 'function') toast('Talebiniz başarıyla iletildi!');
+    } catch(e) {
+      dirSendBtn.disabled = false;
+      dirSendBtn.innerHTML = '<span>✦ Talebi Doğrudan Atölyeye Gönder</span>';
+      if (typeof toast === 'function') toast('Hata: ' + e.message);
+    }
+  };
 
   // Auto-resize textarea
   promptInput.addEventListener('input', function() {
@@ -1387,6 +1618,163 @@ window.lvOpenCustomerRequest = function(target) {
       }
     }
     stepType();
+  }
+
+  // Interactive Collapsible Project Card
+  function renderCollapsibleProjectCard(proj) {
+    if (!proj) return;
+    var card = document.createElement('div');
+    card.style.cssText = 'width:100%;background:rgba(15,23,42,0.85);border:1.5px solid rgba(59,130,246,0.35);border-radius:18px;margin:10px 0;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);animation:lvFadeInUp .25s ease';
+
+    var due = proj.dueDate || proj.due || (proj.w && proj.w.due) || 'Planlanıyor';
+    var prog = proj.progress != null ? proj.progress : (typeof wpp === 'function' ? wpp(proj) : 0);
+    var pTitle = proj.projectName || proj.name || '01-CUBE-BK VOGER 13+3 ODA';
+    var items = proj.items || (proj.w && proj.w.items) || [];
+    var stages = proj.stages || (proj.w && proj.w.stages) || [];
+
+    // Header
+    var headRow = document.createElement('div');
+    headRow.style.cssText = 'padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,rgba(30,41,59,0.85),rgba(15,23,42,0.95));border-bottom:1px solid rgba(255,255,255,0.08);user-select:none';
+    headRow.innerHTML = [
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">',
+        '<div style="width:34px;height:34px;min-width:34px;border-radius:10px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);display:grid;place-items:center;color:#60a5fa">',
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>',
+        '</div>',
+        '<div style="min-width:0;flex:1">',
+          '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(pTitle) + '</div>',
+          '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">',
+            '<span>📅 Teslim: ' + esc(due) + '</span>',
+            '<span>&bull;</span>',
+            '<span style="color:#10b981;font-weight:700">%' + prog + ' Tamamlandı</span>',
+          '</div>',
+        '</div>',
+      '</div>',
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">',
+        '<span class="lv-cpc-toggle-btn" style="font-size:11.5px;font-weight:700;color:#93c5fd;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(59,130,246,0.12);border-radius:20px;border:1px solid rgba(59,130,246,0.25)">',
+          '<span class="lv-cpc-toggle-txt">Kalemleri Gizle</span>',
+          '<svg class="lv-cpc-toggle-ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform:rotate(180deg);transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>',
+        '</span>',
+      '</div>'
+    ].join('\n');
+
+    // Progress Bar
+    var progBarWrap = document.createElement('div');
+    progBarWrap.style.cssText = 'padding:6px 16px 10px;background:rgba(15,23,42,0.9);border-bottom:1px solid rgba(255,255,255,0.06)';
+    progBarWrap.innerHTML = [
+      '<div style="height:6px;width:100%;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden">',
+        '<div style="height:100%;width:' + Math.min(100, Math.max(5, prog)) + '%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:99px"></div>',
+      '</div>'
+    ].join('\n');
+
+    // Items Body
+    var itemsBody = document.createElement('div');
+    itemsBody.style.cssText = 'padding:8px 14px;display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto';
+
+    if (!items.length) {
+      itemsBody.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:8px;text-align:center">Bu projede henüz imalat kalemi girilmemiş.</div>';
+    } else {
+      items.forEach(function(it) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);transition:background .15s';
+        row.onmouseenter = function() { row.style.background = 'rgba(255,255,255,0.06)'; };
+        row.onmouseleave = function() { row.style.background = 'rgba(255,255,255,0.03)'; };
+
+        // Thumbnail
+        var photos = Array.isArray(it.phData) ? it.phData.filter(function(p){ return p && (p.th || p.img); }) : [];
+        if (!photos.length && Array.isArray(it.ph) && window.WC) { photos = it.ph.map(function(id){ return window.WC[id]; }).filter(Boolean); }
+        var thumb = photos.length ? (photos[0].th || photos[0].img || photos[0]) : ((window.WC && it.ph && window.WC[it.ph[0]]) || it.img || it.photo || '');
+        if (thumb && !photos.length) photos = [thumb];
+
+        var imgBox = document.createElement('div');
+        imgBox.style.cssText = 'position:relative;width:44px;height:44px;min-width:44px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);display:grid;place-items:center;cursor:pointer';
+        if (thumb) {
+          imgBox.innerHTML = '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">';
+          if (photos.length > 1) {
+            imgBox.innerHTML += '<span style="position:absolute;bottom:1px;right:1px;background:rgba(0,0,0,0.8);color:#fff;font-size:8px;font-weight:800;padding:0 3px;border-radius:3px">' + photos.length + '</span>';
+          }
+          imgBox.onclick = function(e) {
+            e.stopPropagation();
+            if (typeof window._lvImgModal === 'function') window._lvImgModal(photos.length ? photos : [thumb], 0, it.n || 'Ürün');
+          };
+        } else {
+          imgBox.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>';
+        }
+
+        // Title & Stage
+        var dim = (it.w || it.d || it.h) ? [it.w, it.d, it.h].filter(Boolean).join('×') + ' cm' : (it.dim || '');
+        var stageText = 'Hazırlık aşamasında';
+        var stageColor = '#94a3b8';
+        var stageBg = 'rgba(148,163,184,0.12)';
+        var isCompleted = false;
+
+        if (it.st && Array.isArray(stages) && stages.length) {
+          var completed = stages.filter(function(s) { return it.st[s.id] === 2; }).map(function(s) { return s.n || s.id; });
+          var inProg = stages.filter(function(s) { return it.st[s.id] === 1; }).map(function(s) { return s.n || s.id; });
+          if (inProg.length) {
+            stageText = inProg.join(', ') + ' işleminde';
+            stageColor = '#f59e0b';
+            stageBg = 'rgba(245,158,11,0.15)';
+          } else if (completed.length === stages.length) {
+            stageText = 'Tamamlandı';
+            stageColor = '#10b981';
+            stageBg = 'rgba(16,185,129,0.15)';
+            isCompleted = true;
+          } else if (completed.length) {
+            stageText = completed[completed.length - 1] + ' bitti';
+            stageColor = '#60a5fa';
+            stageBg = 'rgba(96,165,250,0.15)';
+          }
+        }
+
+        var infoBox = document.createElement('div');
+        infoBox.style.cssText = 'flex:1;min-width:0';
+        infoBox.innerHTML = [
+          '<div style="font-size:13px;font-weight:700;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(it.n || 'Mobilya') + (dim ? ' <span style="font-size:11px;font-weight:500;color:#94a3b8">(' + esc(dim) + ')</span>' : '') + '</div>',
+          '<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;background:' + stageBg + ';color:' + stageColor + ';font-size:10.5px;font-weight:700">',
+            isCompleted ? '✓ ' : '● ',
+            esc(stageText),
+          '</div>'
+        ].join('\n');
+
+        // Action Button: Direct Request for this Item
+        var itReqBtn = document.createElement('button');
+        itReqBtn.type = 'button';
+        itReqBtn.style.cssText = 'padding:5px 11px;border-radius:8px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0';
+        itReqBtn.innerHTML = '✦ Talep İlet';
+        itReqBtn.onmouseenter = function() { itReqBtn.style.background = '#2563eb'; itReqBtn.style.color = '#fff'; };
+        itReqBtn.onmouseleave = function() { itReqBtn.style.background = 'rgba(59,130,246,0.12)'; itReqBtn.style.color = '#93c5fd'; };
+        itReqBtn.onclick = function(e) {
+          e.stopPropagation();
+          updateDirectTarget(pTitle, it.n || 'Ürün');
+          if (thumb) {
+            dirAttachedPhoto = thumb;
+            dirPhotoThumb.src = thumb;
+            dirPhotoBox.style.display = 'block';
+            dirPhotoStatus.textContent = (it.n || 'Ürün') + ' görseli eklendi';
+          }
+          setTab('direct');
+          dirText.focus();
+        };
+
+        row.append(imgBox, infoBox, itReqBtn);
+        itemsBody.append(row);
+      });
+    }
+
+    // Toggle collapse
+    var isCollapsed = false;
+    headRow.onclick = function() {
+      isCollapsed = !isCollapsed;
+      itemsBody.style.display = isCollapsed ? 'none' : 'flex';
+      var txt = headRow.querySelector('.lv-cpc-toggle-txt');
+      var ico = headRow.querySelector('.lv-cpc-toggle-ico');
+      if (txt) txt.textContent = isCollapsed ? 'Kalemleri Gör' : 'Kalemleri Gizle';
+      if (ico) ico.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+    };
+
+    card.append(headRow, progBarWrap, itemsBody);
+    chatStream.appendChild(card);
+    chatStream.scrollTop = chatStream.scrollHeight;
   }
 
   // Render Single Message
@@ -1446,7 +1834,7 @@ window.lvOpenCustomerRequest = function(target) {
   // Render initial messages without animation
   conversation.forEach(function(m) { renderMessage(m, false); });
 
-  // Submit Request Handler
+  // Submit Request from Chat Handler
   async function submitFullRequest() {
     var brief = window.LavoraAI.parseRequestBrief(conversation);
     submitReqBtn.disabled = true;
@@ -1455,11 +1843,11 @@ window.lvOpenCustomerRequest = function(target) {
     try {
       if (window.lvSendCustomerRequest) {
         await window.lvSendCustomerRequest({
-          subject: brief.itemName,
-          itemName: brief.itemName,
+          subject: brief.itemName || (itName ? itName + ' Talebi' : (pName ? pName + ' Talebi' : 'Özel Mobilya Talebi')),
+          itemName: brief.itemName || itName || '',
           dimensions: brief.dimensions,
           material: brief.material,
-          text: brief.summary,
+          text: brief.summary || (conversation.filter(function(m){return m.role==='user';}).map(function(m){return m.content;}).join(' ')),
           specs: brief,
           chatHistory: conversation,
           customerPhoto: userAttachedPhoto,
@@ -1481,7 +1869,7 @@ window.lvOpenCustomerRequest = function(target) {
       if (typeof toast === 'function') toast('Talebiniz yönetici paneline başarıyla kaydedildi!');
     } catch(err) {
       submitReqBtn.disabled = false;
-      submitReqBtn.innerHTML = '<span>✦ Talebi Atölyeye İlet</span>';
+      submitReqBtn.innerHTML = '<span>✦ Sohbeti Talebe Dönüştür</span>';
       if (typeof toast === 'function') toast('Hata: ' + err.message);
     }
   }
@@ -1494,6 +1882,9 @@ window.lvOpenCustomerRequest = function(target) {
       promptInput.value = chip.dataset.hint;
       promptInput.dispatchEvent(new Event('input'));
       promptInput.focus();
+      if ((chip.dataset.hint.indexOf('kargo') !== -1 || chip.dataset.hint.indexOf('Sipariş') !== -1) && activeProj) {
+        renderCollapsibleProjectCard(activeProj);
+      }
     };
   });
 
@@ -1565,7 +1956,7 @@ window.lvOpenCustomerRequest = function(target) {
         '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f472b6;animation:lvTypingDot 1.2s infinite ease-in-out .4s"></span>',
         '<span style="font-size:12px;color:#94a3b8;margin-left:4px">Mimar düşünüyor…</span>',
       '</div>'
-    ].join('');
+    ].join('\n');
     chatStream.appendChild(typingWrap);
     chatStream.scrollTop = chatStream.scrollHeight;
 
@@ -1575,15 +1966,30 @@ window.lvOpenCustomerRequest = function(target) {
       typingWrap.remove();
       var aiMsg = { role: 'assistant', content: reply };
       conversation.push(aiMsg);
-      renderMessage(aiMsg, true); // <--- TYPEWRITER EFFECT!
+      renderMessage(aiMsg, true);
+
+      // Check if user asked about shipping, status, or progress: Render Collapsible Project Card
+      if (/kargo|teslim|nerede|ne zaman|bitti mi|durum|asamada|asama|kalem|imalat|ilerle|sipari|ürün/i.test(text)) {
+        if (activeProj) {
+          setTimeout(function() {
+            renderCollapsibleProjectCard(activeProj);
+          }, 300);
+        }
+      }
     } catch(err) {
       typingWrap.remove();
       var fallback = {
         role: 'assistant',
-        content: 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve mekan ölçülerinizi ilettiğinizde projenizi doğrudan atölye ekibimize aktarabiliriz.'
+        content: window.LavoraAI.generateArchitectFallback ? window.LavoraAI.generateArchitectFallback(conversation, liveContext) : 'Tasarım vizyonunuz çok etkileyici! Malzeme dokusu ve mekan ölçülerinizi ilettiğinizde projenizi doğrudan atölye ekibimize aktarabiliriz.'
       };
       conversation.push(fallback);
       renderMessage(fallback, true);
+
+      if (/kargo|teslim|nerede|ne zaman|bitti mi|durum|asamada|asama|kalem/i.test(text) && activeProj) {
+        setTimeout(function() {
+          renderCollapsibleProjectCard(activeProj);
+        }, 300);
+      }
     } finally {
       sendBtn.disabled = false;
       promptInput.focus();
@@ -1598,7 +2004,6 @@ window.lvOpenCustomerRequest = function(target) {
     }
   };
 };
-
 const $=s=>document.querySelector(s),LS=localStorage,D={logo:'data:image/jpeg;base64,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',key:''};
 const ld=(k,d)=>{try{return JSON.parse(LS.getItem(k))||d}catch(e){return d}};
 let S=ld('lvr_s',{logo:'',key:'',firm:'Lavora Design',tel:'',adr:''});window.S=S;let P=[],cur=null,si=0,view='cards',fq='',q='',opn=new Set(),tm,st;
@@ -3915,6 +4320,10 @@ $('#lv-save-config').onclick=()=>{
  try{const c=JSON.parse($('#lv-firebase-json').value);if(!c.apiKey||!c.authDomain||!c.projectId||!c.storageBucket||!c.appId)throw Error('apiKey, authDomain, projectId, storageBucket ve appId zorunludur.');localStorage.setItem(CFG_KEY,JSON.stringify(c));location.reload()}catch(e){msg('Yapılandırma hatası: '+e.message)}
 };
 function path(col){return db.ref(`tenants/${TENANT}/${col}`)}
+window.path = path;
+window.auth = auth;
+window.db = db;
+window.getCurrentUser = () => currentUser;
 function userDoc(uid=currentUser.uid){return path('users').child(uid)}
 function role(){return profile&&profile.role}
 function err(e){return (e&&e.code?e.code+': ':'')+(e&&e.message||String(e))}
@@ -6482,7 +6891,7 @@ window._lvLoadUsers=async function(){
 async function startForUser(user){
  if(window.LV_UNSUB){window.LV_UNSUB();window.LV_UNSUB=null}
  settingsSig='';lastLogoData='';lastLogoPath='';
- currentUser=user;
+ currentUser=user; window.currentUser=user; window.auth=auth;
  try{
   const snap=await userDoc(user.uid).once('value');if(!snap.exists()){enrollment();return}
   profile=snap.val();if(!['admin','partner','employee','customer'].includes(profile.role)){enrollment();return}
