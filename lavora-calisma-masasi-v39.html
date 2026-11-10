@@ -335,8 +335,7 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .lx-pill-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; min-height:36px; border-radius:20px; font-size:12.5px; font-weight:700; background:rgba(15,118,110,0.12); color:var(--ac); border:1.5px solid rgba(15,118,110,0.3); cursor:pointer; transition:all .15s; }
 .lx-pill-btn:hover { background:var(--ac); color:#fff; }
 </style></head><body>
-<header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="lx-quick-ai" type="button" onclick="if(window.LVX)window.LVX.openHubModal()" title="Lavora Yapay Zeka Merkezi" aria-label="Yapay Zeka" style="display:inline-flex;align-items:center;justify-content:center;background:rgba(15,118,110,0.12);color:var(--ac);border:1px solid rgba(15,118,110,0.25);border-radius:10px;width:38px;height:38px;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 16v-4M12 8h.01"/></svg></button>
-<button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
+<header><img class="lg" id="lg" alt="Lavora Design"><div class="ht"><h1 id="t">Çalışma Masası</h1><small id="sb">Lavora Design</small></div><div id="lv-sync-status" class="synced" title="Bulut ile eşitlendi"><span class="lv-sync-dot"></span><span class="lv-sync-text">Eşitlendi</span></div><button class="hb" id="qk" data-a="qk" aria-label="Hızlı işlem ve arama (Ctrl/⌘ + K)" title="Hızlı işlem ve arama (Ctrl/⌘ + K)"><svg class="i" viewBox="0 0 24 24"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3"/></svg></button><button class="hb" id="tg" data-a="theme" aria-label="Aydınlık veya karanlık tema"></button><button class="hb" id="gs" data-a="set" aria-label="Ayarlar"></button></header>
 <main id="app"></main>
 <nav class="dock" aria-label="Ana gezinme"><button data-a="home"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projeler</button><button data-a="w:all"><svg class="i" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>İş Akışı</button><button class="cm" id="lx-dock-ai-btn" type="button" onclick="if(window.LVX)window.LVX.openOrbitalHub()" aria-label="Lavora Yapay Zeka Merkezi" style="background:linear-gradient(135deg,#0284c7,#0f766e);box-shadow:0 0 22px rgba(6,182,212,0.55);border:1.5px solid rgba(255,255,255,0.45);position:relative">
   <div style="position:absolute;inset:-3px;border-radius:50%;border:1px solid rgba(6,182,212,0.4);animation:lxOrbPing 2.5s infinite"></div>
@@ -7147,6 +7146,10 @@ if(loadConfig()){
     // 3. UI SYSTEM & HELPERS
     // ==========================================
     ui: {
+      formatMoney(n) {
+        const v = Number(n) || 0;
+        return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 }).format(v);
+      },
       toast(msg) {
         if (typeof window.toast === 'function') {
           window.toast(msg);
@@ -7386,18 +7389,17 @@ if(loadConfig()){
           else if (parsed.todo) action = 'add_todo';
         }
 
-        // Fuzzy match project from P
+        // Fuzzy match project from P ONLY if user actually specified a project name!
         let matchedProj = null;
-        if (typeof window.P !== 'undefined' && Array.isArray(window.P)) {
-          if (parsed.project) {
-            const pNorm = String(parsed.project).toLowerCase();
-            matchedProj = window.P.find(p => p && p.name && p.name.toLowerCase().includes(pNorm));
-          }
-          if (!matchedProj && window.wp) matchedProj = window.wp;
-          if (!matchedProj && window.P.length) matchedProj = window.P[0];
+        const rawProj = String(parsed.project || '').trim();
+        const isExplicitNoProject = !rawProj || /hiçbir|yok|bağsız|genel|projesiz|boş/i.test(rawProj);
+
+        if (!isExplicitNoProject && typeof window.P !== 'undefined' && Array.isArray(window.P)) {
+          const pNorm = rawProj.toLowerCase();
+          matchedProj = window.P.find(p => p && p.name && p.name.toLowerCase().includes(pNorm));
         }
 
-        const projTitle = matchedProj ? (matchedProj.name || 'Proje') : (parsed.project || 'Genel');
+        const projTitle = matchedProj ? (matchedProj.name || '') : (isExplicitNoProject ? '' : rawProj);
         const confPercent = Math.round((parsed.confidence || 0.88) * 100);
 
         // 1. ADD EXPENSE (Gider Gir)
@@ -7435,7 +7437,7 @@ if(loadConfig()){
                 </div>
                 <div>
                   <label style="font-size:11px;font-weight:700;color:var(--mu)">İlişkili Proje</label>
-                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" placeholder="Proje belirtilmedi (Genel)" style="font-size:13px;padding:8px 10px;border-radius:8px">
                 </div>
                 <div>
                   <label style="font-size:11px;font-weight:700;color:var(--mu)">Açıklama / Not</label>
@@ -7461,7 +7463,9 @@ if(loadConfig()){
             const rec = {
               id: 'led_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
               d: dStr,
+              t: 'g',
               k: 'g',
+              v: finalAmt,
               a: finalAmt,
               c: finalCat,
               p: finalProj,
@@ -7514,7 +7518,7 @@ if(loadConfig()){
                 </div>
                 <div>
                   <label style="font-size:11px;font-weight:700;color:var(--mu)">İlişkili Proje</label>
-                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" style="font-size:13px;padding:8px 10px;border-radius:8px">
+                  <input id="lx-sug-proj" type="text" value="${LVX.ui.esc(projTitle)}" placeholder="Proje belirtilmedi (Genel)" style="font-size:13px;padding:8px 10px;border-radius:8px">
                 </div>
                 <div>
                   <label style="font-size:11px;font-weight:700;color:var(--mu)">Açıklama / Not</label>
@@ -7540,7 +7544,9 @@ if(loadConfig()){
             const rec = {
               id: 'led_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
               d: dStr,
+              t: 'i',
               k: 'i',
+              v: finalAmt,
               a: finalAmt,
               c: finalCat,
               p: finalProj,
@@ -7830,7 +7836,7 @@ if(loadConfig()){
 
           pickBtn.style.display = 'none';
           prevArea.style.display = 'block';
-          statusEl.textContent = 'Görsel yükleniyor ve metinler çıkarılıyor...';
+          statusEl.textContent = 'Görsel yükleniyor ve işleniyor...';
 
           try {
             const dataUrl = await new Promise((res, rej) => {
@@ -7842,12 +7848,31 @@ if(loadConfig()){
 
             imgEl.src = dataUrl;
 
-            // OCR Extraction via /extract mode receipt
-            // Send text or description
-            statusEl.textContent = 'Yapay zeka fişi okuyor (Tarih, Tutar, KDV, Tedarikçi)...';
+            // Resize image to max 900px using canvas for fast & reliable vision processing
+            const optimizedBase64 = await new Promise((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                const maxD = 900;
+                let w = img.width, h = img.height;
+                if (w > maxD || h > maxD) {
+                  if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
+                  else { w = Math.round((w * maxD) / h); h = maxD; }
+                }
+                const cvs = document.createElement('canvas');
+                cvs.width = w; cvs.height = h;
+                const ctx = cvs.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(cvs.toDataURL('image/jpeg', 0.85));
+              };
+              img.onerror = () => resolve(dataUrl);
+              img.src = dataUrl;
+            });
+
+            statusEl.textContent = 'Yapay zeka fişi inceliyor (Tarih, Tutar, KDV, Tedarikçi)...';
             const resData = await LVX.callApi('extract', {
               mode: 'receipt',
-              text: 'Fiş Fotoğrafı Verisi: ' + file.name + ' - Tarih: ' + new Date().toISOString().split('T')[0]
+              image: optimizedBase64,
+              text: 'Fiş/Fatura/Dekont Fotoğrafı: ' + file.name + ' - Tarih: ' + new Date().toISOString().split('T')[0]
             });
 
             const parsed = (resData && resData.data) || {
@@ -7857,10 +7882,10 @@ if(loadConfig()){
               subtotal: 0,
               supplier: 'Tedarikçi',
               category: 'Malzeme',
-              confidence: 0.88
+              confidence: 0.90
             };
 
-            statusEl.textContent = 'Bilgiler çıkarıldı. Kontrol edip onaylayın.';
+            statusEl.textContent = 'Bilgiler başarıyla çıkarıldı. Kontrol edip onaylayın.';
             this.renderSuggestion(suggestArea, parsed, modal.close);
           } catch (err) {
             statusEl.textContent = 'Hata: ' + err.message;
@@ -7940,31 +7965,31 @@ if(loadConfig()){
           const recCat = container.querySelector('#lx-rec-cat').value;
           const recDesc = container.querySelector('#lx-rec-supplier').value.trim();
 
-          // Push into global LR ledger if exists
+          const entry = {
+            id: 'led_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            d: recDate,
+            t: 'g', // gider
+            k: 'g',
+            v: recAmount,
+            a: recAmount,
+            c: recCat,
+            n: recDesc,
+            p: '',
+            u: Date.now()
+          };
+
           if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
-            const entry = {
-              id: 'led_' + Date.now().toString(36),
-              d: recDate,
-              t: 'g', // gider
-              v: recAmount,
-              k: recCat,
-              n: recDesc,
-              u: Date.now()
-            };
             window.LR.push(entry);
-
-            // Persist
-            if (typeof window.path === 'function') {
-              window.path('ledger').child(entry.id).set(entry);
-            }
-
-            LVX.ui.toast('Fiş deftere masraf olarak kaydedildi: ' + recAmount.toLocaleString('tr-TR') + ' TL');
-            if (typeof window.defRnd === 'function') window.defRnd();
-          } else {
-            LVX.ui.toast('Defter kaydı hazırlandı.');
+          }
+          if (typeof window.save === 'function') window.save();
+          if (typeof window.path === 'function') {
+            window.path('ledger').child(entry.id).set(entry);
           }
 
+          LVX.ui.toast('Fiş deftere masraf olarak kaydedildi: ' + LVX.ui.formatMoney(recAmount));
           closeModal();
+          if (typeof window.ledRnd === 'function') window.ledRnd();
+          if (typeof window.defRnd === 'function') window.defRnd();
         };
       }
     },
@@ -8207,15 +8232,57 @@ if(loadConfig()){
           stream.scrollTop = stream.scrollHeight;
 
           try {
-            // First turn
-            let res = await LVX.callApi('ask', { query: query, history: this.history });
+            // Collect live workshop state so the agent is 100% aware of all projects, ledger, items & stages
+            let inc = 0, exp = 0;
+            if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+              window.LR.forEach(e => {
+                const val = parseFloat(e.v || e.a) || 0;
+                if (e.t === 'g' || e.k === 'g') exp += val;
+                else inc += val;
+              });
+            }
 
-            // Tool execution loop (up to 4 turns)
+            const activeProj = window.wp || window.cur || null;
+            const contextData = {
+              activeProject: activeProj ? {
+                id: activeProj.id,
+                name: activeProj.name,
+                customer: activeProj.cust || '',
+                due: (activeProj.w && activeProj.w.due) || activeProj.due || '',
+                items: (activeProj.w && activeProj.w.items ? activeProj.w.items.map(i => ({ name: i.n, dim: i.dim, qty: i.q, mat: i.mat })) : []),
+                stages: (activeProj.w && activeProj.w.stages) || []
+              } : null,
+              projects: (typeof window.P !== 'undefined' && Array.isArray(window.P)) ? window.P.filter(p => !p.d).map(p => ({
+                id: p.id,
+                name: p.name,
+                customer: p.cust || '',
+                due: (p.w && p.w.due) || p.due || '',
+                itemCount: (p.w && p.w.items && p.w.items.length) || 0,
+                itemNames: (p.w && p.w.items ? p.w.items.map(i => i.n).slice(0, 10) : [])
+              })) : [],
+              ledger: {
+                totalIncome: inc,
+                totalExpense: exp,
+                netBalance: inc - exp,
+                recentEntries: (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) ? window.LR.slice(-6).map(e => ({
+                  type: (e.t === 'g' || e.k === 'g') ? 'Gider' : 'Gelir',
+                  amount: parseFloat(e.v || e.a) || 0,
+                  category: e.c || e.k || 'Genel',
+                  note: e.n || '',
+                  date: e.d || ''
+                })) : []
+              }
+            };
+
+            // First turn with full live workshop context
+            let res = await LVX.callApi('ask', { query: query, history: this.history, context: contextData });
+
+            // Tool execution loop (fallback if model asks for deeper lookup)
             let turns = 0;
             while (res && res.toolCall && turns < 4) {
               turns++;
               const toolRes = this.executeTool(res.toolCall.name, res.toolCall.params);
-              res = await LVX.callApi('ask', { query: query, history: this.history, toolResults: toolRes });
+              res = await LVX.callApi('ask', { query: query, history: this.history, toolResults: toolRes, context: contextData });
             }
 
             tDiv.remove();
@@ -8280,14 +8347,22 @@ if(loadConfig()){
       },
 
       async openModal(proj) {
-        proj = proj || window.wp;
-        if (!proj) return LVX.ui.toast('Açık bir proje seçilmedi.');
+        proj = proj || window.wp || window.cur || (window.P && window.P.length ? window.P[0] : null);
+        if (!proj) return LVX.ui.toast('Kayıtlı herhangi bir proje bulunamadı.');
 
-        const pTitle = proj.name || 'Proje';
-        const modal = LVX.ui.createSheet('Olay Günlüğü: ' + pTitle, `
+        const pList = (window.P || []).filter(p => !p.d);
+        const pOptions = pList.map(p => `<option value="${p.id}" ${p.id === proj.id ? 'selected' : ''}>${LVX.ui.esc(p.name)}</option>`).join('');
+
+        const modal = LVX.ui.createSheet('Olay Günlüğü & Süreç Takibi', `
           <div>
-            <div style="font-size:12.5px;color:var(--mu);margin-bottom:12px">Son 7 günde gerçekleşen aşama ve durum değişiklikleri:</div>
-            <div id="lx-event-list" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+              <label style="font-size:12px;font-weight:700;color:var(--mu);white-space:nowrap">Proje Seç:</label>
+              <select id="lx-ev-proj-sel" style="flex:1;font-size:13px;padding:6px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--ln)">
+                ${pOptions}
+              </select>
+            </div>
+            
+            <div id="lx-event-list" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto">
               <div class="lx-skeleton" style="height:38px;border-radius:10px"></div>
               <div class="lx-skeleton" style="height:38px;border-radius:10px"></div>
             </div>
@@ -8295,9 +8370,9 @@ if(loadConfig()){
             <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:12px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between">
               <div>
                 <div style="font-size:12px;font-weight:700;color:var(--ink)">Gecikme Risk Durumu</div>
-                <div style="font-size:11px;color:var(--mu);margin-top:2px">Geçmiş imalat sürelerine göre istatistiki tahmin</div>
+                <div id="lx-ev-risk-desc" style="font-size:11px;color:var(--mu);margin-top:2px">Üretim aşamaları ve termin takvimine göre analiz</div>
               </div>
-              <span style="padding:4px 9px;border-radius:8px;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800">Düşük Risk (Tahmin)</span>
+              <span id="lx-ev-risk-badge" style="padding:4px 9px;border-radius:8px;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800">Düşük Risk</span>
             </div>
           </div>
         `, [
@@ -8305,36 +8380,98 @@ if(loadConfig()){
         ]);
 
         const listEl = modal.body.querySelector('#lx-event-list');
+        const projSel = modal.body.querySelector('#lx-ev-proj-sel');
+        const riskBadge = modal.body.querySelector('#lx-ev-risk-badge');
 
-        // Fetch events from Firebase
-        if (typeof window.path === 'function') {
-          try {
-            const snap = await window.path('events').child(proj.id).once('value');
-            const data = snap.val() || {};
-            const evs = Object.values(data).sort((a,b) => b.ts - a.ts);
+        const renderEventsForProject = async (selectedP) => {
+          listEl.innerHTML = '<div class="lx-skeleton" style="height:38px;border-radius:10px"></div>';
 
-            if (!evs.length) {
-              listEl.innerHTML = '<div style="color:var(--mu);font-size:13px;padding:16px;text-align:center">Bu projede son 7 güne ait olay kaydı bulunamadı.</div>';
-              return;
+          let evs = [];
+          if (typeof window.path === 'function') {
+            try {
+              const snap = await window.path('events').child(selectedP.id).once('value');
+              const data = snap.val() || {};
+              evs = Object.values(data).sort((a,b) => b.ts - a.ts);
+            } catch (_) {}
+          }
+
+          // If no explicit events yet, synthesize live events from project stages and ledger!
+          if (!evs.length) {
+            const synth = [];
+            const stages = (selectedP.w && selectedP.w.stages) || [];
+            const items = (selectedP.w && selectedP.w.items) || [];
+            
+            stages.forEach(st => {
+              if (st && st.s != null) {
+                synth.push({
+                  itemName: selectedP.name,
+                  stageName: st.n || 'Aşama',
+                  newSt: st.s,
+                  ts: Date.now() - 3600000,
+                  u: 'Atölye Sistemi'
+                });
+              }
+            });
+
+            // Ledger expenses for this project
+            if (typeof window.LR !== 'undefined') {
+              window.LR.filter(r => r.p && r.p.toLowerCase().includes(selectedP.name.toLowerCase())).forEach(r => {
+                synth.push({
+                  itemName: 'Masraf: ' + (r.n || r.c || 'Gider'),
+                  stageName: LVX.ui.formatMoney(r.v || r.a),
+                  newSt: 2,
+                  ts: r.u || Date.now(),
+                  u: 'Defter'
+                });
+              });
             }
 
-            listEl.innerHTML = '';
-            evs.forEach(ev => {
-              const row = document.createElement('div');
-              row.style.cssText = 'padding:10px 12px;background:var(--s2);border:1px solid var(--ln);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center';
-              row.innerHTML = `
-                <div>
-                  <div style="font-weight:700;color:var(--ink)">${LVX.ui.esc(ev.itemName)} &bull; ${LVX.ui.esc(ev.stageName)}</div>
-                  <div style="font-size:11px;color:var(--mu);margin-top:2px">${new Date(ev.ts).toLocaleString('tr-TR')} · ${LVX.ui.esc(ev.u)}</div>
-                </div>
-                <span style="font-weight:800;color:var(--ac)">✓ Durum: ${ev.newSt == 2 ? 'Tamamlandı' : 'Devam'}</span>
-              `;
-              listEl.append(row);
-            });
-          } catch (e) {
-            listEl.innerHTML = '<div style="color:var(--dg);padding:10px">Olaylar okunamadı: ' + LVX.ui.esc(e.message) + '</div>';
+            evs = synth.slice(0, 15);
           }
-        }
+
+          // Delay risk check based on due date
+          const dueStr = (selectedP.w && selectedP.w.due) || selectedP.due || '';
+          if (dueStr) {
+            const dueTime = new Date(dueStr).getTime();
+            const daysLeft = Math.ceil((dueTime - Date.now()) / (1000 * 60 * 60 * 24));
+            if (daysLeft < 0) {
+              riskBadge.textContent = 'Gecikmede (' + Math.abs(daysLeft) + ' gün geçti)';
+              riskBadge.style.cssText = 'padding:4px 9px;border-radius:8px;background:rgba(239,68,68,0.15);color:#ef4444;font-size:11px;font-weight:800';
+            } else if (daysLeft <= 3) {
+              riskBadge.textContent = 'Kritik (' + daysLeft + ' gün kaldı)';
+              riskBadge.style.cssText = 'padding:4px 9px;border-radius:8px;background:rgba(245,158,11,0.15);color:#f59e0b;font-size:11px;font-weight:800';
+            } else {
+              riskBadge.textContent = 'Normal (' + daysLeft + ' gün var)';
+              riskBadge.style.cssText = 'padding:4px 9px;border-radius:8px;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800';
+            }
+          }
+
+          if (!evs.length) {
+            listEl.innerHTML = '<div style="color:var(--mu);font-size:13px;padding:16px;text-align:center">Bu projede henüz kaydedilmiş bir olay bulunamadı.</div>';
+            return;
+          }
+
+          listEl.innerHTML = '';
+          evs.forEach(ev => {
+            const row = document.createElement('div');
+            row.style.cssText = 'padding:10px 12px;background:var(--s2);border:1px solid var(--ln);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center';
+            row.innerHTML = `
+              <div>
+                <div style="font-weight:700;color:var(--ink)">${LVX.ui.esc(ev.itemName)} &bull; ${LVX.ui.esc(ev.stageName)}</div>
+                <div style="font-size:11px;color:var(--mu);margin-top:2px">${new Date(ev.ts).toLocaleDateString('tr-TR')} · ${LVX.ui.esc(ev.u)}</div>
+              </div>
+              <span style="font-weight:800;color:var(--ac)">${ev.newSt == 2 ? '✓ Tamam' : (ev.newSt == 1 ? 'Devam Ediyor' : 'İşlendi')}</span>
+            `;
+            listEl.append(row);
+          });
+        };
+
+        projSel.onchange = () => {
+          const targetP = pList.find(p => p.id === projSel.value);
+          if (targetP) renderEventsForProject(targetP);
+        };
+
+        renderEventsForProject(proj);
       }
     },
 
@@ -8580,13 +8717,36 @@ if(loadConfig()){
       }
       LVX.ui.toast('Teklif kalemleri için teknik açıklamalar oluşturuluyor...');
       try {
-        const curP = window.cur || (window.P && window.P[0]);
+        const curP = window.cur || window.wp || (window.P && window.P.length ? window.P[0] : null);
         if (!curP) return LVX.ui.toast('Açık bir proje bulunamadı.');
 
-        const items = (curP.w && curP.w.items) || [];
+        // Extract items from both workflow w.items and proposal pages cur.s
+        const items = [];
+        if (curP.w && Array.isArray(curP.w.items)) {
+          curP.w.items.forEach(i => {
+            if (i && (i.n || i.name)) items.push({ n: i.n || i.name, dim: i.dim || '', mat: i.mat || '' });
+          });
+        }
+        if (curP.s && Array.isArray(curP.s)) {
+          curP.s.forEach(pg => {
+            if (Array.isArray(pg.r)) {
+              pg.r.forEach(row => {
+                const name = (Array.isArray(row) ? row[0] : (row.n || row.name)) || '';
+                if (name && name.trim()) {
+                  items.push({ n: name.trim(), dim: (Array.isArray(row) ? row[2] : (row.dim || '')) || '', mat: '' });
+                }
+              });
+            }
+          });
+        }
+
+        if (!items.length) {
+          items.push({ n: 'Özel Tasarım Mobilya ve Ahşap İmalatı', dim: 'Mekana Özel', mat: 'Doğal Ahşap & Lake' });
+        }
+
         const res = await LVX.callApi('draft', {
           mode: 'proposal_enrich',
-          payload: { items: items.map(i => ({ n: i.n, dim: i.dim, mat: i.mat })) }
+          payload: { items: items.slice(0, 10) }
         });
 
         if (res && res.data) {
@@ -8609,7 +8769,302 @@ if(loadConfig()){
       } catch (e) {
         LVX.ui.toast('Teklif zenginleştirilemedi: ' + e.message);
       }
-    }
+    },
+
+    // ==========================================
+    // 9.5 PROJE BAZLI MALZEME VE HIRDAVAT AJANI (MATERIAL & HARDWARE AGENT)
+    // ==========================================
+    materials: {
+      openModal(proj) {
+        proj = proj || window.wp || window.cur || (window.P && window.P.length ? window.P[0] : null);
+        if (!proj) return LVX.ui.toast('Kayıtlı herhangi bir proje bulunamadı.');
+
+        const pList = (window.P || []).filter(p => !p.d);
+        const pOptions = pList.map(p => `<option value="${p.id}" ${p.id === proj.id ? 'selected' : ''}>${LVX.ui.esc(p.name)}</option>`).join('');
+
+        const modal = LVX.ui.createSheet('Proje Malzeme & Hırdavat İhtiyaç Listesi', `
+          <div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+              <label style="font-size:12px;font-weight:700;color:var(--mu);white-space:nowrap">Proje:</label>
+              <select id="lx-mat-proj-sel" style="flex:1;font-size:13.5px;padding:8px 10px;border-radius:10px;background:var(--s2);color:var(--ink);border:1px solid var(--ln)">
+                ${pOptions}
+              </select>
+            </div>
+
+            <div id="lx-mat-content" style="display:flex;flex-direction:column;gap:12px;max-height:380px;overflow-y:auto;padding-right:2px">
+              <div class="lx-skeleton" style="height:60px;border-radius:12px"></div>
+              <div class="lx-skeleton" style="height:60px;border-radius:12px"></div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+              <button id="lx-mat-copy-wa" type="button" class="lx-btn lx-btn-primary" style="flex:1;min-height:42px;background:#10b981;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+                <span>Sipariş Listesini Kopyala</span>
+              </button>
+              <button id="lx-mat-add-expense" type="button" class="lx-btn lx-btn-secondary" style="min-height:42px;font-size:13px">
+                Deftere Tahmini Masraf Ekle
+              </button>
+            </div>
+          </div>
+        `, [
+          { text: 'Kapat', className: 'lx-btn-secondary', onClick: (close) => close() }
+        ]);
+
+        const contentEl = modal.body.querySelector('#lx-mat-content');
+        const projSel = modal.body.querySelector('#lx-mat-proj-sel');
+        const copyWaBtn = modal.body.querySelector('#lx-mat-copy-wa');
+        const addExpBtn = modal.body.querySelector('#lx-mat-add-expense');
+
+        let lastCalculated = null;
+
+        const calculateMaterials = (targetP) => {
+          const items = [];
+          if (targetP.w && Array.isArray(targetP.w.items)) {
+            targetP.w.items.forEach(i => items.push({ n: i.n || i.name || 'Mobilya', q: parseInt(i.q) || 1, dim: i.dim || '', mat: i.mat || 'MDF' }));
+          }
+          if (!items.length && targetP.s && Array.isArray(targetP.s)) {
+            targetP.s.forEach(pg => {
+              if (Array.isArray(pg.r)) {
+                pg.r.forEach(row => {
+                  const name = (Array.isArray(row) ? row[0] : (row.n || row.name)) || '';
+                  if (name && name.trim()) {
+                    items.push({ n: name.trim(), q: parseInt(Array.isArray(row) ? row[1] : row.q) || 1, dim: (Array.isArray(row) ? row[2] : (row.dim || '')) || '', mat: 'MDF' });
+                  }
+                });
+              }
+            });
+          }
+
+          if (!items.length) {
+            contentEl.innerHTML = '<div style="color:var(--mu);padding:20px;text-align:center">Bu projede henüz tanımlı mobilya kalemi bulunamadı.</div>';
+            copyWaBtn.disabled = true;
+            addExpBtn.disabled = true;
+            return;
+          }
+
+          copyWaBtn.disabled = false;
+          addExpBtn.disabled = false;
+
+          let totalNetM2 = 0;
+          let totalBandingM = 0;
+          let totalHinges = 0;
+          let totalDrawerRails = 0;
+          let totalHandles = 0;
+
+          items.forEach(it => {
+            const qty = it.q || 1;
+            const dimMatch = String(it.dim || '').match(/(\d+)\s*[xX*]\s*(\d+)(?:\s*[xX*]\s*(\d+))?/);
+            let w = 100, d = 60, h = 100;
+            if (dimMatch) {
+              w = parseInt(dimMatch[1]) || 100;
+              d = parseInt(dimMatch[2]) || 60;
+              h = dimMatch[3] ? (parseInt(dimMatch[3]) || 100) : 100;
+            }
+
+            const isWardrobe = /gardrop|dolap|vestiyer|portmanto/i.test(it.n);
+            const isKitchen = /mutfak|tezgah|eviye/i.test(it.n);
+            const isTable = /masa|sehpa|dresuar/i.test(it.n);
+
+            let unitArea = 0;
+            if (isWardrobe) {
+              unitArea = ((w * h * 2) + (h * d * 2) + (w * d * 4)) / 10000;
+              totalHinges += Math.max(4, Math.round(w / 45) * 3) * qty;
+              totalHandles += Math.max(2, Math.round(w / 45)) * qty;
+              totalDrawerRails += 2 * qty;
+            } else if (isKitchen) {
+              unitArea = ((w * h * 1.5) + (w * d * 3)) / 10000;
+              totalHinges += Math.max(2, Math.round(w / 50) * 2) * qty;
+              totalHandles += Math.max(2, Math.round(w / 40)) * qty;
+              totalDrawerRails += Math.round(w / 60) * qty;
+            } else if (isTable) {
+              unitArea = ((w * d * 1.2) + 0.8) / 10000;
+            } else {
+              unitArea = Math.max(1.5, ((w * d * 2) + (w * h * 1.5)) / 10000);
+              totalHinges += 2 * qty;
+              totalHandles += 2 * qty;
+            }
+
+            totalNetM2 += unitArea * qty;
+            totalBandingM += (unitArea * 4.2) * qty;
+          });
+
+          const SHEET_AREA = 5.88;
+          const grossM2 = totalNetM2 * 1.15;
+          const mdfSheets = Math.max(1, Math.ceil(grossM2 / SHEET_AREA));
+          const backboardSheets = Math.max(1, Math.ceil(mdfSheets * 0.35));
+          const pcbThin = Math.round(totalBandingM * 0.7);
+          const pcbThick = Math.round(totalBandingM * 0.3);
+          const screwsBody = Math.max(1, Math.ceil(mdfSheets * 0.8));
+          const screwsHdw = 1;
+          const minifixSets = mdfSheets * 12;
+
+          lastCalculated = {
+            projectName: targetP.name,
+            itemCount: items.length,
+            mdfSheets,
+            backboardSheets,
+            grossM2: grossM2.toFixed(1),
+            pcbThin,
+            pcbThick,
+            hinges: totalHinges,
+            rails: totalDrawerRails,
+            handles: totalHandles,
+            screwsBody,
+            screwsHdw,
+            minifixSets,
+            estCost: Math.round((mdfSheets * 1850) + (backboardSheets * 650) + (totalBandingM * 6) + (totalHinges * 45) + (totalDrawerRails * 260) + 750)
+          };
+
+          contentEl.innerHTML = `
+            <div style="padding:12px;background:var(--s2);border-radius:12px;border:1px solid var(--ln);display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:13px;font-weight:800;color:var(--ink)">${items.length} Kalem Mobilya İncelendi</div>
+                <div style="font-size:11px;color:var(--mu)">Toplam net alan: ${totalNetM2.toFixed(1)} m² · %15 kesim firesi dahil</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--mu)">Tahmini Malzeme Bedeli</div>
+                <div style="font-size:15px;font-weight:800;color:var(--ac)">${LVX.ui.formatMoney(lastCalculated.estCost)}</div>
+              </div>
+            </div>
+
+            <div style="background:var(--s);border:1px solid var(--ln);border-radius:12px;padding:12px">
+              <div style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span>
+                <span>Ahşap & Plaka İhtiyacı</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="background:var(--s2);padding:10px;border-radius:8px">
+                  <div style="font-size:11px;color:var(--mu)">18mm Gövde / Kapak MDF</div>
+                  <div style="font-size:17px;font-weight:800;color:var(--ac)">${mdfSheets} Plaka</div>
+                  <div style="font-size:10px;color:var(--mu)">(280 × 210 cm)</div>
+                </div>
+                <div style="background:var(--s2);padding:10px;border-radius:8px">
+                  <div style="font-size:11px;color:var(--mu)">8mm Arkalık MDF</div>
+                  <div style="font-size:17px;font-weight:800;color:var(--ac)">${backboardSheets} Plaka</div>
+                  <div style="font-size:10px;color:var(--mu)">(Tek yüz boyalı)</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--s);border:1px solid var(--ln);border-radius:12px;padding:12px">
+              <div style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <span style="width:8px;height:8px;border-radius:50%;background:#10b981"></span>
+                <span>PVC Kenar Bandı</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="background:var(--s2);padding:10px;border-radius:8px">
+                  <div style="font-size:11px;color:var(--mu)">0.40 mm Gövde Bandı</div>
+                  <div style="font-size:17px;font-weight:800;color:var(--ink)">${pcbThin} Metre</div>
+                </div>
+                <div style="background:var(--s2);padding:10px;border-radius:8px">
+                  <div style="font-size:11px;color:var(--mu)">1.00 / 2.00 mm Ön Kapak Bandı</div>
+                  <div style="font-size:17px;font-weight:800;color:var(--ink)">${pcbThick} Metre</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--s);border:1px solid var(--ln);border-radius:12px;padding:12px">
+              <div style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b"></span>
+                <span>Hırdavat & Donanım</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
+                <div style="background:var(--s2);padding:8px;border-radius:8px;text-align:center">
+                  <div style="font-size:10px;color:var(--mu)">Frenli Menteşe</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--ink)">${totalHinges} Adet</div>
+                </div>
+                <div style="background:var(--s2);padding:8px;border-radius:8px;text-align:center">
+                  <div style="font-size:10px;color:var(--mu)">Tandem Ray</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--ink)">${totalDrawerRails} Tk</div>
+                </div>
+                <div style="background:var(--s2);padding:8px;border-radius:8px;text-align:center">
+                  <div style="font-size:10px;color:var(--mu)">Kulp</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--ink)">${totalHandles} Adet</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--s);border:1px solid var(--ln);border-radius:12px;padding:12px">
+              <div style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6"></span>
+                <span>Vidalar & Bağlantı Elemanları</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--ink)">
+                <div>&bull; 3.5×30 Gövde Vidası: <b>${screwsBody} Paket</b></div>
+                <div>&bull; 3.5×18 Donanım Vidası: <b>${screwsHdw} Paket</b></div>
+                <div>&bull; Minifiks & Kavela: <b>${minifixSets} Takım</b></div>
+                <div>&bull; Askı Borusu & Flanş: <b>Gerektiği kadar</b></div>
+              </div>
+            </div>
+          `;
+        };
+
+        projSel.onchange = () => {
+          const target = pList.find(p => p.id === projSel.value);
+          if (target) calculateMaterials(target);
+        };
+
+        copyWaBtn.onclick = () => {
+          if (!lastCalculated) return;
+          const text = `*LAVORA DESIGN - MALZEME SİPARİŞ LİSTESİ*\n` +
+            `*Proje:* ${lastCalculated.projectName}\n` +
+            `-----------------------------------\n` +
+            `*AHŞAP & PLAKA:*\n` +
+            `• ${lastCalculated.mdfSheets} Adet 18mm Ham/Lam MDF (280x210 cm)\n` +
+            `• ${lastCalculated.backboardSheets} Adet 8mm Tek Yüz Beyaz Arkalık MDF\n\n` +
+            `*KENAR BANTLARI (PVC):*\n` +
+            `• ${lastCalculated.pcbThin} Metre 0.40 mm Gövde Kenar Bandı\n` +
+            `• ${lastCalculated.pcbThick} Metre 1.00 mm Ön Kapak Kenar Bandı\n\n` +
+            `*HIRDAVAT & MEKANİZMA:*\n` +
+            `• ${lastCalculated.hinges} Adet Frenli Tas Menteşe\n` +
+            `• ${lastCalculated.rails} Takım Frenli Tandem Çekmece Rayı (45/50 cm)\n` +
+            `• ${lastCalculated.handles} Adet Mobilya Kulpu\n\n` +
+            `*VİDALAR & BAĞLANTI:*\n` +
+            `• ${lastCalculated.screwsBody} Paket 3.5x30 mm Gövde Montaj Vidası\n` +
+            `• ${lastCalculated.screwsHdw} Paket 3.5x18 mm Donanım/Kulp Vidası\n` +
+            `• ${lastCalculated.minifixSets} Takım Minifiks & Kavela Seti\n` +
+            `-----------------------------------\n` +
+            `Hazırlayan: Lavora Design Atölye Yönetimi`;
+
+          navigator.clipboard.writeText(text).then(() => {
+            LVX.ui.toast('WhatsApp sipariş metni panoya kopyalandı!');
+          }).catch(() => {
+            LVX.ui.toast('Metin kopyalandı.');
+          });
+        };
+
+        addExpBtn.onclick = () => {
+          if (!lastCalculated) return;
+          const dStr = new Date().toISOString().split('T')[0];
+          const rec = {
+            id: 'led_' + Date.now().toString(36),
+            d: dStr,
+            t: 'g',
+            k: 'g',
+            v: lastCalculated.estCost,
+            a: lastCalculated.estCost,
+            c: 'Malzeme',
+            p: lastCalculated.projectName,
+            n: `${lastCalculated.projectName} projesi tahmini malzeme ve hırdavat bedeli`,
+            u: Date.now()
+          };
+
+          if (typeof window.LR !== 'undefined' && Array.isArray(window.LR)) {
+            window.LR.push(rec);
+          }
+          if (typeof window.save === 'function') window.save();
+          if (typeof window.path === 'function') {
+            window.path('ledger').child(rec.id).set(rec);
+          }
+
+          LVX.ui.toast(`${LVX.ui.formatMoney(lastCalculated.estCost)} malzeme masrafı deftere işlendi.`);
+          if (typeof window.ledRnd === 'function') window.ledRnd();
+          modal.close();
+        };
+
+        calculateMaterials(proj);
+      }
+    },
   };
 
   // Aliases and Top-level Convenience Methods for Direct HTML Calls
@@ -8743,6 +9198,16 @@ if(loadConfig()){
         desc: 'Teklif kalemlerine profesyonel teknik şartname ve garanti metni ekleyin.',
         iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
         action: () => LVX.enrichProposal()
+      },
+      {
+        id: 8,
+        title: 'Malzeme & Hırdavat',
+        category: 'İMALAT AJANI',
+        status: 'active',
+        energy: 94,
+        desc: 'Projedeki ürünlere göre gereken plaka, bant, vida, ray ve menteşe listesini otomatik hesaplar.',
+        iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        action: () => LVX.materials.openModal()
       }
     ];
 
@@ -8929,7 +9394,7 @@ if(loadConfig()){
 
     function loop() {
       if (isAutoRotating) {
-        rotationAngle = (rotationAngle + 0.28) % 360;
+        rotationAngle = (rotationAngle + 0.05) % 360; // Smooth, slow, elegant orbit
         updateNodes();
       }
       animFrameId = requestAnimationFrame(loop);
@@ -8938,6 +9403,19 @@ if(loadConfig()){
     updateNodes();
     animFrameId = requestAnimationFrame(loop);
   };
+
+  // Top-level convenience aliases
+  LVX.openReceiptModal = () => LVX.receipt.openModal();
+  LVX.openVoiceModal = () => LVX.voice.openModal();
+  LVX.openEventLogModal = (p) => LVX.events.openModal(p);
+  LVX.openBriefingModal = () => LVX.briefing.openModal();
+  LVX.openBriefing = () => LVX.briefing.openModal();
+  LVX.openAskModal = (q) => LVX.ask.openModal(q);
+  LVX.openCutCalcModal = () => LVX.cut.openModal();
+  LVX.openMaterialsModal = (p) => LVX.materials.openModal(p);
+  LVX.openSettingsModal = () => LVX.settingsUI.openModal();
+  LVX.openHubModal = () => LVX.openOrbitalHub();
+  LVX.eventLog = LVX.events;
 
   // Expose globally
   window.LVX = LVX;

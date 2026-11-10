@@ -441,6 +441,7 @@ export default {
             "Durumlar: 0 bekliyor, 1 devam, 2 tamam, 3 yarıda.\n" +
             "Gider Kategorileri: Malzeme, İşçilik, Nakliye, Atölye Masrafı, Yemek, Vergi, Hırdavat, Diğer.\n" +
             "Gelir Kategorileri: Kapora, Taksit, Kalan Ödeme, Diğer.\n\n" +
+            "ÖNEMLİ PROJE KURALI: Kullanıcı açıkça proje adı belirtmediyse veya 'hiçbir proje bağlı olmasın', 'projesiz', 'genel' dediyse, 'project' alanını kesinlikle boş string (\"\") olarak bırak. Asla kendiliğinden proje uydurma.\n\n" +
             "Kesinlikle ve yalnızca şu JSON şemasında yanıt ver:\n" +
             "{\n" +
             '  "action": "add_expense" veya "add_income" veya "update_stage" veya "add_todo" veya "add_item" veya "create_project" veya "query_status",\n' +
@@ -460,6 +461,57 @@ export default {
 
           userPrompt = "Ustanın ses kaydı metni: \"" + text + "\"";
         } else if (mode === "receipt") {
+          // If image or imageBase64 is provided, use vision model first!
+          const rawImg = body.image || body.imageBase64 || null;
+          if (rawImg) {
+            let imgBytes = null;
+            if (Array.isArray(rawImg)) {
+              imgBytes = rawImg;
+            } else if (typeof rawImg === "string") {
+              const b64 = rawImg.includes(",") ? rawImg.split(",")[1] : rawImg;
+              imgBytes = [...base64UrlDecode(b64)];
+            }
+
+            if (imgBytes && imgBytes.length > 0) {
+              try {
+                const visPrompt = "Sen profesyonel bir muhasebe fiş/fatura/dekont okuyucususun.\n" +
+                  "Bu görseldeki fiş, fatura veya dekontu incele.\n" +
+                  "Belgeden şu bilgileri çıkar ve yalnızca saf JSON formatında yanıt ver:\n" +
+                  "{\n" +
+                  '  "date": "YYYY-MM-DD biçiminde tarih veya boş string",\n' +
+                  '  "amount": float toplam tutar (örn: 1250.00),\n' +
+                  '  "vat": float KDV tutarı veya 0,\n' +
+                  '  "subtotal": float matrah veya tutar,\n' +
+                  '  "supplier": "firma, mağaza veya alıcı/gönderen adı",\n' +
+                  '  "receiptNo": "fiş no veya işlem referans no",\n' +
+                  '  "category": "Malzeme" veya "Hırdavat" veya "Boya" veya "Nakliye" veya "Yemek" veya "Genel",\n' +
+                  '  "project": "",\n' +
+                  '  "confidence": 0.95\n' +
+                  "}\n" +
+                  "Hiçbir açıklama veya emoji ekleme, sadece JSON.";
+
+                const visRes = await runWithFallback(env, CONFIG.models.vision, {
+                  prompt: visPrompt,
+                  image: imgBytes
+                });
+
+                const visReply = visRes.result?.response || visRes.result?.choices?.[0]?.message?.content || JSON.stringify(visRes.result || "");
+                const parsedVis = await parseAndValidateJson(visReply, env);
+                if (parsedVis && (parsedVis.amount || parsedVis.supplier)) {
+                  return jsonResponse({
+                    success: true,
+                    mode: mode,
+                    data: parsedVis,
+                    raw: visReply,
+                    model: visRes.model
+                  }, 200, request);
+                }
+              } catch (visErr) {
+                console.warn("[Receipt Vision Warning]:", visErr.message);
+              }
+            }
+          }
+
           systemPrompt = "Sen muhasebe ve fiş/fatura okuyucususun. Fiş veya fatura metninden tarih, tutar, kdv, tedarikçi ve belge no bilgilerini çıkar.\n" +
             "Türkçe sayı biçimlerini (örnek: 1.250,50 -> 1250.50) sayısal float olarak çevir.\n" +
             "Kategoriler: Malzeme, Boya, Donanım, Nakliye, Yemek, Hırdavat, Genel.\n" +
@@ -554,25 +606,35 @@ export default {
         const query = String(body.query || "").trim();
         const history = Array.isArray(body.history) ? body.history : [];
         const clientToolResults = body.toolResults || null;
+        const context = body.context || null;
 
         if (!query && !clientToolResults) {
           return jsonResponse({ success: false, error: "Soru metni bos olamaz." }, 400, request);
         }
 
-        const systemPrompt = "Sen Lavora Mobilya Atölyesi'nin akıllı iç veri asistanısın.\n" +
-          "Kullanıcının projeler, ürünler, aşamalar, gecikmeler ve kasa durumu hakkındaki sorularını yanıtla.\n" +
-          "Mevcut araçlar:\n" +
-          "- list_projects(): Aktif projelerin listesini döner.\n" +
-          "- get_project(id): Belirtilen projenin detaylarını döner.\n" +
-          "- search_items(term): Ürün adına göre arama yapar.\n" +
-          "- overdue_items(): Teslim tarihi geçmiş veya geciken ürünleri döner.\n" +
-          "- ledger_summary(): Kasa gelir-gider özetini döner.\n\n" +
-          "Eğer kullanıcı veritabanında olan bir şeyi soruyorsa ve elinde henüz veri yoksa, önce araç çağrısı iste:\n" +
-          "TOOL_CALL: {\"name\": \"arac_adi\", \"params\": {}}\n\n" +
-          "Eğer veri elindeyse, doğrudan sakin, net ve profesyonel Türkçe ile yanıt ver.\n" +
+        let systemPrompt = "Sen Lavora Mobilya Atölyesi'nin akıllı iç veri asistanısın.\n" +
+          "Kullanıcının projeler, ürünler, aşamalar, gecikmeler, talepler ve kasa durumu hakkındaki sorularını yanıtla.\n" +
+          "Usta veya yönetici sana sorduğunda doğrudan net, sakin, profesyonel Türkçe ile cevap ver.\n" +
+          "Kayıtlarda olan gerçek verileri (proje adları, ürünler, ölçüler, terminler, kasa gelir-gideri) kullanarak yanıt üret.\n" +
           "Kaynak proje varsa yanıtta [PROJE: ProjeAdı] etiketi koy.\n" +
-          "Kayıtlarda olmayan bilgiyi uydurma, 'Kayıtlarda bu bilgi bulunamadı' de.\n" +
           "Kesinlikle hiçbir emoji KULLANMA.";
+
+        if (context) {
+          systemPrompt += "\n\nGÜNCEL ATÖLYE VERİTABANI VE CANLI DURUM:\n" +
+            "- Aktif Seçili Proje: " + JSON.stringify(context.activeProject || null) + "\n" +
+            "- Tüm Projeler ve Kalemler: " + JSON.stringify(context.projects || []) + "\n" +
+            "- Kasa / Defter Özeti: " + JSON.stringify(context.ledger || {}) + "\n" +
+            "- Son Müşteri Talepleri: " + JSON.stringify(context.customerRequests || []) + "\n" +
+            "Bu gerçek verileri kullanarak kullanıcının sorusuna doğrudan, kesin ve eksiksiz yanıt ver.";
+        } else {
+          systemPrompt += "\n\nMevcut araçlar:\n" +
+            "- list_projects(): Aktif projelerin listesini döner.\n" +
+            "- get_project(id): Belirtilen projenin detaylarını döner.\n" +
+            "- search_items(term): Ürün adına göre arama yapar.\n" +
+            "- overdue_items(): Teslim tarihi geçmiş veya geciken ürünleri döner.\n" +
+            "- ledger_summary(): Kasa gelir-gider özetini döner.\n" +
+            "Eğer veri elinde yoksa TOOL_CALL: {\"name\": \"arac_adi\", \"params\": {}} formatında araç çağrısı iste.";
+        }
 
         const messages = [{ role: "system", content: systemPrompt }];
         history.forEach(h => {
